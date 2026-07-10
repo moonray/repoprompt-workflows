@@ -1,0 +1,17 @@
+repoprompt-workflows
+Copyright (c) 2026 Balarama Bosch
+
+Licensed under the MIT License; see LICENSE for details.
+
+Third-party content
+-------------------
+
+This distribution includes vendored third-party material:
+
+- maintainability-review ("thermo-nuclear" code-quality review lens)
+  - files: .agents/skills/maintainability-review/SKILL.md
+           (also inlined between markers in .agents/workflows/Deep-Review.md)
+  - upstream: https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review
+  - license: MIT (cursor/plugins)
+  - provenance is tracked by scripts/sync-maintainability-review.mjs
+    (upstream_sha256 + retrieved date, recorded in the skill file).
