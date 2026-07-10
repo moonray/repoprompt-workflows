@@ -84,6 +84,12 @@ for f in "$SRC/slash"/*.md; do
   manage "$f" "$CLAUDE_CMD/$b"
 done
 
+echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
+for f in "$SRC/hooks"/*.py; do
+  b="$(basename "$f")"
+  manage "$f" "$HOME/.claude/hooks/$b"
+done
+
 shopt -u nullglob
 
 echo
@@ -93,4 +99,5 @@ else
   echo "Summary: already-correct=$OK linked-or-fixed=$FIXED conflicts=$CONFLICT."
   [ "$CONFLICT" -gt 0 ] && echo "Note: $CONFLICT conflict(s) need manual resolution (real files where a symlink was expected)." >&2
   echo "Restart RepoPrompt CE to pick up workflow changes."
+  echo "Hooks: scripts linked to ~/.claude/hooks/ — activate in Claude Code by adding the block in .agents/hooks/README.md to ~/.claude/settings.json. Codex/opencode activate automatically in this repo (.codex/, .opencode/)."
 fi
