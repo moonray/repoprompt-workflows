@@ -16,25 +16,20 @@ Canonical [RepoPrompt CE](https://repoprompt.com) workflows live here. These are
 
 ## Install
 
-RepoPrompt CE looks for `*.md` workflows in:
+RepoPrompt CE loads `*.md` workflows from `~/Library/Application Support/RepoPrompt CE/Workflows/`; this folder is the source of truth, read through symlinks.
 
-```text
-~/Library/Application Support/RepoPrompt CE/Workflows/
-```
+The repo installer ([`../../scripts/install.sh`](../../scripts/install.sh)) links every workflow here and re-links on re-run. New workflows are picked up **automatically** — just drop a `.md` in this directory; the installer scans it, so there's no manual `ln` line to maintain.
 
-Symlink each workflow there so the app picks up the tracked copy:
+Manual fallback (run from the repo root):
 
 ```bash
 WF="$HOME/Library/Application Support/RepoPrompt CE/Workflows"
-REPO="$(pwd)/.agents/workflows"   # run from the repo root (or paste your clone's absolute path)
 mkdir -p "$WF"
-ln -sfh "$REPO/Spec.md" "$WF/Spec.md"
-ln -sfh "$REPO/Test.md"  "$WF/Test.md"
-ln -sfh "$REPO/Loop.md"  "$WF/Loop.md"
-ln -sfh "$REPO/Deep-Review.md" "$WF/Deep-Review.md"
-ln -sfh "$REPO/Backlog.md"      "$WF/Backlog.md"
+for w in Spec Test Loop Deep-Review Backlog; do
+  ln -sfh "$(pwd)/.agents/workflows/$w.md" "$WF/$w.md"
+done
 ```
 
-After restarting RepoPrompt CE, all five workflows should appear in the workflows picker. Edit them here in the repo — RepoPrompt CE follows the symlinks automatically.
+Restart RepoPrompt CE and all workflows appear in the picker. Edit them here — RPCE follows the symlinks.
 
-> Note: the RepoPrompt CE Workflows directory also holds an app-managed `.DS_Store`; leave it alone. If you add a new workflow, drop the `.md` here and add a matching `ln -sfh` line above.
+> The RPCE Workflows directory also holds an app-managed `.DS_Store`; leave it alone.

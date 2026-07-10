@@ -10,12 +10,14 @@ Manual slash commands. Each command is a markdown file with YAML frontmatter (`d
 
 ## Discovery and install
 
-Claude Code discovers commands from `~/.claude/commands/` (user) and `.claude/commands/` (project). Symlink from this repo so the tracked file stays the source of truth:
+Claude Code discovers commands from `~/.claude/commands/` (user) and `.claude/commands/` (project). The repo installer (`scripts/install.sh`) links every command here at once; or symlink manually:
 
 ```bash
 REPO="$(pwd)"   # run from the repo root
 ln -sfn "$REPO/.agents/slash/document.md" "$HOME/.claude/commands/document.md"
 ```
+
+> This extraction ships only `/document` (a shortcut to the `document` skill); other commands from the source repo were business-specific and excluded.
 
 ## Adding or updating commands
 

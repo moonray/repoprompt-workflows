@@ -26,7 +26,7 @@ The workflows inline the discipline from the skills they depend on, so each runs
 
 This repo is a **library, not an app** — you symlink its workflows/skills/commands into the directories your tools already read. **Symlinks, not copies**: this repo stays the single source of truth, so an edit here is seen by every tool.
 
-> The RepoPrompt CE path is macOS (`~/Library/Application Support/...`); the skills/commands paths (`~/.claude/...`, `~/.agents/...`) are the same on every OS.
+> The RepoPrompt CE path is macOS (`~/Library/Application Support/...`); the skills/commands paths (`~/.claude/...`, `~/.agents/...`) are the same anywhere those CLIs and symlinks are supported.
 
 There's an idempotent installer — [`scripts/install.sh`](scripts/install.sh) — that links everything and fixes partial or broken installs on re-run. Use it one of two ways:
 
@@ -60,7 +60,7 @@ Then restart RepoPrompt CE and open the workflows picker — Spec, Test, Loop, D
 
 > **Re-linking:** if you previously symlinked any of these from another checkout (e.g. an older monorepo), the installer re-points them here — that's the partial-install case it's built for.
 
-Hooks are **not** linked by the installer — they need per-backend registration in `settings.json`; see [`hooks/README.md`](.agents/hooks/README.md).
+Hooks: the installer symlinks the `.py` scripts into `~/.claude/hooks/`; activating them in Claude Code needs one `settings.json` entry (see [`hooks/README.md`](.agents/hooks/README.md)). Codex/opencode activate automatically in this repo.
 
 ### Run
 
@@ -109,7 +109,7 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 
 ## Reference
 
-**Provenance** — extracted from a larger mono-repo and de-branded for sharing. The five workflows and ten skills are byte-identical to their source; only install paths and READMEs were generalized.
+**Provenance** — extracted from a private mono-repo and de-branded for sharing. The five workflows and ten skills are carried over from that source with install paths and READMEs adapted for this standalone repo.
 
 **Runtime compatibility**
 
