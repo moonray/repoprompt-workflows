@@ -54,7 +54,7 @@
 - **audited:** Goals 1–8; all 23 scenarios; Proposed Surface (Workflow Invocation `spec`; Consumed Spec Content; Shared Spec Quality Gate; Shared Test Quality Criteria; Scenario-to-Test Mapping; Generated Test Artifacts; Completion Summary)
 - **unreconciled:** []
 
-## Disposition
+## Notes
 
 **Resolved 2026-06-25** — the Test workflow now applies `test-quality` (Core Principle 7), has a `Layer` column + a lowest-faithful-layer selection step in Phase 3, and includes `deferred_or_omitted_coverage` in the Phase 6 summary. Original audit (for history): Test-quality / lowest-faithful-layer drift (G5, G6, "Shared test quality guidance", "Lowest faithful layer is selected", Shared Test Quality Criteria surface, Scenario-to-Test Mapping `layer`) — **decision needed**:
 - (a) **implement**: add a layer-selection step to Phase 3 (lowest faithful layer per scenario, documented reason when higher), add a `layer` column to the mapping table, and reference the `test-quality` skill alongside `spec-quality`; or

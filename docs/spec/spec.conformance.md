@@ -43,6 +43,6 @@
 - **audited:** Goals 1–6; all 17 scenarios; Proposed Surface (Workflow Invocation `task`; Generated Spec Document fields; Shared Quality Criteria; Completion Summary fields)
 - **unreconciled:** []
 
-## Disposition
+## Notes
 
 Resolved (2026-06-25): the Spec File Format's Open Questions section now directs that when no open questions remain, the section states `None.` explicitly rather than being omitted — matching the spec contract and the rest of the `docs/spec/` set.

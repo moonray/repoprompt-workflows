@@ -37,6 +37,6 @@
 - **audited:** S-001…S-020 (all 20 scenarios) + Inputs (comparison scope, author intake, change set, depth, token-budget directive)
 - **unreconciled:** []
 
-## Disposition
+## Notes
 
 S-020 resolved (2026-06-25): implemented as a qualitative budget tier (`frugal`/`balanced`/`unlimited`) scoped to deep — `frugal` coarsens the zone partition and limits Phase 4 verification to contested P0s; wired into Phase 0 intake, the Depth-selection "Budget (cost ceiling)" rule, and Phase 4. Chosen over exact-token accounting (users can't gauge token amounts) and over dropping (deep on an expensive model is a real cost case).
