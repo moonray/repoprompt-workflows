@@ -35,7 +35,7 @@ Agents can edit test files and stop without running them, or run a suite and dec
 ## Scenarios
 
 ### Scenario: Running a suite records a run and nudges vetting
-- **Given** a `PostToolUse:Bash` event whose command invokes a known runner at command position (e.g. `pytest`, `npm test`, `node --test`, `make test`)
+- **Given** a `PostToolUse:Bash` event whose command invokes a known runner at command position (e.g. `pytest`, `npm test`, `node --test`, `make test`), or a bare interpreter running a test-matching script (e.g. `python tests/test_foo.py`, `node tests/x.js`)
 - **When** the hook runs
 - **Then** it writes the repo's last-run marker and emits a reminder to vet added/modified tests with the `test-quality` skill
 

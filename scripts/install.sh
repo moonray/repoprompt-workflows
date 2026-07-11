@@ -74,13 +74,15 @@ register_claude_settings() {
 import json, os, shutil, sys, tempfile
 regs = json.loads(sys.argv[1])
 path = os.environ["SETTINGS"]; dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
-os.makedirs(os.path.dirname(path), exist_ok=True)
+def _hook_cmds(entry):
+    hh = entry.get("hooks") if isinstance(entry, dict) else None
+    return hh if isinstance(hh, list) else []
 try:
     with open(path) as f: data = json.load(f)
 except FileNotFoundError:
     data = {}
-except Exception as e:
-    print(f"  skip     {path} (unreadable JSON: {e}); register hooks manually"); sys.exit(0)
+except Exception:
+    sys.exit(1)  # unreadable JSON — let the bash guard count it (SKIPPED) and print the manual-install hint
 if not isinstance(data, dict): data = {}
 hooks = data.get("hooks")
 if not isinstance(hooks, dict): hooks = {}
@@ -103,30 +105,35 @@ for ev in sorted({r["event"] for r in regs}):
         if kept: hooks[ev] = kept
         else: hooks.pop(ev, None)
     else:
-        by_matcher = {}
-        for e in lst:
-            if isinstance(e, dict) and e.get("matcher") not in by_matcher: by_matcher[e.get("matcher")] = e
         for r in regs:
             if r["event"] != ev: continue
-            entry = by_matcher.get(r["matcher"])
-            if entry is None:
-                entry = {"matcher": r["matcher"], "hooks": []}; lst.append(entry); by_matcher[r["matcher"]] = entry
-            hh = entry.setdefault("hooks", [])
-            if not isinstance(hh, list): hh = []; entry["hooks"] = hh
-            if not any(isinstance(h, dict) and h.get("command") == r["command"] for h in hh):
-                hh.append({"type": "command", "command": r["command"]}); added += 1
+            matches = [e for e in lst if isinstance(e, dict) and e.get("matcher") == r["matcher"]]
+            # already present in ANY same-matcher entry? dedup across duplicates, not just the first
+            if any(isinstance(h, dict) and h.get("command") == r["command"] for e in matches for h in _hook_cmds(e)):
+                continue
+            if matches:
+                entry = matches[0]
+                hh = entry.setdefault("hooks", [])
+                if not isinstance(hh, list): hh = []; entry["hooks"] = hh
+            else:
+                entry = {"matcher": r["matcher"], "hooks": []}; lst.append(entry)
+            entry["hooks"].append({"type": "command", "command": r["command"]}); added += 1
         hooks[ev] = lst
+write = (removed > 0) if uninst else (added > 0 or not os.path.exists(path))
 if dry:
     print(f"    [dry-run] {path}: +{added} -{removed} hook registrations (nothing written)")
-elif added or removed or not os.path.exists(path):
+elif write:
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)  # only when actually writing — keeps --dry-run truly read-only
     if os.path.exists(path): shutil.copy2(path, path + ".bak")
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+    fd, tmp = tempfile.mkstemp(dir=d)
     with os.fdopen(fd, "w") as f: json.dump(data, f, indent=2); f.write("\n")
     os.replace(tmp, path)
     bak = f" (backup: {path}.bak)" if os.path.exists(path + ".bak") else ""
     print(f"  settings {path}: +{added} -{removed} hook registrations{bak}")
 else:
-    print(f"  settings {path}: already registered")
+    msg = "not registered (nothing to remove)" if uninst else "already registered"
+    print(f"  settings {path}: {msg}")
 PY
 }
 

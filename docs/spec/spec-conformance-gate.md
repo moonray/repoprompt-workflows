@@ -12,9 +12,9 @@ A spec can be marked `implemented`/`shipped` without a conformance audit, closin
 
 ## Goals
 
-1. Detect spec files broadly — path under `spec`/`specs`/`specifications`, a `*.spec.md` name, or frontmatter `type` in {spec, specification, contract, feature-spec}.
+1. Detect spec files broadly — path under `spec`/`specs`/`specifications`, a `*.spec.md` name, or frontmatter `type` in {spec, specification, contract, feature-spec, featurespec}.
 2. Block an edit that sets a spec's frontmatter `status` to a terminal value when no conformance matrix exists.
-3. Treat a matrix as satisfied by a sibling `<stem>.conformance.*` file OR a frontmatter key (`conformance`/`conformed`/`audited`/`conformance_matrix`).
+3. Treat a matrix as satisfied by a sibling file whose name starts with `<stem>.conformance` OR a frontmatter key (`conformance`/`conformed`/`audited`/`conformance_matrix`).
 4. Evaluate each file in a multi-file `apply_patch` independently.
 
 ## Non-Goals

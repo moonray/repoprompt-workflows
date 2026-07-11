@@ -41,7 +41,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 ### Scenario: Repo conventions are read, GitHub labels discovered
 - **Given** a first run
 - **When** conventions are read
-- **Then** a `.agents/track-work.config.md` / `AGENTS.md` block is used if present, else defaults; for GitHub, `gh label list` labels always beat any config list
+- **Then** a `.agents/track-work.config.md`, `AGENTS.md`, or `CLAUDE.md` block is used if present, else defaults; for GitHub, `gh label list` labels always beat any config list
 
 ### Scenario: A tracking item is created before any work
 - **Given** new work (bug/feature/enhancement/decision)
@@ -78,6 +78,16 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **When** it is filed
 - **Then** configured secrets and absolute local paths are redacted, tighter when the repo is public, and nothing is synced to `mirror_repos`
 
+### Scenario: Optional GitHub features apply when configured
+- **Given** a `github.board` and/or `personas` config is present
+- **When** a GitHub item is created or updated
+- **Then** the issue's status is mirrored to the configured Project board field, and persona-weighted prioritization / a Personas body line is applied for applicable types
+
+### Scenario: Missing core labels are seeded in a fresh repo
+- **Given** a GitHub repo whose `gh label list` is missing the core dimensions (`type:`/`priority:`/`status:`)
+- **When** the first item is filed
+- **Then** a minimal organized label set is seeded once (idempotent, never deleting existing labels)
+
 ## Proposed Surface
 
 ### Inputs
@@ -85,7 +95,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 | Input | Required | Description |
 |---|:---:|---|
 | Request | yes | The bug/feature/enhancement/decision to track, or a status query. |
-| Repo conventions | no | `.agents/track-work.config.md` / `AGENTS.md` block; else defaults. |
+| Repo conventions | no | `.agents/track-work.config.md` / `AGENTS.md` / `CLAUDE.md` block; else defaults. |
 
 ### Output
 

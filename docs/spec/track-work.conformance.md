@@ -23,12 +23,14 @@
 | File-backend items use immutable IDs in a committed backlog | Conformed | "File backend workflow" (immutable IDs; gitignore warning) |
 | Close means landed on the default branch | Conformed | "Closing" (Fixes/Closes #N; close-gate; exempt labels) |
 | Secrets and absolute paths redacted before filing | Conformed | "Privacy / redaction before filing" |
+| Optional GitHub features apply when configured | Conformed | Step 5 (board placement) + `personas` config |
+| Missing core labels are seeded in a fresh repo | Conformed | GitHub step 0 (Ensure labels exist) |
 | Surface: inputs (request, repo conventions) | Conformed | Step 1 + classify request (Step 1 GitHub) |
 | Surface: output (item, links, status) | Conformed | body template + status lifecycle |
 
 ## Coverage proof
 
-- **audited:** Goals 1–5; all 9 scenarios; Proposed Surface (inputs; output)
+- **audited:** Goals 1–5; all 11 scenarios; Proposed Surface (inputs; output)
 - **unreconciled:** []
 
 ## Notes

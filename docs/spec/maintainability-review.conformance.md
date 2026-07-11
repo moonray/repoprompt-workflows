@@ -21,14 +21,15 @@
 | Spaghetti growth in unrelated flows is flagged | Conformed | rule 2 |
 | Unearned wrappers and pass-throughs are flagged | Conformed | rule 4 |
 | Logic leaking across layers is flagged | Conformed | rule 6 |
+| Type-boundary and orchestration smells are flagged | Conformed | Non-Negotiable rules 5 + 7 |
 | Correct behavior alone does not win approval | Conformed | "Intent" (quality-only) + rule 3 |
 | Rubric changes are re-synced, not hand-edited | Conformed | "Provenance" + BEGIN/END markers + sync script |
 | Surface: inputs (change set, repo context) | Conformed | "When to use" + "Core Prompt" |
-| Surface: output (structural_findings, category) | Conformed | "What to Flag Aggressively" + "Primary Review Questions" |
+| Surface: output (structural_findings, category) | Conformed | "Output Expectations" + "Approval Bar" |
 
 ## Coverage proof
 
-- **audited:** Goals 1–7; all 7 scenarios; Proposed Surface (inputs; output)
+- **audited:** Goals 1–7; all 8 scenarios; Proposed Surface (inputs; output)
 - **unreconciled:** []
 
 ## Notes

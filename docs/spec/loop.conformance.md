@@ -53,4 +53,4 @@ Spec: [`loop.md`](loop.md) · Implementation: [`/.agents/workflows/Loop.md`](../
 ## Coverage proof
 
 - **audited:** S-001…S-029 (all scenarios) + Proposed Surface Inputs.
-- **unreconciled:** none.
+- **unreconciled:** []

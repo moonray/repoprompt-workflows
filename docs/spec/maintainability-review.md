@@ -58,6 +58,11 @@ Reviews tend to accept working code that leaves the codebase messier. A strict, 
 - **When** the lens reviews it
 - **Then** it calls out the leak and prefers the existing canonical utility and the right layer
 
+### Scenario: Type-boundary and orchestration smells are flagged
+- **Given** unnecessary optionality/casts/`any` that obscure the real invariant, or avoidable sequential/non-atomic orchestration
+- **When** the lens reviews it
+- **Then** it flags them per rules 5 (type/boundary cleanliness) and 7 (sequential/non-atomic orchestration), preferring explicit typed models and a simpler, more atomic flow
+
 ### Scenario: Correct behavior alone does not win approval
 - **Given** a change that works but leaves the codebase messier
 - **When** the lens evaluates it

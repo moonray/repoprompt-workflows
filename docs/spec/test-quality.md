@@ -99,7 +99,7 @@ Tests get written to increase coverage or restate implementation details rather 
 |---|---|
 | `decision` | add / consolidate / redesign / classify-as-diagnostic / omit. |
 | `layer` | The chosen lowest-faithful layer and rationale. |
-| `fixture_strategy` | Generated vs raw fixtures; immutability handling. |
+| `fixture_strategy` | Generated vs raw fixtures; immutability handling; secrets/PII/absolute-paths sanitized; minimal; fixture-encoded historical bugs documented. |
 | `validation` | Commands run to validate. |
 | `omitted` | Coverage intentionally not added, with reason. |
 

@@ -59,4 +59,4 @@ Spec: [`backlog.md`](backlog.md) · Implementation: [`/.agents/workflows/Backlog
 ## Coverage proof
 
 - **audited:** S-001…S-036 (all scenarios) + Proposed Surface (wizard fields, authorization scope, brief contract, gates, never-autonomous set, artifacts).
-- **unreconciled:** none.
+- **unreconciled:** []

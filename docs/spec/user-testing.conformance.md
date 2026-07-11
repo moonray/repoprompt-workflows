@@ -23,7 +23,7 @@
 | Impossible user testing is blocked, not skipped | Conformed | "When it can't run" + smoke-is-floor note |
 | Testing runs against throwaway data | Conformed | "Data isolation (hard rule)" |
 | A user-test record is produced | Conformed | step 7 + Output |
-| Surface: inputs (feature, spec scenarios) | Conformed | "Inputs" (feature; spec as workflow source) |
+| Surface: inputs (feature, spec scenarios) | Conformed | "When to use" (feature: user-facing change) + Workflow step 1 (spec scenarios as workflow source) |
 | Surface: output (workflows, issues, not_tested) | Conformed | Output section |
 
 ## Coverage proof

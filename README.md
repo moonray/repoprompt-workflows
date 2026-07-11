@@ -47,7 +47,7 @@ Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt
 ```bash
 git clone https://github.com/moonray/repoprompt-workflows ~/Sites/repoprompt-workflows
 cd ~/Sites/repoprompt-workflows
-bash scripts/install.sh              # link workflows + skills + commands (safe to re-run)
+bash scripts/install.sh              # link workflows + skills + commands + hooks (safe to re-run)
 bash scripts/install.sh --dry-run    # preview: print every link without creating it
 bash scripts/install.sh --uninstall  # remove the symlinks (repo files are untouched)
 ```
@@ -95,7 +95,7 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
 | `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |
-| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands (`--dry-run`, `--uninstall`). |
+| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/hooks and registers Claude Code hooks in `~/.claude/settings.json` (`--dry-run`, `--uninstall`). |
 | `scripts/sync-maintainability-review.mjs` | Re-syncs the vendored `maintainability-review` lens from upstream. |
 | `AGENTS.md` | Agent guide for working in this repo (`CLAUDE.md` is a symlink to it). |
 
@@ -133,6 +133,6 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 | Workflows | — | — | — | — | loads from app-support dir |
 | Skills | `.agents/skills` + `~/.claude/skills` | `.agents/skills` + `~/.agents/skills` | `.agents/skills` | `.agents/skills` | — |
 | Rules | portable | portable | portable | portable | — |
-| Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | `~/.pi/agent/extensions/*.ts` | — |
+| Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | not yet supported | — |
 
 **License** — MIT; see [`LICENSE`](LICENSE). Third-party vendored content (`maintainability-review`, from [cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review), MIT) is attributed in [`NOTICE`](NOTICE).

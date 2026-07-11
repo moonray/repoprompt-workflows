@@ -6,7 +6,7 @@ PostToolUse on file edits. When a spec-like file is edited to a terminal lifecyc
 hook blocks, directing the agent to run the spec-conformance skill first.
 
 Broad spec detection (works across varied repos): path under spec/specs/specifications, or
-*.spec.md, or frontmatter `type` in {spec, specification, contract, feature-spec}.
+*.spec.md, or frontmatter `type` in {spec, specification, contract, feature-spec, featurespec}.
 Matrix satisfied by: a sibling `<base>.conformance.*` file, or a frontmatter key
 conformance/conformed/audited referencing one.
 
