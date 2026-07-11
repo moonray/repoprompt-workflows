@@ -12,10 +12,21 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Document Skill](document.md) | none | implemented |
 | [Spec Quality Skill](spec-quality.md) | none | implemented |
 | [Spec-Plan Readiness Skill](spec-plan-readiness.md) | none | implemented |
+| [Test Quality Skill](test-quality.md) | none | implemented |
+| [Spec Conformance Skill](spec-conformance.md) | none | implemented |
+| [Review Quality Skill](review-quality.md) | none | implemented |
+| [Review Depth Skill](review-depth.md) | none | implemented |
+| [Maintainability Review Skill](maintainability-review.md) | none | implemented |
+| [User Testing Skill](user-testing.md) | none | implemented |
+| [Track Work Skill](track-work.md) | none | implemented |
+| [Test Quality Reminder Hook](test-quality-reminder.md) | none | implemented |
+| [Spec Quality Reminder Hook](spec-quality-reminder.md) | none | implemented |
+| [Spec Conformance Gate Hook](spec-conformance-gate.md) | none | implemented |
+| [Delegation Reminder Hook](delegation-reminder.md) | none | implemented |
 
 ## Conformance matrices
 
-Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Current matrices: [`deep-review`](deep-review.conformance.md), [`document`](document.conformance.md), [`loop`](loop.conformance.md), [`backlog`](backlog.conformance.md), [`spec`](spec.conformance.md), [`spec-quality`](spec-quality.conformance.md), [`spec-plan-readiness`](spec-plan-readiness.conformance.md), [`test`](test.conformance.md) — all fully conformed (every section Conformed, with no Diverged or Not-built items).
+Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 10 skills, and 4 hooks.
 
 ## Coverage policy
 
@@ -24,7 +35,7 @@ Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (
 Current coverage:
 
 - **Workflows** — ✅ all 5 specced (`Spec`, `Test`, `Loop`, `Backlog`, `Deep Review`).
-- **Skills** — partial: ✅ `document`, `spec-quality`, `spec-plan-readiness`; ⏳ missing specs for `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`.
-- **Hooks** — ⏳ none yet (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`).
+- **Skills** — ✅ all 10 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`).
+- **Hooks** — ✅ all 4 specced with matrices (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`).
 
 Author missing specs with the `Spec` workflow, then add a row to the table above and a sibling `<spec>.conformance.md`.
