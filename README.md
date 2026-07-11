@@ -8,7 +8,13 @@ The workflows inline the discipline from the skills they depend on, so each runs
 
 ## For users — install and run
 
-**Requirements:** [RepoPrompt CE](https://repoprompt.com) to run the workflows, plus any backend it drives. Skills, rules, and hooks are portable across backends.
+**Requirements:**
+
+- **[RepoPrompt CE](https://github.com/repoprompt/repoprompt-ce)** (macOS today) to run the workflows — RPCE drives a backend CLI (Claude Code, Codex, opencode, or pi). RP Classic may work but is **untested**.
+- **bash** for the installer; **python3** for the hooks; **node** for the optional `sync-maintainability-review.mjs` sync script.
+- The **Deep Plan** that `Loop`/`Backlog` consume ships with **RPCE core** — it is *not* in this repo.
+
+Workflows are macOS-only because RPCE is macOS-only today. Skills, slash commands, rules, and hooks are cross-platform (anywhere those CLIs and symlinks are supported).
 
 **The five workflows:**
 
@@ -26,8 +32,6 @@ The workflows inline the discipline from the skills they depend on, so each runs
 
 This repo is a **library, not an app** — you symlink its workflows/skills/commands into the directories your tools already read. **Symlinks, not copies**: this repo stays the single source of truth, so an edit here is seen by every tool.
 
-> The RepoPrompt CE path is macOS (`~/Library/Application Support/...`); the skills/commands paths (`~/.claude/...`, `~/.agents/...`) are the same anywhere those CLIs and symlinks are supported.
-
 There's an idempotent installer — [`scripts/install.sh`](scripts/install.sh) — that links everything and fixes partial or broken installs on re-run. Use it one of two ways:
 
 #### Option A — let an agent do it (easiest)
@@ -35,13 +39,13 @@ There's an idempotent installer — [`scripts/install.sh`](scripts/install.sh) �
 Paste into Claude Code (or any agent with shell access):
 
 ```text
-Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt-workflows doesn't already exist, clone it there — ASK ME for the git remote first, don't guess. Then run `bash scripts/install.sh`, paste me its full output, and tell me to restart RepoPrompt CE.
+Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt-workflows doesn't already exist, clone https://github.com/moonray/repoprompt-workflows there. Then run `bash scripts/install.sh`, paste me its full output, and tell me to restart RepoPrompt CE.
 ```
 
 #### Option B — run the installer yourself
 
 ```bash
-git clone <remote> ~/Sites/repoprompt-workflows
+git clone https://github.com/moonray/repoprompt-workflows ~/Sites/repoprompt-workflows
 cd ~/Sites/repoprompt-workflows
 bash scripts/install.sh              # link workflows + skills + commands (safe to re-run)
 bash scripts/install.sh --dry-run    # preview: print every link without creating it
@@ -53,6 +57,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 - every `*.md` in `.agents/workflows/` (excl. README) → `~/Library/Application Support/RepoPrompt CE/Workflows/`
 - every directory in `.agents/skills/` → `~/.claude/skills/` and `~/.agents/skills/` (available in other repos too)
 - every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/`
+- every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, and registered in `~/.claude/settings.json` (Claude Code)
 
 For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install.
 
@@ -60,11 +65,21 @@ Then restart RepoPrompt CE and open the workflows picker — Spec, Test, Loop, D
 
 > **Re-linking:** if you previously symlinked any of these from another checkout (e.g. an older monorepo), the installer re-points them here — that's the partial-install case it's built for.
 
-Hooks: the installer symlinks the `.py` scripts into `~/.claude/hooks/`; activating them in Claude Code needs one `settings.json` entry (see [`hooks/README.md`](.agents/hooks/README.md)). Codex/opencode activate automatically in this repo.
+Hooks: the installer symlinks the `.py` scripts into `~/.claude/hooks/` **and** idempotently registers them in `~/.claude/settings.json` (Claude Code) — active after install + restart. Codex/opencode activate automatically in this repo. Manual install/undo in [`hooks/README.md`](.agents/hooks/README.md).
 
-### Run
+### Run — a worked example
 
-In RepoPrompt CE, pick a workflow and point it at a target — e.g. run `Spec` on a feature description, then `Test` on the resulting spec, then `Loop` on the spec plus a deep plan.
+The core loop is **Spec → (Deep Plan) → Test → Loop**.
+
+1. **`Spec`** — point it at a feature description. It elicits intent and writes a minimal behavioral contract (Given/When/Then scenarios, no implementation) to `docs/spec/<feature>.md`.
+   *Run `Spec` with:* «add a `--dry-run` flag that prints actions without performing them»
+2. **Deep Plan** — derive the *how* from the spec. The **Deep Plan** workflow ships with **RepoPrompt CE core** (not this repo); run it against the spec to get an ordered, work-item plan with risk/rollback notes.
+3. **`Test`** — point it at the spec; it discovers the repo's test framework and writes native tests for each scenario (they fail — red).
+4. **`Loop`** — point it at **both** the spec and the deep plan. It verifies readiness, then runs red/green/review/refactor until green, committing one revertible commit per work item.
+
+`Deep Review` runs against any change set to produce governed, revalidatable findings; `Backlog` triages tracked issues and runs the whole Spec → Plan → Loop chain per issue in isolated worktrees (max 3 concurrent).
+
+> Workflows are macOS-only because RepoPrompt CE is macOS-only today; skills, commands, and hooks are cross-platform.
 
 ---
 
@@ -79,7 +94,7 @@ In RepoPrompt CE, pick a workflow and point it at a target — e.g. run `Spec` o
 | `.agents/slash/` | Slash commands — currently `/document`. See [`slash/README.md`](.agents/slash/README.md). |
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
-| `docs/spec/` | Dogfooded specs + conformance matrices for each workflow/skill. |
+| `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |
 | `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands (`--dry-run`, `--uninstall`). |
 | `scripts/sync-maintainability-review.mjs` | Re-syncs the vendored `maintainability-review` lens from upstream. |
 | `AGENTS.md` | Agent guide for working in this repo (`CLAUDE.md` is a symlink to it). |

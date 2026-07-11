@@ -60,6 +60,76 @@ manage() {
   fi
 }
 
+# register_claude_settings — keep our Claude Code hook registrations in ~/.claude/settings.json in sync.
+# Safe: parses JSON via python3, backs up before writing, never duplicates an entry, honors --dry-run/--uninstall, non-fatal.
+register_claude_settings() {
+  local settings="$HOME/.claude/settings.json"
+  local regs='[{"event":"PostToolUse","matcher":"Bash","command":"~/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"~/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"~/.claude/hooks/test-quality-reminder.py"}]'
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  skip     $settings (python3 not found — register hooks manually; see .agents/hooks/README.md)" >&2
+    SKIPPED=$((SKIPPED+1)); return
+  fi
+  echo "• Claude Code settings.json  (idempotent hook registration)"
+  DRY="$DRY" UNINSTALL="$UNINSTALL" SETTINGS="$settings" python3 - "$regs" <<'PY' || { echo "  skip     $settings (registration failed); register hooks manually — see .agents/hooks/README.md" >&2; SKIPPED=$((SKIPPED+1)); }
+import json, os, shutil, sys, tempfile
+regs = json.loads(sys.argv[1])
+path = os.environ["SETTINGS"]; dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
+os.makedirs(os.path.dirname(path), exist_ok=True)
+try:
+    with open(path) as f: data = json.load(f)
+except FileNotFoundError:
+    data = {}
+except Exception as e:
+    print(f"  skip     {path} (unreadable JSON: {e}); register hooks manually"); sys.exit(0)
+if not isinstance(data, dict): data = {}
+hooks = data.get("hooks")
+if not isinstance(hooks, dict): hooks = {}
+data["hooks"] = hooks
+ours = {r["command"] for r in regs}
+added = removed = 0
+for ev in sorted({r["event"] for r in regs}):
+    lst = hooks.get(ev, [])
+    if not isinstance(lst, list): lst = []
+    if uninst:
+        kept = []
+        for e in lst:
+            if not isinstance(e, dict): kept.append(e); continue
+            hh = e.get("hooks")
+            if not isinstance(hh, list): kept.append(e); continue
+            before = len(hh)
+            hh = [h for h in hh if not (isinstance(h, dict) and h.get("command") in ours)]
+            removed += before - len(hh)
+            if hh: e["hooks"] = hh; kept.append(e)
+        if kept: hooks[ev] = kept
+        else: hooks.pop(ev, None)
+    else:
+        by_matcher = {}
+        for e in lst:
+            if isinstance(e, dict) and e.get("matcher") not in by_matcher: by_matcher[e.get("matcher")] = e
+        for r in regs:
+            if r["event"] != ev: continue
+            entry = by_matcher.get(r["matcher"])
+            if entry is None:
+                entry = {"matcher": r["matcher"], "hooks": []}; lst.append(entry); by_matcher[r["matcher"]] = entry
+            hh = entry.setdefault("hooks", [])
+            if not isinstance(hh, list): hh = []; entry["hooks"] = hh
+            if not any(isinstance(h, dict) and h.get("command") == r["command"] for h in hh):
+                hh.append({"type": "command", "command": r["command"]}); added += 1
+        hooks[ev] = lst
+if dry:
+    print(f"    [dry-run] {path}: +{added} -{removed} hook registrations (nothing written)")
+elif added or removed or not os.path.exists(path):
+    if os.path.exists(path): shutil.copy2(path, path + ".bak")
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+    with os.fdopen(fd, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+    os.replace(tmp, path)
+    bak = f" (backup: {path}.bak)" if os.path.exists(path + ".bak") else ""
+    print(f"  settings {path}: +{added} -{removed} hook registrations{bak}")
+else:
+    print(f"  settings {path}: already registered")
+PY
+}
+
 verb="Installing"; [ "$UNINSTALL" = 1 ] && verb="Uninstalling"
 echo "$verb repoprompt-workflows  (repo: $REPO)$([ "$DRY" = 1 ] && echo '  [dry-run — nothing is changed]')"
 
@@ -89,6 +159,7 @@ for f in "$SRC/hooks"/*.py; do
   b="$(basename "$f")"
   manage "$f" "$HOME/.claude/hooks/$b"
 done
+register_claude_settings
 
 shopt -u nullglob
 
@@ -99,5 +170,5 @@ else
   echo "Summary: already-correct=$OK linked-or-fixed=$FIXED conflicts=$CONFLICT."
   [ "$CONFLICT" -gt 0 ] && echo "Note: $CONFLICT conflict(s) need manual resolution (real files where a symlink was expected)." >&2
   echo "Restart RepoPrompt CE to pick up workflow changes."
-  echo "Hooks: scripts linked to ~/.claude/hooks/ — activate in Claude Code by adding the block in .agents/hooks/README.md to ~/.claude/settings.json. Codex/opencode activate automatically in this repo (.codex/, .opencode/)."
+  echo "Hooks: scripts linked to ~/.claude/hooks/ and registered in ~/.claude/settings.json (Claude Code). Codex/opencode activate automatically in this repo (.codex/, .opencode/)."
 fi
