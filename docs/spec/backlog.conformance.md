@@ -2,7 +2,7 @@
 
 - **Spec:** `docs/spec/backlog.md` (Backlog Workflow)
 - **Implementation:** `.agents/workflows/Backlog.md`
-- **Audited:** 2026-07-11
+- **Audited:** 2026-07-13
 - **Method:** each scenario + Proposed Surface element mapped to its realization in the workflow; evidence = workflow section.
 
 ## Matrix
@@ -20,7 +20,7 @@
 | S-009 One unique worktree and branch per issue | Conformed | Backlog.md §Invariant; §3c step 1 |
 | S-010 Pre-dispatch sweep reconciles orphans | Conformed | Backlog.md §3c step 3 — at-base verify included. |
 | S-011 Dispatch calls are isolated in their own tool batch | Conformed | Backlog.md §Invariant (dispatch isolation); §3c step 4 — X2: verify/test excluded too. |
-| S-012 Liveness-confirm detects half-provisioned sessions and recovers without steering | Conformed | Backlog.md §3c step 5 — 2-strike block. |
+| S-012 Every dispatch attempt is reconciled, including starts that return no handle | Conformed | Backlog.md §Invariant (unknown outcome); §3c step 5 — deterministic identity, inventory/adopt-or-clean, 2-attempt block. |
 | S-013 Concurrent issues are sibling-aware | Conformed | Backlog.md §3c step 6 |
 | S-014 At most three issues are in flight | Conformed | Backlog.md §Invariant; §Phase 3 |
 | S-015 Issues sharing a target spec serialize | Conformed | Backlog.md §3c step 2 — D7. |
@@ -45,12 +45,15 @@
 | S-034 End-of-run cleanup reaps worktrees/sessions, keeps branches | Conformed | Backlog.md §3f + §Phase 4 (R11) — New. Default-clean; `retain_for_inspection` opt-in. |
 | S-035 Independent issues fly concurrently by default, gated by conflict risk | Conformed | Backlog.md §Invariant (default to parallel); §Phase 3 intro; §3c step 2 (conflict-risk gate); §3c pipeline — New. Fill the flight set; serialize only contended work. |
 | S-036 Concurrent branches close via serial rebase-onto-default | Conformed | Backlog.md §3e (E3 ordered) — New. Most-independent first; rebase onto updated default. |
+| S-037 Tool rejection text is not user intent and dispatch recovery stays autonomous | Conformed | Backlog.md §Invariant (unknown outcome); §3c step 5; §Anti-patterns — no attribution from harness text; no mid-run retry ask. |
+| S-038 Cross-window orchestration risk is captured before dispatch | Conformed | Backlog.md §Invariant (per-run ceiling); §Phase 2 pre-flight + item 7 — active/unknown defaults local ceiling to 1. |
+| S-039 Provisioning wedge stops dispatches and requires restart recovery | Conformed | Backlog.md §3c step 5; §Resume; §Anti-patterns — conservative signature; exact resource remains unproven. |
 
 ## Proposed Surface
 
 | Item | Status | Evidence |
 |---|---|---|
-| Wizard fields (order, exempt batch, completion path default `branch+pr+merge`, close policy, role, escalation policy, max issues) | Conformed | Backlog.md §Phase 2 — W2–W5. |
+| Wizard fields (order, exempt batch, completion path default `branch+pr+merge`, close policy, role, escalation policy, max issues, concurrent orchestration) | Conformed | Backlog.md §Phase 2 — cross-window risk captured; local ceiling defaults to 1 when active/unknown. |
 | Authorization scope (`git_scope`, `doc_edits`, `issue_scope`, `granted_at`) | Conformed | Backlog.md §Phase 2 (persist); §Invariant |
 | Dispatch brief contract (authorization, toolchain, oracle, user_testing, escalation, amendments, siblings, constraints) | Conformed | Backlog.md §3c step 4 dispatch JSON — Atomic with Loop L6; `constraints` added (R7). |
 | Gates enforced (single input, authorization, isolation, dispatch isolation, liveness, independent verify, conflict safety) | Conformed | Backlog.md §Invariants; §3c; §3d; §3e |
@@ -59,7 +62,7 @@
 
 ## Coverage proof
 
-- **audited:** S-001…S-036 (all scenarios) + Proposed Surface (wizard fields, authorization scope, brief contract, gates, never-autonomous set, artifacts).
+- **audited:** S-001…S-039 (all scenarios) + Proposed Surface (wizard fields, authorization scope, brief contract, gates, never-autonomous set, artifacts).
 - **unreconciled:** []
 
 ## Notes

@@ -19,12 +19,13 @@ This is a sibling of **Orchestrate**, not a wrapper: Orchestrate decomposes one 
 
 - **Single input point (autonomy contract).** The Phase-2 wizard is the **only** `ask_user` of the run. Every later decision is made autonomously (written policy, then oracle) or recorded-as-blocked-and-skipped — never a mid-run user question. If the wizard times out, halt and resume on reply.
 - **Backend-agnostic discovery via track-work.** Never call `gh` or read issues directly for discovery — go through the **track-work** skill so the GitHub and file (`.agents/issues/`) backends are handled uniformly.
-- **Max 3 concurrent Loop subagents**, regardless of how many issues are independent. Excess issues queue.
+- **Max 3 concurrent Loop subagents**, regardless of how many issues are independent. Excess issues queue. This is a per-run ceiling, not proof of global RPCE capacity: other windows/workspaces may share provider/provisioning resources and are not visible in this run's flight set.
 - **Default to parallel; serialize only what genuinely contends.** The ceiling is a target to *fill*, not a serial default — independent issues (disjoint target spec and disjoint source area) fly concurrently; worktrees isolate implementation-time edits, so the only real collision risk is at *merge* time, contained by the serial rebase-merge (§3e). Serialize only shared-spec issues (D7) or pairs whose plans edit the same function/concern — same file but different functions is *adjacent*, which flies merge-last per §3c; borderline overlap is resolved by oracle and otherwise flies merge-last.
 - **One unique worktree + branch per issue.** No two Loop subagents ever share a worktree or branch — cross-contamination is the critical failure this workflow exists to prevent. Branch named from the immutable track-work ID: `backlog/<id>-<slug>`.
 - **Only the outer layer changes issue status.** Loop subagents move their progress doc only; they never close, reopen, or relabel issues. Backlog closes via track-work **after** verification.
 - **Authorization boundary.** Git-visible actions never exceed the wizard's completion-path selection, which is the explicit, scoped authorization for them. The wizard enumerates the concrete actions each path implies (informed consent), and merges are bounded to the triaged `issue_scope`. Destructive git is prohibited and is **not** grantable via any scope.
 - **Dispatch isolation.** Every `agent_run op=start` is the **only** call in its tool batch — never batched with `gh issue edit`, board/status moves, `cleanup_sessions`, label flips, **or verify/test commands**. A rejection/interruption in a mixed batch cascades into half-provisioned sessions + orphan worktrees. Run other mutations in a separate batch **after** the start confirms `running`.
+- **Dispatch outcome is unknown until reconciled.** A rejected/interrupted/timed-out `start`, or any `start` that returns no usable `session_id`, is not a user decision and not proof that nothing was provisioned. Before abandoning or retrying, discover the attempt by its deterministic session name + branch, reconcile it, and confirm a provider is live. Never infer user intent from tool/harness rejection text; only an explicit user message changes the run.
 - **Inspectability.** Each dispatched Loop is a separate Agent Mode session/tab driven by `session_id`, directly inspectable in the RP UI — intentional, not a bug.
 
 ## Phase 1 — Discover and triage (silent)
@@ -37,7 +38,7 @@ Using the **track-work** skill (it auto-detects the backend in its Step 0), gath
 - **Exempt-close batch** — `wontfix` and `duplicate` items already carrying the human-decision label; surfaced in the wizard for one-shot close. `duplicate` closes cross-link the canonical issue. (`status:blocked` and `invalid` are excluded entirely; they are not close candidates.)
 - **Decisions** — `type:decision` items go to neither list; they route to the rollup as human-triage items and are never auto-resolved or spec'd (unless decisions are explicitly in scope).
 
-**Status authority (R3).** Item status is authoritative from **track-work only**. A human-curated input run-note can mislabel status (e.g., claim an item 'landed' that is still `status:backlog`); re-verify each item's real state against track-work before relying on it.
+**Status authority (R3).** Item status is authoritative from **track-work only**. A human-curated input run-note can mislabel status (e.g. claim an item 'landed' that is still `status:backlog`); re-verify each item's real state against track-work before relying on it.
 
 Both lists feed the wizard.
 
@@ -45,7 +46,7 @@ Both lists feed the wizard.
 
 Run the **MCP + permissions pre-flight first** (while the user is present), so gaps surface in the one ask rather than mid-run. Probe each by **actually exercising it** — never via a resources listing (browser MCPs expose tools, not resources; `ListMcpResourcesTool` is not a valid check):
 1. **oracle** reachable (`ask_oracle` ping);
-2. **subagent unattended-approval mode** — can a dispatched subagent run a mutating tool without surfacing an approval? (`unattended` / `attended-fallback` / `unavailable`);
+2. **subagent unattended-approval mode** — can a dispatched subagent run a mutating tool without surfacing an approval? (`unattended` / `attended-fallback` / `unavailable`); also ask the user in this same wizard whether another RPCE window/workspace is actively orchestrating subagents (`none` / `yes` / `unknown`), because cross-window load is not discoverable reliably from this run;
 3. **chrome-devtools** (or the repo's browser-automation MCP) — invoke a benign call such as `list_pages` — only if any work-queue issue is UI-touching;
 4. **tracking-backend CLI** authenticated; **git remote** reachable (only if the default path is push-bearing).
 
@@ -65,7 +66,7 @@ Then ask everything once via `ask_user`, then proceed unattended:
 4. **Close policy** — auto-close on verified completion, or present evidence only.
 5. **Per-issue role** — `pair` (default) or `engineer`.
 6. **Escalation policy** — `autonomous` (default: decide-or-block) or `conservative` (treat oracle-decidable ambiguities as blocked).
-7. **Max issues this run** (optional cap; this is the **autonomy contract** — the orchestrator drains the queue ≤3-concurrent with zero "proceed to next batch?" asks).
+7. **Max issues this run** (optional cap; this is the **autonomy contract** — the orchestrator drains the queue ≤3-concurrent with zero "proceed to next batch?" asks). If concurrent orchestration elsewhere is `yes` or `unknown`, default this run to **one dispatch-at-a-time** unless the user explicitly selects a higher local ceiling; this reduces shared provisioning contention but does not claim to eliminate it.
 8. **Retain for inspection** — `retain_for_inspection` (default **off**). When off, the end-of-run cleanup pass reaps closed-issue sessions and merged-issue worktrees (default-clean). When on, removal is deferred to a one-command, ledger-driven sweep you trigger manually (the ledger carries every `worktree_id`/path + branch). `backlog/*` branches are kept either way.
 
 **Persist the wizard answers and authorization scope** (`git_scope`, `doc_edits=false` unless doc edits are authorized, `issue_scope` = the triaged track-work IDs, `granted_at`) into `docs/progress/backlog-<run>.md` at Phase 2 — this is what makes the run resumable without re-asking. State the invariants in the wizard prompt so the user sees them.
@@ -102,7 +103,7 @@ Run the **spec-plan-readiness** skill. Blocked → set `status:blocked`, skip.
      - with a **live bound session** → **resume** it (`agent_run op=steer`). Do not create a second worktree.
      - with **no live session** but a worktree present → rebind to that worktree (`manage_worktree op=bind`), or fall back to `<branch>-2`. **Never reuse an in-use worktree.**
      - with **no session and no worktree** → **verify before reuse**: `git log <base>..<branch>` empty, or `git merge-base --is-ancestor <branch> <base>`. At base (e.g. a branch left by a half-provisioned start) → safe to reuse. Has commits (e.g. a merged branch whose worktree §3f already removed but whose branch is kept) → **do not reuse**; fall back to `<branch>-2`.
-4. **Dispatch** a fresh Loop subagent bound to a dedicated worktree. **This `op=start` is the only call in its tool batch** (Dispatch-isolation invariant) — no `gh`/board/status mutations, no verify/test commands, no `cleanup_sessions` in the same turn:
+4. **Record the dispatch attempt, then dispatch.** First persist the attempt number, exact deterministic `session_name`, branch, and lifecycle state `dispatching` in the ledger; that write must complete before provisioning begins. Then dispatch a fresh Loop subagent bound to a dedicated worktree. **This `op=start` is the only call in its tool batch** (Dispatch-isolation invariant) — the completed ledger write is a prior call, and no `gh`/board/status mutations, verify/test commands, or `cleanup_sessions` share the start's batch:
 
 ```json
 {"tool":"agent_run","args":{
@@ -117,14 +118,20 @@ Run the **spec-plan-readiness** skill. Blocked → set `status:blocked`, skip.
 }}
 ```
 
-5. **Liveness-confirm (do not skip).** After each detached `start`, poll once (`agent_run op=poll session_id=...`, or `agent_manage op=list_sessions`) and decide by **session state** — turn count is supporting evidence, not an equivalent (a freshly-launched provider is `running` with 0 assistant turns for its first moments):
-   - `running` / `waiting_for_input` → proceed (regardless of turn count).
-   - `idle` **and** 0 assistant turns, or an expired handle → **half-provisioned**: the `start` was rejected/interrupted after provisioning tab+worktree+branch but before launching the provider. **Do not `steer`** — `steer` injects a message but **cannot launch a provider**. Recover by: `agent_manage op=cleanup_sessions` the dead session → `manage_worktree op=unbind` + `git worktree remove <path>` the orphan worktree → re-dispatch with a single, isolated, dispatch-only `start` (reuse the branch only if verified at base — see step 3; otherwise `<branch>-2`) → re-run this check. **2nd consecutive failed dispatch for the same issue → stop**: set `status:blocked` via track-work, surface in rollup.
-   - any other state (`failed`, instant `completed`, …) → `get_log` and decide explicitly.
+5. **Liveness-confirm and reconcile every dispatch attempt (do not skip).** Each invocation of `start` increments the persisted attempt counter. Treat the attempt as `dispatching` until a provider is positively confirmed; do not add it to the flight set, free its slot, mutate issue status, or start another attempt for that issue before reconciliation. Add `session_id`/`worktree_id` to the pre-start ledger entry when discovered.
+   - **Usable handle returned:** poll it once with `agent_run op=poll session_id=...` (or cross-check with `agent_manage op=list_sessions`) and decide by **session state**. Turn count is supporting evidence, not an equivalent: a freshly launched provider may be `running` with 0 assistant turns.
+   - **No usable handle returned** (`start` rejected, interrupted, timed out, or tool result unknown): the outcome is **unknown**, not "not started." Immediately inventory sessions and worktrees; locate the attempt by exact `session_name` + branch/worktree binding, using creation time and the ledger to disambiguate. If multiple candidates cannot be uniquely reconciled, block the issue rather than guessing. Never attribute generic harness text such as "user doesn't want to proceed" to the user unless a separate explicit user message says to stop.
+   - discovered or returned `running` / `waiting_for_input` → adopt its `session_id`, update the ledger, and proceed (regardless of turn count). This attempt succeeded; **do not re-dispatch**.
+   - discovered or returned `idle` **and** 0 assistant turns, or an expired handle → **half-provisioned**. **Do not `steer`** — `steer` injects a message but **cannot launch a provider**. Recover by: `agent_manage op=cleanup_sessions` the dead session → `manage_worktree op=unbind` + `git worktree remove <path>` the orphan worktree → re-dispatch with a single, isolated, dispatch-only `start` (reuse the branch only if verified at base — see step 3; otherwise `<branch>-2`) → re-run this full reconciliation.
+   - matching branch/worktree but no matching session → **partially provisioned**. Verify it belongs to this ledger attempt and is not in use; unbind + remove the orphan worktree, then reuse the branch only if verified at base (otherwise `<branch>-2`) before retrying. If provenance or ownership is ambiguous, block rather than remove or reuse it.
+   - no matching session/worktree after the inventory → the attempt failed before provisioning; it still consumes one dispatch attempt. Re-dispatch once, then re-run this full reconciliation.
+   - any other non-live state (`failed`, instant `completed`, …) → `get_log` for diagnosis, but the `start` invocation has consumed its attempt. After attempt 1, clean any attributable artifacts and retry once if safe; after attempt 2, block.
    - If a `running`/`idle` reading is ambiguous (likely startup latency), allow one short re-poll before classifying.
+   - **Provisioning-wedge signature:** if read-only RPCE calls remain responsive while `start`/`worktree_create` hangs or times out, especially alongside repeated zero-turn sessions with no worktree/branch or `cleanup_sessions` skips, classify this as RPCE provisioning contention/wedge rather than an issue/brief failure. Cross-window orchestration is a known risk factor, but the exact contended resource is unproven. Do not immediately retry into the wedge: stop **all new starts**, preserve the ledger and consumed-attempt counts, and mark affected rows `restart-required` (plus `status:blocked` via track-work). Do not restart while other agents are live: await/checkpoint already-live sessions, verify/close completed work where safe, then finish the normal rollup without another `ask_user`. The rollup instructs the user to stop/serialize other orchestrators and restart RPCE; no dispatch resumes before that restart + Resume sweep. A restart-required infrastructure notification is not a mid-run scope-decision ask.
+   - **Attempt limit:** every `start` invocation counts, regardless of whether it returns a handle or which non-live state results. After the 2nd consecutive attempt that does not reconcile to a live provider, stop, set `status:blocked` via track-work, and surface it in the rollup. Recovery and the one retry are autonomous under the Phase-2 grant: do not ask whether to retry or dispatch again. A provisioning-wedge signature stops retries earlier and routes to restart-required recovery.
 6. **Sibling awareness:** when more than one Loop is in flight, each brief names the other in-flight issues **and the source area each touches** ("another agent is concurrently working on `<area>` / `<files/functions>`; avoid logical conflicts even though worktrees are isolated").
 
-Then **fill the flight set to the ceiling on the first dispatch** — dispatch up to 3 independent issues, each as its own isolated `start` per step 4 followed by its step-5 liveness-confirm (detached, so they run concurrently; never batch the starts, and never start the next before the prior confirms `running`), then `agent_run op=wait session_ids=[flight set]`. As one lands → run 3d/3e/3f, then dispatch the next *independent* queued issue into the freed slot, skipping any contended one to a later slot. **No starvation:** an issue skipped for contention has priority for the next freed slot once its in-flight blockers drain — don't let a stream of independent lower-priority issues jump a skipped (usually higher-triage-priority) one. Be a pipeline that stays full, not a sequential loop — an idle flight slot with independent work queued is waste.
+Then **fill the flight set to the ceiling on the first dispatch** — dispatch up to 3 independent issues, each as its own isolated `start` per step 4 followed by its full step-5 reconciliation (detached, so confirmed sessions run concurrently; never batch the starts, and never start the next before the prior attempt reconciles to `running` / `waiting_for_input` or exhausts recovery), then `agent_run op=wait session_ids=[flight set]`. As one lands → run 3d/3e/3f, then dispatch the next *independent* queued issue into the freed slot, skipping any contended one to a later slot. **No starvation:** an issue skipped for contention has priority for the next freed slot once its in-flight blockers drain — don't let a stream of independent lower-priority issues jump a skipped (usually higher-triage-priority) one. Be a pipeline that stays full, not a sequential loop — an idle flight slot with independent work queued is waste.
 
 ### 3d. Outer-layer verify (do not trust the report) — non-blocking
 
@@ -137,7 +144,7 @@ Insufficient evidence → **steer the same session** (still alive — cleanup ha
 
 **Amendment follow-up (D8).** If V1's grep shows an amendment's requested change is absent (ignored): steer-once with the amendment restated, **or** file a follow-up issue via track-work and record an `accepted-divergence` in the conformance matrix. Never ask the user; never steer twice for the same amendment.
 
-**Retroactive user-testing (R2).** If an item merged without the frontend gate (e.g., a resumed run recovering missed UT), run the `user-testing` skill against the **synced merged tree** (see Resume, R1) + a throwaway data location, and record the result on the issue/progress doc. This is a recovery path, not a substitute for pre-merge UT.
+**Retroactive user-testing (R2).** If an item merged without the frontend gate (e.g. a resumed run recovering missed UT), run the `user-testing` skill against the **synced merged tree** (see Resume, R1) + a throwaway data location, and record the result on the issue/progress doc. This is a recovery path, not a substitute for pre-merge UT.
 
 ### 3e. Close (if auto-close) via track-work
 
@@ -155,7 +162,7 @@ Insufficient evidence → **steer the same session** (still alive — cleanup ha
 - Conflicts limited to **allowlisted derived/append-only closeout docs** (`*.conformance.md`, `docs/progress/*`, the `docs/spec/README.md` index) → **regenerate** them on the rebased tree (re-run `spec-conformance` / re-emit the entry); record in the rollup.
 - Any code/test/spec/plan conflict → **abort the rebase**, set `status:blocked`, keep branch+worktree, flag in the rollup. "Take canonical" is never applied to source.
 
-**Orchestrator finishes an incomplete git flow (R4).** If a Loop stops before completing the steps its `git_scope` authorizes (e.g., stops at commits without pushing/PR/merging), the orchestrator is authorized and expected to finish that flow itself (push → PR → merge within scope, on green) and record it — the outer layer closes the gap rather than leaving the issue half-done.
+**Orchestrator finishes an incomplete git flow (R4).** If a Loop stops before completing the steps its `git_scope` authorizes (e.g. stops at commits without pushing/PR/merging), the orchestrator is authorized and expected to finish that flow itself (push → PR → merge within scope, on green) and record it — the outer layer closes the gap rather than leaving the issue half-done.
 
 If the close policy is "present evidence only," skip the close and hand the verified evidence to the user.
 
@@ -198,9 +205,9 @@ On restart, reconstruct flight state **without re-running the wizard**:
 
 1. Read the newest `docs/progress/backlog-<run>.md` — wizard answers + authorization scope + ledger.
 2. `agent_manage op=list_sessions` + `git worktree list` + `git branch --list 'backlog/*'`.
-3. Three-way join against ledger rows: live sessions rejoin the flight set; dead-with-worktree rows resume per §3c's rebind rules; `verified-not-closed` rows go to §3e. Reuse the persisted grant (do not re-ask); restate the loaded authorization in the rollup preamble for visibility.
+3. Three-way join against ledger rows: live sessions rejoin the flight set; dead-with-worktree rows resume per §3c's rebind rules; `verified-not-closed` rows go to §3e. **Include `restart-required` rows even though track-work currently says `status:blocked`** — this infrastructure state is ledger-recoverable, not ordinary backlog exclusion. Reconcile the unknown pre-restart attempt, preserve its consumed-attempt count, and clear the `restart-required` block via track-work only after the wedge signature is absent. Retry only if the two-attempt budget still permits it; otherwise leave blocked. Reuse the persisted grant (do not re-ask); restate the loaded authorization in the rollup preamble for visibility.
 4. **Sync the tree before retroactive verify (R1).** `git fetch origin` and fast-forward local `<default>` to `origin/<default>` (`--ff-only` — non-destructive); then grep-confirm each to-be-verified fix is actually present in the tree before testing it. (A merged-but-not-synced tree would test pre-fix code.)
-5. Rows unreconcilable with reality → that issue `status:blocked`, rollup.
+5. Rows unreconcilable with reality → that issue `status:blocked`, rollup. If any `restart-required` row remains or the wedge signature persists, dispatch stays halted and the rollup repeats the restart instruction.
 
 ## Phase 4 — Rollup and resume
 
@@ -224,7 +231,7 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 
 | Operation | Tool call |
 |---|---|
-| Capability pre-flight | oracle ping; unattended-mode probe; browser-tool reachability (UI only); backend CLI auth; git remote (push paths only) |
+| Capability pre-flight | oracle ping; unattended-mode probe; ask whether another RPCE window is orchestrating; browser-tool reachability (UI only); backend CLI auth; git remote (push paths only) |
 | Discover (GitHub / file) | `gh issue list …` / read `.agents/issues/README.md` — via track-work |
 | Exempt-close batch | track-work close of `wontfix`/`duplicate` (no subagent); `duplicate` cross-links canonical |
 | Mark blocked | track-work → set `status:blocked` (label / frontmatter) |
@@ -233,7 +240,7 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 | Pre-dispatch sweep + collision check | `agent_manage op=list_sessions` + `git worktree list` + `git branch --list 'backlog/*'`; then `git show-ref --verify refs/heads/<branch>`; reconcile orphans; serialize contended specs |
 | Conflict-risk gate (pre-dispatch) | same spec → serialize (D7); disjoint spec+source → fly; adjacent → fly, merge last; oracle resolves doubt (`independent/adjacent/contended`) |
 | Dispatch Loop (worktree-isolated) | `agent_run op=start workflow_name=Loop worktree_create=true worktree_branch=backlog/<id>-<slug> detach=true` — **alone in its tool batch**; fill the flight set back-to-back on first dispatch |
-| Liveness-confirm after dispatch | `agent_run op=poll session_id=...`; not `running` → clean up orphan + re-dispatch isolated (never `steer`); 2nd fail → `status:blocked` (state logic: §3c.5) |
+| Reconcile + liveness-confirm after dispatch | Handle returned → poll it; no handle / rejected / interrupted / timed out → inventory by exact session name + branch, adopt live or clean dead; provisioning wedge → stop dispatches + restart-required; never blind-retry or infer user intent; 2nd ordinary non-live attempt → `status:blocked` (§3c.5) |
 | Wait on flight set (≤3) | `agent_run op=wait session_ids=[...]` |
 | Resume a bound session | `agent_run op=steer session_id=... wait=true` |
 | Verify (two beats) | `git diff`/`read_file` + amendment grep; re-run targeted tests in the issue worktree via the recorded toolchain |
@@ -257,13 +264,14 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 - **Parallelism is the default; serialization is earned.** Fill the flight set when work is independent — worktrees isolate edits, so the only real risk is merge-time, and the serial rebase-merge (§3e) contains it. Running issues one-at-a-time with independent work queued and slots free wastes the concurrency this workflow exists to provide.
 - **Verify, don't trust.** Read the diff, re-run the targeted tests yourself, confirm the conformance matrix before closing.
 - **Git-visible actions stay inside the authorized path.** The completion-path selection is the explicit authorization — bounded to the triaged `issue_scope`; nothing beyond it, ever.
-- **Dispatch in its own batch, then confirm it ran.** A `start` is the only call in its tool batch, and you poll once to confirm `running` before moving on — a half-provisioned session can't be `steer`-ed to life.
+- **Dispatch in its own batch, then reconcile before moving on.** A `start` is the only call in its tool batch. If it returns a handle, poll it; if it does not, inventory by deterministic session name + branch. Adopt a discovered live session or clean a dead one before retrying — a half-provisioned session can't be `steer`-ed to life.
 
 ## Anti-patterns
 
 - 🚫 A second `ask_user` after Phase 2 — decide (policy/oracle) or block, never ask.
 - 🚫 Two Loop subagents on the same branch/worktree, or reusing an in-use worktree.
 - 🚫 More than 3 Loop subagents in flight.
+- 🚫 Assuming the local flight count is global RPCE/provider load — another window/workspace may be orchestrating against shared provisioning resources.
 - 🚫 Running issues one-at-a-time when the queue has independent issues and flight slots are free — the ceiling is a target to fill, not a serial default.
 - 🚫 A Loop subagent closing or relabeling its own issue.
 - 🚫 Closing on the subagent's report without reading the diff / re-running tests / checking the conformance matrix.
@@ -278,8 +286,11 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 - 🚫 Generating a spec without both gates (pre-check + oracle), or ungated when oracle is down.
 - 🚫 Batching `agent_run op=start` with `gh`, board/status moves, `cleanup_sessions`, or verify/test commands.
 - 🚫 `steer`-ing a half-provisioned session to "launch" it — `steer` cannot start a provider.
+- 🚫 Treating a rejected/interrupted/timed-out `start` as "nothing started," abandoning it, or blindly retrying because no `session_id` was returned — inventory by session name + branch first.
+- 🚫 Retrying into the provisioning-wedge signature (read-only healthy while provisioning hangs/zero-turn sessions accumulate) — stop dispatches, preserve state, recommend RPCE restart + cross-window serialization, then resume-sweep.
+- 🚫 Treating generic tool/harness rejection text as an explicit user stop, or asking whether to retry mid-run — only a separate explicit user message changes intent; recovery follows the two-attempt policy autonomously.
 - 🚫 Re-dispatching onto an existing `backlog/*` branch without the pre-dispatch sweep + at-base verify.
-- 🚫 Gliding past the wizard with a required MCP tool unreachable (e.g., chrome-devtools down for UI issues) — recommend a restart first; never silently enter a run that will block at user-testing.
+- 🚫 Gliding past the wizard with a required MCP tool unreachable (e.g. chrome-devtools down for UI issues) — recommend a restart first; never silently enter a run that will block at user-testing.
 - 🚫 Running browser user-testing concurrently across issues without `--isolated` (or `--experimentalPageIdRouting` for a shared server) — chrome-devtools-mcp's default shared profile collides.
 - 🚫 Retroactive verify/user-testing before fast-forwarding local default to `origin/<default>` and grep-confirming the fix is present.
 - 🚫 (GitHub backend, merge authorized) squash-merging without `(#N)` in the subject and `Closes #N` in the PR body — auto-close and the close-gate rely on it.

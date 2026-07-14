@@ -35,7 +35,7 @@ A stable contract is needed so future changes are made against what Backlog guar
 ## Constraints
 
 - Discovery, blocked-marking, and closing all go through **track-work** so the GitHub and file (`.agents/issues/`) backends are handled uniformly; Backlog never calls `gh` or reads issues directly for discovery.
-- At most **3** Loop subagents are in flight; independent issues fill the flight set by default (S-035) and only genuinely contended work serializes (S-015, S-035); excess issues queue.
+- At most **3** Loop subagents are in flight; independent issues fill the flight set by default (S-035) and only genuinely contended work serializes (S-015, S-035); excess issues queue. The ceiling is per run: global RPCE/provider load from other windows may be invisible, so shared-capacity risk is captured in the wizard and may lower the local default.
 - One unique worktree + branch per issue, named from the immutable track-work ID (`backlog/<id>-<slug>`); branches are never deleted.
 - Only the outer layer changes issue status; Loop subagents move their progress doc only.
 - Git-visible actions stay inside the wizard-selected completion path; that selection is the explicit, scoped authorization. Destructive git is prohibited and is **not** grantable via any scope.
@@ -99,10 +99,10 @@ A stable contract is needed so future changes are made against what Backlog guar
 - **When** it issues `agent_run op=start`
 - **Then** that start is the only call in its tool batch — never batched with `gh`, board/status moves, `cleanup_sessions`, or verify/test commands — so a rejection cannot cascade into a half-provisioned session
 
-### Scenario S-012: Liveness-confirm detects half-provisioned sessions and recovers without steering
-- **Given** a detached `start` may be rejected/interrupted after provisioning tab+worktree+branch but before launching the provider
-- **When** Backlog polls once after each start
-- **Then** a `running`/`waiting_for_input` session proceeds; an `idle`-and-zero-assistant-turns or expired session is **not** steered (steer cannot launch a provider) but cleaned up and re-dispatched isolated; a second consecutive failed dispatch for the same issue is blocked, not retried indefinitely
+### Scenario S-012: Every dispatch attempt is reconciled, including starts that return no handle
+- **Given** a detached `start` may be rejected, interrupted, or timed out after provisioning tab+worktree+branch but before returning a usable `session_id` or launching the provider
+- **When** Backlog evaluates the attempt
+- **Then** before each `start` it persists the incremented attempt number + deterministic session name + branch, polls a returned handle or inventories sessions/worktrees by that identity when no handle exists, adopts a discovered `running`/`waiting_for_input` session, and safely cleans attributable half- or partial-provisioning before retrying; every `start` invocation and every non-live terminal result consumes an attempt, it never abandons or blindly retries an unknown outcome, never steers a providerless session, and blocks after the second attempt that does not reconcile to a live provider
 
 ### Scenario S-013: Concurrent issues are sibling-aware
 - **Given** more than one Loop is in flight
@@ -175,7 +175,7 @@ A stable contract is needed so future changes are made against what Backlog guar
 - **Then** it fetches and fast-forwards local `<default>` to `origin/<default>` (`--ff-only`) and grep-confirms each to-be-verified fix is present in the tree before any verify/user-testing — never testing a stale, pre-fix tree
 
 ### Scenario S-027: Retroactive user-testing after a merge that skipped the frontend gate
-- **Given** an item merged without the user-testing gate (e.g., recovered on resume)
+- **Given** an item merged without the user-testing gate (e.g. recovered on resume)
 - **When** Backlog detects the gap
 - **Then** it runs the `user-testing` skill against the synced merged tree with a throwaway data location and records the result on the issue/progress doc — a recovery path, not a substitute for pre-merge UT
 
@@ -185,7 +185,7 @@ A stable contract is needed so future changes are made against what Backlog guar
 - **Then** it treats track-work status as authoritative and re-verifies each item's real state rather than trusting the run-note
 
 ### Scenario S-029: Orchestrator finishes an incomplete git flow
-- **Given** a Loop stops before completing the steps its `git_scope` authorizes (e.g., stops at commits)
+- **Given** a Loop stops before completing the steps its `git_scope` authorizes (e.g. stops at commits)
 - **When** Backlog detects the incomplete flow
 - **Then** the orchestrator finishes push/PR/merge within scope itself and records it, rather than leaving the issue half-done
 
@@ -224,6 +224,21 @@ A stable contract is needed so future changes are made against what Backlog guar
 - **When** Backlog closes them
 - **Then** it merges them one at a time — most-independent first, overlapping-source last — rebasing each not-yet-merged branch onto the default as updated by the prior merge before its own merge, so any conflict surfaces at a single seam and is resolved (regenerate derived docs) or blocked (source conflict) per S-019, rather than batch-merging into multi-way conflicts
 
+### Scenario S-037: Tool rejection text is not user intent and dispatch recovery stays autonomous
+- **Given** a `start` result contains generic harness text implying the user rejected or stopped the tool, but no separate explicit user message says to stop
+- **When** Backlog handles the failed or unknown dispatch outcome
+- **Then** it treats the text as a technical result rather than a user decision, reconciles and retries under S-012 without a mid-run question, and only changes run intent in response to an explicit user instruction
+
+### Scenario S-038: Cross-window orchestration risk is captured before dispatch
+- **Given** other RPCE windows/workspaces may share provider or provisioning resources that this run cannot inventory reliably
+- **When** Backlog renders its single wizard
+- **Then** it asks whether another orchestrator is active and, when the answer is `yes` or `unknown`, defaults this run to one dispatch at a time unless the user explicitly selects a higher local ceiling
+
+### Scenario S-039: Provisioning wedge stops dispatches and requires restart recovery
+- **Given** read-only RPCE calls remain responsive while provisioning hangs/times out, or repeated zero-turn/no-worktree sessions and cleanup skips accumulate
+- **When** Backlog reconciles a dispatch attempt
+- **Then** it classifies the condition conservatively as an RPCE provisioning wedge without asserting an exact root cause, stops all new starts rather than retrying into it, preserves the ledger and consumed-attempt counts, marks affected rows `restart-required`, safely awaits/checkpoints already-live agents and completes the rollup without another ask, and requires other orchestrators to be serialized plus RPCE restarted before dispatch resumes; after restart the resume sweep includes these blocked ledger rows, clears the infrastructure block only when the wedge is absent, and retries only when the preserved two-attempt budget permits it
+
 ## Proposed Surface
 
 ### Inputs (Phase-2 wizard — the single input point)
@@ -236,7 +251,8 @@ A stable contract is needed so future changes are made against what Backlog guar
 | Close policy | yes | auto-close | Auto-close on verified completion, or present evidence only. |
 | Per-issue role | no | `pair` | `pair` or `engineer`, threaded into each dispatch. |
 | Escalation policy | no | `autonomous` | `autonomous` (decide-or-block) or `conservative` (treat oracle-decidable ambiguities as blocked). |
-| Max issues this run | no | drain | Cap or full drain; this is the autonomy contract — no "continue?" ask exists. |
+| Max issues this run | no | drain | Cap or full drain; this is the autonomy contract — no "continue?" ask exists. Local dispatch ceiling defaults to 1 when other orchestration is active/unknown unless explicitly raised. |
+| Concurrent orchestration elsewhere | yes | `unknown` | `none` / `yes` / `unknown`; records shared RPCE/provider-capacity risk that this run cannot reliably discover itself. |
 | Retain for inspection | no | off | When off, the end-of-run pass reaps closed-issue sessions + merged-issue worktrees (default-clean); when on, defers removal to a manual ledger-driven sweep. Branches kept either way. |
 
 ### Authorization scope (persisted; excerpted into every brief)
@@ -270,7 +286,7 @@ Every field optional; absent = Loop's standalone behavior.
 | Authorization boundary | Any git-visible action | Action exceeds `git_scope` or falls outside `issue_scope`; destructive git (S-005). |
 | Isolation | Per dispatch | Shared worktree/branch; unreconciled orphan (S-009, S-010). |
 | Dispatch isolation | Per `start` | Start batched with other mutations or verify commands (S-011). |
-| Liveness | Per dispatch | Session not confirmed `running` (S-012). |
+| Liveness | Per dispatch attempt | Returned handle is not live, or a no-handle outcome has not been inventoried and reconciled by deterministic session name + branch (S-012, S-037); provisioning-wedge signature stops further dispatch and routes to restart recovery (S-039). |
 | Independent verify | Before close | Closeout evidence insufficient (S-016). |
 | Conflict safety | Per merge | Non-allowlisted conflict auto-resolved as source (S-019). |
 
