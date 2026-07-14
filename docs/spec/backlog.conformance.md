@@ -48,6 +48,8 @@
 | S-037 Tool rejection text is not user intent and dispatch recovery stays autonomous | Conformed | Backlog.md §Invariant (unknown outcome); §3c step 5; §Anti-patterns — no attribution from harness text; no mid-run retry ask. |
 | S-038 Cross-window orchestration risk is captured before dispatch | Conformed | Backlog.md §Invariant (per-run ceiling); §Phase 2 pre-flight + item 7 — active/unknown defaults local ceiling to 1. |
 | S-039 Provisioning wedge stops dispatches and requires restart recovery | Conformed | Backlog.md §3c step 5; §Resume; §Anti-patterns — conservative signature; exact resource remains unproven. |
+| S-040 Cleanup skip quarantines the dead session's branch binding | Conformed | Backlog.md §3c steps 3/5; §3f; §Anti-patterns — at-base is insufficient while a skipped session remains bound. |
+| S-041 Dispatch diagnosis separates evidence from hypotheses | Conformed | Backlog.md §3c step 5; §Anti-patterns — no speculative attribution or remedy question. |
 
 ## Proposed Surface
 
@@ -62,7 +64,7 @@
 
 ## Coverage proof
 
-- **audited:** S-001…S-039 (all scenarios) + Proposed Surface (wizard fields, authorization scope, brief contract, gates, never-autonomous set, artifacts).
+- **audited:** S-001…S-041 (all scenarios) + Proposed Surface (wizard fields, authorization scope, brief contract, gates, never-autonomous set, artifacts).
 - **unreconciled:** []
 
 ## Notes

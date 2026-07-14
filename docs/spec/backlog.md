@@ -92,7 +92,7 @@ A stable contract is needed so future changes are made against what Backlog guar
 ### Scenario S-010: Pre-dispatch sweep reconciles orphans
 - **Given** prior interrupted runs may have left orphaned `backlog/*` sessions/worktrees/branches
 - **When** Backlog allocates a worktree before dispatch
-- **Then** it reconciles them first (resume if live; clean the dead session if expired/idle, keeping PR-open/local-only worktrees), reusing an at-base branch only after verifying it has no commits, and never reusing an in-use worktree
+- **Then** it reconciles them first (resume if live; clean the dead session if expired/idle, keeping PR-open/local-only worktrees), reusing a branch only after verifying it is at base **and unbound**, quarantining any branch still bound to a dead session whose cleanup skipped, and never reusing an in-use worktree
 
 ### Scenario S-011: Dispatch calls are isolated in their own tool batch
 - **Given** Backlog is about to start a Loop subagent
@@ -239,6 +239,16 @@ A stable contract is needed so future changes are made against what Backlog guar
 - **When** Backlog reconciles a dispatch attempt
 - **Then** it classifies the condition conservatively as an RPCE provisioning wedge without asserting an exact root cause, stops all new starts rather than retrying into it, preserves the ledger and consumed-attempt counts, marks affected rows `restart-required`, safely awaits/checkpoints already-live agents and completes the rollup without another ask, and requires other orchestrators to be serialized plus RPCE restarted before dispatch resumes; after restart the resume sweep includes these blocked ledger rows, clears the infrastructure block only when the wedge is absent, and retries only when the preserved two-attempt budget permits it
 
+### Scenario S-040: Cleanup skip quarantines the dead session's branch binding
+- **Given** cleanup of a dead/expired session is skipped and the session remains associated with its dispatch branch
+- **When** Backlog prepares a retry even if the orphan worktree was removed and the branch is at base
+- **Then** it treats that branch as still occupied, records it as quarantined, and dispatches on the next unused suffix rather than assuming worktree removal released the binding
+
+### Scenario S-041: Dispatch diagnosis separates evidence from hypotheses
+- **Given** a dispatch fails with ambiguous harness text or an empty session
+- **When** Backlog explains and recovers from the failure
+- **Then** it reports observed state separately from hypotheses, does not assert user cancellation, permissions, hooks, capacity, or branch collision without direct evidence, and does not ask the user to choose a speculative remedy or re-authorize a routine retry covered by the Phase-2 grant
+
 ## Proposed Surface
 
 ### Inputs (Phase-2 wizard — the single input point)
@@ -284,7 +294,7 @@ Every field optional; absent = Loop's standalone behavior.
 |------|------|---------------------|
 | Single wizard input | Whole run | A second `ask_user` is attempted (S-004). |
 | Authorization boundary | Any git-visible action | Action exceeds `git_scope` or falls outside `issue_scope`; destructive git (S-005). |
-| Isolation | Per dispatch | Shared worktree/branch; unreconciled orphan (S-009, S-010). |
+| Isolation | Per dispatch | Shared worktree/branch; unreconciled orphan; or reuse of a branch quarantined by a skipped dead-session cleanup (S-009, S-010, S-040). |
 | Dispatch isolation | Per `start` | Start batched with other mutations or verify commands (S-011). |
 | Liveness | Per dispatch attempt | Returned handle is not live, or a no-handle outcome has not been inventoried and reconciled by deterministic session name + branch (S-012, S-037); provisioning-wedge signature stops further dispatch and routes to restart recovery (S-039). |
 | Independent verify | Before close | Closeout evidence insufficient (S-016). |
