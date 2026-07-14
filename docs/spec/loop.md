@@ -1,5 +1,4 @@
-- Preserve orchestrator context by delegating task-local exploration, test authoring, implementation, debugging, review, and refactor work while consuming compact evidence reports.
-9. Support hands-off, unattended execution under an orchestrator by accepting an optional authorization scope and routing user-facing decisions back to the orchestrator, without changing standalone behavior.
+---
 title: Loop Workflow
 issue: none
 status: implemented
@@ -9,239 +8,318 @@ status: implemented
 
 ## Problem
 
-Loop is a delegation-heavy orchestrator that turns a Spec + Deep Plan into reviewed, tested code. Today it lives only as an operational workflow prompt that mixes the behavioral contract (what gates it enforces, what artifacts it produces, when it escapes) with implementation mechanics (which tool, which file path, which agent model). Because the contract is not separated from the mechanism, improvements discovered during use have no canonical home: this session found that Loop's final review can pass while missing live spec↔implementation value drift, and that Loop has no path for verifying already-implemented work after a rebase. A stable contract is needed so future changes are made against what Loop guarantees, independent of how each phase is realized.
+Loop is a delegation-heavy orchestrator that turns a committed Spec + Deep Plan into reviewed, tested code. Its current contract does not fully distinguish standalone from Backlog-orchestrated ownership, creates progress only after readiness, and leaves missing or blocked contracts without a durable maintenance/resume path. It also conflates authorization with action ownership and cannot safely describe recovery from a dead session with uncommitted work.
+
+A stable standalone-first contract is needed so Loop remains useful on its own while Backlog can orchestrate multiple Loop runs without weakening readiness, delegation, conformance, or git-safety gates.
 
 ## Goals
 
-1. Define Loop's contract — gates, artifacts, escape conditions — independent of mechanism, as the single source of truth.
-2. Guarantee no implementation begins until Spec + Plan pass deterministic and independent readiness checks using the shared `spec-plan-readiness` criteria.
-3. Guarantee every task is contract-driven: a Spec scenario becomes a failing test before any production change, and green is reached before review.
-4. Guarantee a persistent, resumable progress artifact so any run can resume after interruption.
-5. Guarantee the final review catches spec↔implementation drift, including value/enum drift on response fields, not only field presence or behavioral claims.
-6. Guarantee closeout includes a dry-run documentation sync/audit for changed code so documentation drift, unsupported claims, and contract-doc conflicts are reported before final handoff.
-7. Support verifying already-implemented work (e.g., post-rebase audit) without forcing a red→green pass over existing code.
-8. Preserve orchestrator context by delegating task-local exploration, test authoring, implementation, debugging, review, and refactor work while consuming compact evidence reports.
+1. Define Loop's gates, artifacts, lifecycle, ownership, and escape conditions independently of mechanism.
+2. Guarantee no implementation begins until committed Spec + Deep Plan inputs pass deterministic and independent readiness checks.
+3. Guarantee every implement-mode task starts with a meaningful failing test for mapped Spec scenarios and reaches green before review.
+4. Guarantee durable progress initialization before full contract reading, oracle calls, delegation, or other repository writes.
+5. Guarantee final review catches spec-to-implementation drift, including emitted value and type drift.
+6. Guarantee closeout reports documentation drift and produces a conformance matrix before handoff.
+7. Support Verify mode for trustworthy existing implementation without manufacturing a red-green history.
+8. Preserve coordinator context by delegating test authoring, implementation/debugging, review, and refactor work and consuming compact evidence.
+9. Support standalone and orchestrated execution through explicit authorization and responsibility, durable pause/handoff/resume state, and external Spec/Deep Plan maintenance without weakening readiness.
+10. Identify readiness by immutable committed Spec/Plan blobs and bound oracle calls across resume and replacement.
+11. Require capability-grounded delegation and safe auditing of recovered predecessor work.
+12. Distinguish contract maintenance, general documentation, and mandatory progress/conformance artifacts.
 
 ## Non-Goals
 
-- Authoring or maintaining the Spec or Deep Plan. Loop consumes them; their creation and upkeep is a separate, referenced process.
-- Choosing the specific agent model, delegation tool, file path, or validation lane for each phase — those are plan-level decisions.
-- Replacing repo-specific CI or coordinated validation; Loop invokes whatever the repo prescribes.
-- Judging the correctness of Spec or Plan content — only their structural readiness.
-- Spec/doc maintenance workflows, skills, or slash commands themselves (referenced, not owned — see Open Questions).
+- Authoring or maintaining the Spec or Deep Plan inside the Loop coordinator. The external `Spec` workflow and RPCE core `Deep Plan` workflow own those documents.
+- Providing a weaker direct-stabilization mode that bypasses readiness or conformance.
+- Assuming nested workflow dispatch, same-live-session worktree transfer, suspend/rebind/reclaim, or existing-path replacement without recorded capability proof.
+- Choosing repository-specific models, validation lanes, or implementation architecture.
+- Replacing repository CI or coordinated validation.
 
 ## Constraints
 
-- Tests are written at the lowest faithful layer, assert exact observable outcomes, and must not use mocks that recreate production logic or tests that only assert implementation details or coverage counts.
-- Implementation, test authoring, review, and refactor are delegated; Loop owns coordination and evidence verification only.
-- Loop treats delegated agents and workflows as context firebreaks: task-local details stay with the delegate unless narrow evidence is insufficient for a gate decision.
-- The default working location is a non-main worktree; main is used only when explicitly requested.
-- Refactor is strictly behavior-preserving and is followed by a re-run of targeted tests.
-- A stable finding signature is severity + normalized file path + normalized finding summary + related scenario/task. Repeated P0/P1 findings escalate to a classify-or-stop decision (not another retry) after two failed fix attempts or three review observations with the same signature.
-- Spec/Plan authoring and maintenance is a separate process that Loop references by name; Loop's contract stays free of doc-authoring mechanics.
+- Tests use the lowest faithful layer, exact observable outcomes, and realistic fixtures; no coverage-padding or mocks that recreate production logic.
+- Test authoring, implementation/debugging, independent review, and refactor are delegated. No issue-size exception exists.
+- The default working location is a non-default-branch worktree.
+- Refactor is behavior-preserving and followed by targeted validation and review.
+- Stable review signatures govern repeated-finding handling.
+- Invocation mode is `standalone` or `orchestrated`; responsibility, not authorization breadth, determines which actor performs an action.
+- Readiness identity is `contract_commit` plus Spec/Plan path and blob tuple; later branch `HEAD` is not a new readiness key.
+- The exact lineage-owned progress path and final conformance path are mandatory operational artifacts, not general documentation or contract edits.
+- External maintenance normally ends the current epoch and resumes through durable progress in a new epoch. Same-live-session maintenance is optional only after capability proof.
 
 ## Scenarios
 
-### Scenario S-001: Readiness gate blocks on unresolved questions
-- **Given** the Spec has an unresolved Open Question or a scenario without an observable Then outcome, or the Plan lacks ordered work items, dependency order, validation commands, or task-to-scenario mapping
+### Scenario S-001: Readiness block occurs after durable initialization
+- **Given** the Spec or Deep Plan is missing or readiness-blocking
 - **When** Loop begins
-- **Then** it stops before creating any test or code and reports the exact blocking gaps
+- **Then** it first records the run-owned progress path and exact gaps, then stops before tests, production changes, or contract edits
 
-### Scenario S-002: Readiness gate applies shared readiness criteria
-- **Given** Loop receives a Spec and Deep Plan before implementation begins
-- **When** it evaluates readiness
-- **Then** it applies the shared `spec-plan-readiness` criteria for observable scenarios, Proposed Surface completeness, ordered plan tasks, expected affected areas, dependencies, validation, test strategy, risks, rollback notes, task-to-scenario mapping, and spec-plan contradictions
+### Scenario S-002: Readiness gate applies shared criteria and provenance
+- **Given** Loop receives Spec and Deep Plan paths
+- **When** it evaluates deterministic readiness
+- **Then** it applies shared readiness criteria and verifies committed provenance, immutable blob identity, task-to-scenario traceability, and a separate implementation base
 
 ### Scenario S-003: Spec Quality findings block implementation
-- **Given** the Spec has contract-level drift, non-observable scenarios, uncovered Proposed Surface elements, ambiguity, redundancy that changes interpretation, or hidden unresolved decisions
+- **Given** the Spec has contract-level drift, non-observable scenarios, uncovered Proposed Surface, ambiguity, or hidden unresolved decisions
 - **When** Loop evaluates readiness
-- **Then** it stops before creating tests or code and reports the Spec Quality gaps as readiness blockers
+- **Then** it records the exact gaps and blocks before tests, production code, or contract edits
 
-### Scenario S-004: Readiness gate proceeds only after independent verdict
-- **Given** the Spec and Plan pass all deterministic checks
-- **When** Loop requests an independent readiness verdict
-- **Then** it proceeds to setup only if the verdict is implementable, mapping each scenario to a recommended test layer and naming a first safe task
+### Scenario S-004: Independent verdict is Loop-owned and keyed
+- **Given** deterministic readiness passes for a committed Spec/Plan tuple
+- **When** Loop requests its independent readiness verdict
+- **Then** it records the attempt before the call, uses the tuple key and persisted allowance, and proceeds only on one substantive `implementable` verdict or an explicitly authorized orchestrated degraded path
 
-### Scenario S-005: Worktree safety by default
-- **Given** Loop is about to make changes and the current location is main
-- **When** no explicit instruction to use main was given
-- **Then** Loop switches to or creates an appropriate non-main worktree before any change
+### Scenario S-005: Worktree safety exempts only one owned operational path
+- **Given** Loop has snapshotted pre-existing dirtiness and created its progress path
+- **When** it checks worktree safety
+- **Then** only that exact lineage-owned progress path is exempt and every pre-existing or unrelated dirty path blocks mutation
 
-### Scenario S-006: Progress artifact is persistent and resumable
-- **Given** a Loop run is in progress or interrupted
-- **When** the run is resumed
-- **Then** a progress artifact exists with metadata (branch, worktree, phase, current task, review-cycle counts, stable finding signatures), a task ledger, a review/escape ledger, and a validation/resume log sufficient to continue without chat context
+### Scenario S-006: Progress initialization precedes readiness
+- **Given** a Loop invocation starts
+- **When** it performs full contract reading, oracle calls, delegation, or another repository write
+- **Then** durable progress already records lineage, epoch, invocation mode, worktree/base, pre-existing dirtiness, constraints, authorization, responsibility, and `initialization_complete`
 
-### Scenario S-007: Tests precede implementation in implement mode
-- **Given** a task derived from a Plan work item and its covering Spec scenario
-- **When** Loop works the task
-- **Then** a meaningful failing test asserting the scenario's observable outcome is produced and confirmed red before any production code is written
+### Scenario S-007: Tests precede implementation in Implement mode
+- **Given** a delegated task mapped to Spec scenarios
+- **When** Loop works the task in Implement mode
+- **Then** a test delegate produces and confirms a meaningful failure for the observable outcome before a production delegate changes code
 
 ### Scenario S-008: No meaningful red test halts the task
-- **Given** a task whose scenario cannot be expressed as a meaningfully failing test
-- **When** Loop attempts to generate the red test
-- **Then** it stops the task and pushes back for a Spec/Plan correction rather than writing a tautological test
+- **Given** a scenario cannot be expressed as a meaningful failing test
+- **When** the test delegate reports that gap
+- **Then** Loop blocks and requests contract/plan maintenance rather than accepting a tautological test or implementing anyway
 
-### Scenario S-009: Work is delegated, gates are verified by the orchestrator
-- **Given** implementation, review, or refactor work to perform
-- **When** Loop advances a task
-- **Then** the work is dispatched to a delegated agent/workflow and Loop records verifiable evidence (test results, review output) before advancing
+### Scenario S-009: Required work remains delegated
+- **Given** test authoring, implementation/debugging, independent review, or refactor work is required
+- **When** Loop advances the task
+- **Then** the appropriate delegate performs it and unavailable delegation blocks instead of causing coordinator implementation
 
-### Scenario S-010: Delegation preserves orchestrator context
-- **Given** a task requires task-local file exploration, test authoring, implementation debugging, review analysis, or refactor details
-- **When** Loop coordinates the task
-- **Then** delegated agents or workflows handle those details in their own contexts and return compact evidence summaries containing the task ID, scenario IDs, files changed or inspected, tests and validation results, review finding signatures, blockers, and recommended next step
+### Scenario S-010: Delegated evidence is lineage-aware
+- **Given** a delegate reports work
+- **When** Loop evaluates the report
+- **Then** it requires lineage, epoch, authorization revision, role, task/scenario IDs, changed or inspected paths, tests, validation, stable findings, blockers, and recommended next step
 
-### Scenario S-011: Orchestrator reads narrow context only when evidence is insufficient
-- **Given** a delegated report lacks enough evidence for Loop to decide whether a gate passed
-- **When** Loop needs more detail
-- **Then** it asks the delegate for a focused follow-up or reads the narrowest relevant context needed for the gate decision, records why the report was insufficient, what context was read, and which gate decision it enabled, and does not absorb the full task-local working set
+### Scenario S-011: Narrow inspection cannot substitute for delegation
+- **Given** delegated evidence is insufficient
+- **When** the coordinator needs more context
+- **Then** it requests focused follow-up or reads the narrowest relevant slice and logs the exception, but never uses focused inspection as a substitute for a required delegate
 
-### Scenario S-012: Repeated findings escape rather than loop
-- **Given** the same stable P0/P1 finding signature across two failed fix attempts or three review observations
-- **When** the finding recurs
-- **Then** Loop requests a classification (false positive, core issue, or futility) and either documents the false positive, returns a core issue to implementation, or stops — rather than retrying
+### Scenario S-012: Repeated-finding classification is budgeted
+- **Given** the same stable P0/P1 signature reaches the repeat threshold
+- **When** Loop requests classification
+- **Then** one substantive classification is allowed for that signature within the lineage ceiling; exhaustion leaves the finding unresolved and blocks closeout
 
 ### Scenario S-013: Refactor preserves behavior
 - **Given** a task is green and review-clean
-- **When** Loop refactors
-- **Then** only behavior-preserving improvements are applied and targeted tests are re-run green; refactor never broadens scope
+- **When** a refactor delegate improves it
+- **Then** behavior remains unchanged and targeted tests plus post-refactor review pass
 
-### Scenario S-014: Final review reconciles emitted values against the spec
-- **Given** a task or whole-PR review where a Spec response field enumerates values or fixes a type
-- **When** Loop runs the final review
-- **Then** an actually emitted value (from a live run or a fixture assertion) is compared against the spec for that field, and a mismatch is reported — not merely that the field exists or that a behavioral claim holds
+### Scenario S-014: Final review reconciles emitted values against the Spec
+- **Given** a Spec fixes emitted values or types
+- **When** Loop runs final delegated review
+- **Then** actual emitted values from a live run or faithful fixture are compared to the contract and mismatches are reported
 
-### Scenario S-015: Verification mode for already-implemented work
-- **Given** the implementation for a scenario already exists (e.g., a post-rebase check) with a covering test
-- **When** Loop is run over that work
-- **Then** it confirms the test passes and records scenario coverage, and does not generate a new failing test or reimplement existing code
+### Scenario S-015: Verify mode excludes unaudited recovered work
+- **Given** implementation already exists
+- **When** Loop selects Verify mode
+- **Then** it requires trustworthy provenance, scenario coverage, and green tests; recovered predecessor work first enters Recovery audit and cannot qualify merely because implementation files exist
 
 ### Scenario S-016: Parallelization only when safe
 - **Given** multiple candidate tasks
-- **When** Loop decides whether to parallelize
-- **Then** it parallelizes only when tasks share no expected files, have independent tests/fixtures, have no public-API dependency on each other, and share no build/test lane; otherwise it serializes
+- **When** Loop schedules them
+- **Then** it parallelizes only with disjoint expected files, independent fixtures, no public-API dependency, and no shared validation lane
 
-### Scenario S-017: Final review covers the whole diff and converts findings to test-backed tasks
-- **Given** all task loops are complete
-- **When** Loop runs the final review
-- **Then** a delegated full-diff review reports stable P0/P1 finding signatures, files inspected, validation evidence, and value-conformance evidence for Spec-enumerated or typed emitted fields; worthwhile findings become follow-up tasks, and each finding has a failing or covering test before it is fixed
+### Scenario S-017: Final review covers the whole diff
+- **Given** task loops are complete
+- **When** Loop runs final review
+- **Then** delegated full-diff evidence includes stable findings, inspected files, validation, and value conformance, and worthwhile findings become test-backed follow-up tasks
 
-### Scenario S-018: Closeout runs repo-appropriate coordinated validation
-- **Given** the final review is clean
+### Scenario S-018: Closeout runs repository validation
+- **Given** final review is clean
 - **When** Loop closes out
-- **Then** it runs the validation the repo prescribes and records the results in the progress artifact before finalizing
+- **Then** repository-prescribed validation and required user testing run and are recorded before completion
 
-### Scenario S-019: Closeout reports documentation drift before handoff
-- **Given** implementation changes affect documented behavior, commands, parameters, schemas, or workflows
+### Scenario S-019: Documentation has three edit classes
+- **Given** Loop reaches contract maintenance, documentation sync, or operational-artifact work
+- **When** it interprets authority
+- **Then** external Spec/Plan maintenance uses `contract_maintenance`, general docs use `doc_edits`, and exact progress/conformance outputs are mandatory operational artifacts covered by neither field
+
+### Scenario S-020: Authorization revisions do not assign responsibility
+- **Given** authority expands, reduces, or stops
+- **When** Loop receives a revision
+- **Then** it persists monotonic ordering and issuer, applies expansion prospectively, applies reduction or stop before the next action, rejects stale actors, rechecks before external actions, and leaves responsibility unchanged
+
+### Scenario S-021: Oracle transport failure is not a verdict
+- **Given** oracle readiness is required
+- **When** transport fails, service is unavailable, or output is malformed
+- **Then** the transport attempt is consumed but no substantive verdict is recorded; standalone blocks after bounded exhaustion and orchestrated degradation requires original authorization
+
+### Scenario S-022: User testing isolates data and blocks when unavailable
+- **Given** a user-facing change needs user testing
 - **When** Loop closes out
-- **Then** it runs a dry-run documentation sync or audit and records affected docs, proposed edits, unsupported claims, and contract conflicts before finalizing
+- **Then** it drives a real workflow against throwaway data and blocks when no browser tool is reachable; unit tests are never labeled user testing
 
-### Scenario S-020: Authorization scope governs git-visible actions; default behavior preserved
-- **Given** Loop is invoked, optionally with an authorization scope (`git_scope`, `doc_edits`)
-- **When** Loop reaches a git-visible action (push/PR/merge) or a documentation-edit step
-- **Then** it performs that action exactly when an explicit scope authorizes it (interactive ask, or orchestrator brief carrying a wizard grant); absent a scope, current behavior holds (separate explicit ask; doc sync stays dry-run). Destructive git is never authorized by any scope.
+### Scenario S-023: Amendments are durable ordered events
+- **Given** an amendment is received
+- **When** Loop records or applies it
+- **Then** it persists ID, issuer, scope, classification, before/after authorization revision, status, and evidence/reason, and duplicate IDs are idempotent
 
-### Scenario S-021: Oracle-down degraded readiness under orchestrator authorization
-- **Given** the oracle is unreachable and Loop is invoked orchestrated with `degraded_ok`
-- **When** Loop evaluates readiness
-- **Then** it proceeds with the inline deterministic gate authoritative and records degraded mode; standalone Loop with the oracle down stays blocked rather than proceeding ungated
+### Scenario S-024: Conformance path defaults to canonical unless contended
+- **Given** Loop produces a matrix
+- **When** no invoker-marked contention exists
+- **Then** it writes canonical `<spec>.conformance.md`; a supplied per-issue path is used only for explicitly contended contracts
 
-### Scenario S-022: User-testing isolates data and blocks when no browser tool
-- **Given** a user-facing change needs user-testing
-- **When** Loop runs the user-testing step
-- **Then** it runs a real browser against a throwaway/isolated data location (carried by the brief), never the user's real environment data; if no browser tool is reachable the closeout item is blocked with reason; a unit or contract test is never labeled as user-testing
+### Scenario S-025: Standalone and orchestrated blocks have distinct ownership
+- **Given** Loop cannot proceed
+- **When** it records the block
+- **Then** orchestrated mode terminates that epoch with a structured report to Backlog, while standalone may remain live only in `paused`; external maintenance normally resumes through a new epoch and reusing progress does not imply the same session
 
-### Scenario S-023: Amendments are acknowledged or declined with evidence, never silently skipped
-- **Given** an amendment was requested during an approval
-- **When** Loop closes out
-- **Then** it records each amendment as applied (with grep/diff evidence) or explicitly declined (with reason); it never silently skips an amendment
+### Scenario S-026: Matrix generation is not acceptance
+- **Given** closeout generates a conformance matrix
+- **When** any item is `Diverged` or `Not-built`
+- **Then** Loop reports `blocked_unaccepted` until an authoritative item-specific acceptance exists; generation and oracle advice never accept findings
 
-### Scenario S-024: Conformance path defaults to canonical unless the invoker marks the spec contended
-- **Given** Loop produces the spec-conformance matrix at closeout
-- **When** more than one issue targets the same spec
-- **Then** it writes the canonical `<spec>.conformance.md` by default, and uses a brief-supplied per-issue path only when the invoker marks the spec contended (Backlog serializes contended specs instead — see Backlog spec S-015)
+### Scenario S-027: Loop performs only assigned git actions
+- **Given** implementation and closeout gates pass
+- **When** Loop reaches publication or landing
+- **Then** it performs only actions both authorized and assigned by responsibility; Backlog-orchestrated Loop returns committed clean `merge_ready` evidence and Backlog retains publication, landing, status, close, replacement, and cleanup
 
-### Scenario S-025: Orchestrated escalation routes to the orchestrator, never the end-user
-- **Given** Loop is invoked orchestrated and reaches a surface that would normally ask the user (dirty worktree, no safe worktree, spec/plan not ready, documentation-edit approval, implementation ambiguity)
-- **When** it cannot proceed autonomously
-- **Then** it returns a structured blocked/escalation report to the orchestrator and waits for steer; it never surfaces a question to the end-user. Interactive invocations retain today's ask-the-user behavior.
+### Scenario S-028: Close metadata follows the landing owner
+- **Given** GitHub merge is authorized
+- **When** the actor assigned landing creates or merges the PR
+- **Then** the subject carries `(#<id>)` and the body carries `Closes #<id>`
 
-### Scenario S-026: Closeout produces the spec-conformance matrix
-- **Given** all task loops are complete and validation is green
-- **When** Loop closes out
-- **Then** it runs the `spec-conformance` skill and records the matrix path in the progress doc; the loop is not closed until the matrix exists and every Diverged/Not-built item is explicitly accepted with reason
+### Scenario S-029: Constraints are recorded during initialization
+- **Given** repository hard rules exist
+- **When** Loop initializes
+- **Then** it records the constraints and source before readiness and treats them as non-negotiable across every epoch
 
-### Scenario S-027: Orchestrated mode completes the authorized git flow
-- **Given** Loop runs orchestrated with a `git_scope` covering push/PR/merge
-- **When** the implementation is green and review-clean
-- **Then** Loop completes the authorized flow (push → PR → merge within scope) rather than stopping at commits; standalone/interactive behavior is unchanged (push/PR/merge still require a separate explicit ask)
+### Scenario S-030: Loop never authors its own contract
+- **Given** standalone Loop has a missing or readiness-blocking Spec or Deep Plan
+- **When** contract maintenance is needed
+- **Then** it writes a durable handoff for external `Spec` and/or RPCE core `Deep Plan` and does not edit either input; default resume is a new epoch after committed maintenance, while same-live-session maintenance requires recorded nested-dispatch and exclusive-worktree capability proof
 
-### Scenario S-028: Closeout close-keyword on GitHub merge
-- **Given** the GitHub backend and a `git_scope` covering merge
-- **When** Loop creates/merges the PR
-- **Then** the squash-merge subject carries `(#<id>)` and the PR body carries `Closes #<id>`
+### Scenario S-031: A direct-fix request exits rather than weakens Loop
+- **Given** readiness or provenance is blocked
+- **When** the user asks to bypass the contract and fix directly
+- **Then** Loop records `handed_off_outside_loop`, makes no tests or production changes, states that outside work cannot claim Loop completion, and requires a later epoch to validate or audit it
 
-### Scenario S-029: Repo hard-constraints loaded and non-negotiable
-- **Given** the repo declares hard rules (e.g. `CLAUDE.md`/`AGENTS.md`)
-- **When** Loop starts
-- **Then** it loads them (from the brief's `constraints` field when orchestrated, else directly from the repo) and treats them as non-negotiable, superseding plan/scope preferences on conflict
+### Scenario S-032: Progress initialization precedes readiness work
+- **Given** Loop is invoked
+- **When** it starts
+- **Then** it snapshots pre-existing dirtiness, selects one owned progress path, persists `initialization_complete`, and only afterward performs full contract reads, oracle calls, delegation, or other writes
+
+### Scenario S-033: Readiness uses immutable committed contract identity
+- **Given** Spec and Deep Plan paths are supplied
+- **When** Loop validates them
+- **Then** both are tracked, clean, and present at reachable `contract_commit`; Loop records paths, blob IDs, tuple key, and separate `implementation_base_sha`
+
+### Scenario S-034: Lifecycle states have non-overlapping resume semantics
+- **Given** an epoch records `paused`, `terminated`, `handed_off_outside_loop`, `replacement_required`, `blocked`, or `completed`
+- **When** further work is considered
+- **Then** only live `paused` remains steerable and owns its worktree; every other state requires a new epoch, preserves disposition explicitly, and never equates handoff or block with completion
+
+### Scenario S-035: Partial maintenance never resumes implementation
+- **Given** external maintenance fails before its first commit, after only one contract commits, or with dirty contract edits
+- **When** Loop receives the result
+- **Then** it records `committed_partial` for a clean incomplete prefix or `dirty_partial` for uncommitted edits, preserves work, consumes no readiness verdict for that incomplete tuple, and emits an exact resume instruction; only `committed_complete` re-enters readiness
+
+### Scenario S-036: Delegation capability is a hard implementation gate
+- **Given** a required role is needed
+- **When** call-based capability is unavailable or unproven
+- **Then** Loop records the role and blocks or hands off without performing that role itself
+
+### Scenario S-037: Oracle attempts and verdicts have separate budgets
+- **Given** Loop requests readiness or review classification
+- **When** oracle returns a verdict or transport outcome
+- **Then** it persists the matching key before retry, permits at most two transport attempts and one substantive verdict per key, enforces lineage ceilings, and reports per-key versus lineage exhaustion distinctly
+
+### Scenario S-038: Authorization revisions are ordered and prospective
+- **Given** the authoritative principal expands, reduces, or revokes authority
+- **When** Loop receives the revision
+- **Then** it accepts only direct standalone-user or orchestrator-issued authority, persists the next revision, applies future expansion only prospectively, applies reduction or stop before the next action, and rejects stale reports
+
+### Scenario S-039: Responsibility governs Loop's completion boundary
+- **Given** authorization permits more actions than Loop owns
+- **When** Loop finishes validation
+- **Then** it performs only assigned actions and reports `merge_ready`; Backlog retains publication, landing, status, close, replacement, and cleanup in orchestrated mode
+
+### Scenario S-040: Recovered work is candidate WIP until audited
+- **Given** a replacement epoch inherits predecessor changes
+- **When** it chooses Implement or Verify mode
+- **Then** it audits all recovered work, re-establishes meaningful red evidence in isolated context from `implementation_base_sha` when chronology is not durable, and blocks rather than inferring chronology
+
+### Scenario S-041: Progress and conformance are mandatory operational artifacts
+- **Given** Loop runs without general documentation permission
+- **When** it initializes or closes out
+- **Then** it may create/update only the disclosed exact progress and conformance outputs without permission to edit contract or general docs; blocked progress remains unstaged unless authorized and merge-ready work commits final operational artifacts
+
+### Scenario S-042: Conformance acceptance requires authoritative item-specific decisions
+- **Given** the matrix contains `Diverged` or `Not-built`
+- **When** Loop determines status
+- **Then** it remains `blocked_unaccepted` unless every item records ID, rationale, accepting principal, authorization revision, and timestamp; standalone requires direct user amendment and orchestrated mode requires Backlog preauthorization
+
+### Scenario S-043: Contract-only commits have explicit disposition
+- **Given** external maintenance commits exist but implementation does not complete
+- **When** standalone Loop pauses, terminates, or hands off
+- **Then** progress records the exact contract range and whether it is local, pushed, in PR, or landed, and no contract-only publication occurs without `contract_publication_scope`
 
 ## Proposed Surface
 
 ### Inputs
 
 | Input | Required | Description |
-|-------|----------|-------------|
-| Spec path | yes | Path to the behavioral contract document. |
-| Plan path | yes | Path to the ordered, file-mapped deep plan. |
-| Issue / PR / branch / worktree | no | Optional routing hints. |
-| Authorization scope | no | `git_scope` + `doc_edits`; absent = today's separate-explicit-ask behavior (S-020). |
-| Toolchain | no | Repo-specific test/build commands + env (absolute paths). |
-| Oracle status | no | `up\|down` + `degraded_ok`; absent = oracle required (S-021). |
-| User-testing target | no | Browser tool + throwaway data location (S-022). |
-| Conformance path | no | Override only when the spec is contended (S-024). |
-| Escalation principal | no | `orchestrator` routes user-facing decisions to the orchestrator (S-025). |
-| Constraints | no | Repo hard-rules from `CLAUDE.md`/`AGENTS.md`; absent = Loop reads them directly (S-029). |
+|---|---|---|
+| Spec path and blob | yes | Tracked clean Spec at `contract_commit`. |
+| Deep Plan path and blob | yes | Tracked clean Plan at the same reachable contract commit. |
+| Invocation mode | yes | `standalone` or `orchestrated`. |
+| Authorization revision | yes | Ordered issuer, effective time, scopes, acceptances, and stop state. |
+| Responsibility | orchestrated yes | Actor ownership for readiness, implementation, publication, landing, status, replacement, and cleanup. |
+| Progress path | yes | Exact lineage-owned operational path initialized before readiness. |
+| Oracle budget | yes | Per-key attempts/verdicts and lineage ceilings. |
+| Delegation capability record | yes | Call-based role availability for the actual topology. |
+| Handoff | no | Predecessor epoch, HEAD, dirty manifest, authority, budget, and required next actor. |
+| Toolchain and user-testing target | no | Repository commands/environment and isolated browser target. |
 
-### Gates enforced
+### Authorization
 
-| Gate | When | Blocking condition |
-|------|------|---------------------|
-| Deterministic readiness | Phase 1, before any work | Unresolved open questions; scenarios without observable Then; missing Proposed Surface; Spec Quality findings that make the contract unreliable; plan missing ordered items/dependency order/validation commands/test strategy/task-to-scenario mapping; spec↔plan contradiction. |
-| Independent readiness verdict | Phase 1, after deterministic checks | Shared `spec-plan-readiness` verdict or independent oracle verdict is not implementable. |
-| Red-before-green | Per task, implement mode | No meaningful failing test confirmed. |
-| Repeated-finding escalation | Per task and final review | Same stable signature at the retry/observation threshold. |
-| Value conformance | Final review | Spec-enumerated/typed field's emitted value not reconciled. |
-| Delegate evidence sufficiency | Per delegated step | Missing required report fields, transcript-style report, unbounded raw logs, broad pasted file contents, or insufficient evidence for a gate decision without focused follow-up or a narrow context read. |
-| Coordinated validation | Closeout | Repo-prescribed validation not green. |
-| Documentation sync/audit | Closeout | Documentation drift, unsupported claims, or contract conflicts are not reported before final handoff. |
+`revision`, `issuer`, `issued_at`, `effective_at`, `git_scope`, `contract_maintenance`, `contract_publication_scope`, `doc_edits`, `issue_scope`, `conformance_acceptances`, `stop`, and original `granted_at` are persisted. Latest revision is rechecked before delegate start, push, PR, merge, or metadata mutation.
 
-### Shared Readiness Criteria
+### Responsibility
 
-| Criterion | Description |
-|---|---|
-| Spec readiness | Open Questions are resolved, scenarios have observable outcomes, user-facing surfaces are specified enough to test and implement, and Spec Quality checks do not find contract-level, scenario, surface, redundancy, ambiguity, or hidden Open Question blockers. |
-| Plan readiness | Work items are ordered and include expected affected areas, dependencies, validation commands, test strategy, risks, rollback notes, and task-to-scenario mapping. |
-| Spec-plan consistency | Planned behavior, scope, sequencing, surfaces, and validation do not contradict the Spec. |
+Standalone defaults ownership to Loop only for explicitly authorized actions. Orchestrated defaults implementation/evidence to Loop and publication, landing, status, close, replacement, and cleanup to the orchestrator.
 
-### Artifacts produced
+### Contract Identity
 
-| Artifact | Required content |
-|----------|------------------|
-| Progress doc | Structured state block (branch, worktree, phase, current task, review-cycle counts, stable finding signatures); Metadata; Task ledger; Review/escape ledger; Validation/resume log; documentation sync/audit results. |
-| Delegated task report | Compact per-task evidence summary: task ID, scenario IDs, files changed or inspected, tests and validation results, review finding signatures, blockers, and recommended next step; excludes full transcripts, exploratory reasoning dumps, unbounded raw logs, and broad pasted file contents. |
-| Context exception log | Reason a delegated report was insufficient, focused follow-up requested or narrow context read, file/range or diff slice inspected when applicable, and gate decision enabled by the extra context. |
+`contract_commit`, Spec/Plan paths and blob SHAs, tuple key, `base_branch`, `base_sha`, and separate `implementation_base_sha` are recorded. Changed implementation HEAD with unchanged blobs does not create a new readiness key.
+
+### Oracle Budget
+
+Readiness allows one substantive verdict and two transport attempts per tuple, with standalone lineage ceiling three verdicts/six attempts and orchestrated ceiling two/four. Classification allows one verdict/two attempts per stable signature and three verdicts/six attempts per lineage.
+
+### Lifecycle
+
+| State | Steer | Worktree | Resume |
+|---|---|---|---|
+| `paused` | Same live epoch | Retained exclusively | Same epoch while live |
+| `terminated` | No | Preserved or disposable by recorded state | New epoch |
+| `handed_off_outside_loop` | No | Preserved per handoff | New audited epoch |
+| `replacement_required` | No predecessor steer | Dirty work quarantined | Replacement after capability proof, else restart |
+| `blocked` | No | Preserve/clean according to dirtiness | New epoch after resolution |
+| `completed` | No | Cleanup by owner | New lineage only |
+
+### External Maintenance
+
+Requests name `Spec` or exact `Deep Plan`, `create|reconcile`, authorized paths, branch, starting commit, and linked counterpart. Reports return `committed_complete`, `committed_partial`, or `dirty_partial`, resulting commit range, final contract identity, dirty paths, and reason.
 
 ### Modes
 
-| Mode | Trigger | Behavior |
-|------|---------|----------|
-| Implement | Implementation does not yet exist | Scenario to failing test to red to implement to green to review to refactor. |
-| Verify | Implementation already exists (rebase, audit) | Confirm covering tests pass; record scenario coverage; find spec/plan gaps; do not reimplement. |
+`Implement`, `Verify`, and `Recovery audit`. Recovery audit resolves to Implement, Verify, or blocked.
+
+### Artifacts
+
+Progress contains lineage/epoch, lifecycle/phase, initialization, dirty snapshot, contract identity, authorization/responsibility, capabilities, budgets, maintenance outcome, handoff, validation, and conformance. Matrix status is `passed|blocked_unaccepted` with item-specific acceptance records.
 
 ## Open Questions
 
-1. **Where does the Spec/Plan authoring and maintenance process live?** Loop references it but does not own it. Recommendation: a dedicated spec authoring skill and plan authoring skill (or a single doc-lifecycle slash command) that Loop references by name, keeping Loop's contract free of doc mechanics.
-2. **Should a Spec/Plan open question that contains a recommendation be required to resolve to an implementing task or an explicit waiver before closeout?** Currently a recommendation can be silently absorbed as a documented gap. Recommendation: yes — require an explicit waiver-with-rationale so deferred recommendations are distinguishable from intentional non-goals.
-3. **Should Verify mode be selected automatically (by detecting existing implementation) or require an explicit flag?** Recommendation: automatic detection with a logged mode decision, overridable by an explicit input.
+None.
