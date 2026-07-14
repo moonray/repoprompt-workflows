@@ -1,38 +1,46 @@
 # Spec Conformance — Track Work Skill
 
 - **Spec:** `docs/spec/track-work.md` (Track Work Skill)
-- **Implementation:** `.agents/skills/track-work/SKILL.md`
-- **Audited:** 2026-07-10
-- **Method:** each Goal + scenario + Proposed Surface element mapped to its realization in the skill; evidence = step / section.
+- **Implementation:** `.agents/skills/track-work/SKILL.md`, `scripts/issue.sh`, and `scripts/place_on_board.sh`
+- **Audited:** 2026-07-14
+- **Method:** each goal, stable scenario, and Proposed Surface element mapped to the skill; evidence names the implementing section.
 
 ## Matrix
 
 | Item | Status | Evidence |
 |---|---|---|
-| G1 one work item per unit in one place (GitHub or file) | Conformed | "Intent" + "GitHub backend" / "File backend" |
-| G2 detect backend and apply repo label/taxonomy conventions | Conformed | "Step 0 — detect the backend" + "Step 1 — read repo conventions" |
-| G3 entry gate before any work | Conformed | "Intent" ("entry gate… no implementation… before the work has a tracking item") |
-| G4 link the detail layer, never duplicate narrative | Conformed | "Step 4 — Link the detail files" + body template |
-| G5 status lifecycle; close = landed on default branch | Conformed | "Status lifecycle" + "Closing" |
-| The backend is detected deterministically | Conformed | Step 0 (override > GitHub > file; disabled-issues fallback) |
-| Repo conventions read, GitHub labels discovered | Conformed | Step 1 (`gh label list` beats config) |
-| A tracking item is created before any work | Conformed | "Intent" entry-gate statement + GitHub step 3 |
-| Search before create avoids duplicates | Conformed | "Step 2 — Search before you create" |
-| Labels honor configured cardinality | Conformed | Step 3 (cardinality) + config schema `labels.dimensions` |
-| Detail files are linked, not duplicated | Conformed | Step 4 + body template "Detail / links" |
-| File-backend items use immutable IDs in a committed backlog | Conformed | "File backend workflow" (immutable IDs; gitignore warning) |
-| Close means landed on the default branch | Conformed | "Closing" (Fixes/Closes #N; close-gate; exempt labels) |
-| Secrets and absolute paths redacted before filing | Conformed | "Privacy / redaction before filing" |
-| Optional GitHub features apply when configured | Conformed | Step 5 (board placement) + `personas` config |
-| Missing core labels are seeded in a fresh repo | Conformed | GitHub step 0 (Ensure labels exist) |
-| Surface: inputs (request, repo conventions) | Conformed | Step 1 + classify request (Step 1 GitHub) |
-| Surface: output (item, links, status) | Conformed | body template + status lifecycle |
+| G1 one work item per unit in one place | Conformed | Intent; Step 0 prevents capability failure from creating a second ledger |
+| G2 deterministic backend identity and repo taxonomy | Conformed | Step 0 selects override/origin identity before capability; Step 1 and GitHub step 0 govern taxonomy |
+| G3 entry gate before any work | Conformed | Intent entry-gate statement; GitHub and file workflows |
+| G4 link detail rather than duplicate narrative | Conformed | GitHub step 4; issue body template |
+| G5 lifecycle; close means landed on default | Conformed | Status lifecycle; Closing |
+| S-001 backend follows durable repository identity | Conformed | Step 0 selection order: confirmed override, GitHub origin, file identity |
+| S-002 GitHub capability failure stops | Conformed | Step 0 capability probes and stop-before-write rule |
+| S-003 disabled Issues requires explicit choice | Conformed | Step 0 treats `hasIssuesEnabled=false` as blocked and requires confirmed override |
+| S-004 conventions and GitHub labels discovered | Conformed | Step 1; `gh label list` authority |
+| S-005 tracking item precedes work | Conformed | Intent entry gate; Do/Don't |
+| S-006 search before create | Conformed | GitHub step 2 |
+| S-007 label cardinality without surprise mutation | Conformed | GitHub step 0 requires showing labels and confirmation; step 3 applies cardinality |
+| S-008 detail files linked, not duplicated | Conformed | GitHub step 4; body template |
+| S-009 file items use immutable IDs in committed backlog | Conformed | File backend workflow |
+| S-010 close means landed on default | Conformed | Closing |
+| S-011 secrets and local paths redacted | Conformed | Privacy / redaction before filing |
+| S-012 configured optional GitHub features | Conformed | GitHub step 5; persona handling |
+| S-013 backend selection observable | Conformed | Step 0 requires compact backend, selected-by, and capability diagnostic; forbids invented historical causes |
+| S-014 migration journaled and recoverable | Conformed | Ledger migration requires a pre-mutation external journal, source revisions, idempotency markers, row-level read-back, resumability, and separate retirement confirmation |
+| S-015 GitHub operations bound to canonical repo | Conformed | Step 0 normalizes exact origin forms; every example uses `-R "$REPO"`; Project helper requires and verifies canonical issue URL |
+| S-016 file operations confined/serialized/atomic | Conformed | `issue.sh` validates IDs/scalars/path, rejects symlinks, locks mutations, and atomically renames same-directory temporary files; `scripts/test_issue.sh` covers traversal, invalid input, lifecycle, creation, and index integrity |
+| S-017 full lifecycle on both backends | Conformed | `issue.sh status/block/unblock/close/reopen`; open means every non-closed state; Closing requires landed evidence and read-back |
+| S-018 private isolated body staging | Conformed | GitHub step 3 uses `umask 077`, `mktemp`, cleanup trap, redaction-before-write, and repository-bound read-back |
+| S-019 unattended callers never prompt | Conformed | Caller mode section; Backlog invokes noninteractive and collects predictable taxonomy approval in its sole wizard |
+| Surface inputs | Conformed | Step 1 request and repo conventions |
+| Surface outputs item, links, status, backend | Conformed | Body template; lifecycle; Step 0 diagnostic |
 
 ## Coverage proof
 
-- **audited:** Goals 1–5; all 11 scenarios; Proposed Surface (inputs; output)
+- **audited:** Goals 1–5; S-001–S-019; Proposed Surface inputs and outputs; both helper scripts
 - **unreconciled:** []
 
 ## Notes
 
-Backend detection, the entry gate, label cardinality, immutable IDs, the close-on-default-branch rule, and redaction all match the spec. No drift found.
+The 2026-07-14 re-audit includes executable helpers after adversarial review. Repository identity is explicit, capability failures block without fallback, file mutations are confined/serialized/atomic, the lifecycle is implemented, issue bodies use private staging, and migration is journaled. Label seeding, persistent overrides, migration, and source retirement require authorization; unattended callers block instead of prompting.

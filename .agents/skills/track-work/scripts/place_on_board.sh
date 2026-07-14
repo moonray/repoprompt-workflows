@@ -1,73 +1,57 @@
 #!/usr/bin/env bash
-# Place a GitHub issue onto a Project board with a given single-select field value.
-# Generic: owner/project/field are resolved at runtime from flags, env, or the
-# git origin remote. No hardcoded org/project.
-#
-# Usage:
-#   place_on_board.sh <issue-url-or-number> "<option>" [--owner O] [--project P] [--field F]
-#   option ∈ the field's single-select values (e.g. Draft, Backlog, "In Progress", Review, Blocked)
-#
-# Examples:
-#   place_on_board.sh 4 Backlog --owner <github-owner> --project 1 --field Stage
-#   place_on_board.sh "$(gh issue view 4 --json url --jq .url)" "In Progress"
-#
-# Env overrides: TW_BOARD_OWNER, TW_BOARD_PROJECT, TW_BOARD_FIELD
+# Place one canonical GitHub issue URL on a Project single-select field.
 set -euo pipefail
 
-command -v jq >/dev/null || { echo "jq is required"; exit 1; }
-command -v gh  >/dev/null || { echo "gh is required"; exit 1; }
+command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
+command -v gh >/dev/null || { echo "gh is required" >&2; exit 1; }
 
-[ $# -ge 2 ] || { echo "usage: place_on_board.sh <issue-url|number> <option> [--owner O] [--project P] [--field F]"; exit 1; }
-ISSUE="$1"; STAGE="$2"; shift 2
-
+usage() { echo "usage: place_on_board.sh <https://github.com/OWNER/REPO/issues/N> <option> --owner O --project P [--field F]" >&2; exit 1; }
+[ $# -ge 2 ] || usage
+ISSUE=$1; STAGE=$2; shift 2
 OWNER="${TW_BOARD_OWNER:-}"; PROJECT="${TW_BOARD_PROJECT:-}"; FIELD="${TW_BOARD_FIELD:-Stage}"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --owner)   OWNER="$2"; shift 2;;
-    --project) PROJECT="$2"; shift 2;;
-    --field)   FIELD="$2"; shift 2;;
-    *) echo "unknown arg: $1" >&2; exit 1;;
+    --owner|--project|--field) [ $# -ge 2 ] || usage;;
+    *) usage;;
   esac
+  case "$1" in --owner) OWNER=$2;; --project) PROJECT=$2;; --field) FIELD=$2;; esac
+  shift 2
 done
 
-# Resolve a bare issue number to its URL (gh already has repo context).
-if [[ "$ISSUE" =~ ^[0-9]+$ ]]; then
-  ISSUE=$(gh issue view "$ISSUE" --json url --jq '.url')
+[[ "$ISSUE" =~ ^https://github\.com/([^/]+)/([^/]+)/issues/([0-9]+)$ ]] || { echo "canonical GitHub issue URL required: $ISSUE" >&2; exit 1; }
+ISSUE_OWNER=${BASH_REMATCH[1]}; ISSUE_REPO=${BASH_REMATCH[2]}; NUM=${BASH_REMATCH[3]}
+[ -n "$OWNER" ] || OWNER=$ISSUE_OWNER
+[ -n "$PROJECT" ] || { echo "--project is required" >&2; exit 1; }
+
+# Verify that the URL still identifies the intended repository before mutation.
+CANONICAL=$(gh issue view "$NUM" -R "$ISSUE_OWNER/$ISSUE_REPO" --json url --jq .url)
+[ "$CANONICAL" = "$ISSUE" ] || { echo "issue identity mismatch: $CANONICAL" >&2; exit 1; }
+
+projects=$(gh project list --owner "$OWNER" --limit 100 --format json)
+if [[ "$PROJECT" =~ ^[0-9]+$ ]]; then
+  PROJECT_NUM=$PROJECT
+else
+  PROJECT_NUM=$(jq -r --arg title "$PROJECT" '.projects[] | select(.title==$title) | .number' <<<"$projects")
 fi
-NUM="${ISSUE##*/}"
+[ -n "$PROJECT_NUM" ] && [ "$PROJECT_NUM" != null ] || { echo "project not found for owner $OWNER" >&2; exit 1; }
+PROJECT_ID=$(jq -r --argjson number "$PROJECT_NUM" '.projects[] | select(.number==$number) | .id' <<<"$projects")
+[ -n "$PROJECT_ID" ] && [ "$PROJECT_ID" != null ] || { echo "project ID not found: $OWNER/$PROJECT_NUM" >&2; exit 1; }
 
-# Default owner from the origin remote (git@github.com:OWNER/NAME.git or https://github.com/OWNER/NAME).
-if [ -z "$OWNER" ]; then
-  REMOTE=$(git remote get-url origin 2>/dev/null || true)
-  OWNER=$(printf '%s\n' "$REMOTE" | sed -E 's#.*(github.com[:/])([^/]+)/.*#\2#')
+fields=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --limit 100 --format json)
+FIELD_ID=$(jq -r --arg field "$FIELD" '.fields[] | select(.name==$field) | .id' <<<"$fields")
+OPT_ID=$(jq -r --arg field "$FIELD" --arg stage "$STAGE" '.fields[] | select(.name==$field) | .options[]? | select(.name==$stage) | .id' <<<"$fields")
+[ -n "$FIELD_ID" ] && [ "$FIELD_ID" != null ] || { echo "field '$FIELD' not found on project $PROJECT_NUM" >&2; exit 1; }
+[ -n "$OPT_ID" ] && [ "$OPT_ID" != null ] || { echo "option '$STAGE' not found on field '$FIELD'" >&2; exit 1; }
+
+if ! ITEM_JSON=$(gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$ISSUE" --format json 2>&1); then
+  # Preserve non-idempotency errors. Only search after item-add reports an existing item.
+  case "$ITEM_JSON" in *already*|*exists*) :;; *) printf '%s\n' "$ITEM_JSON" >&2; exit 1;; esac
+  items=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --limit 1000 --format json)
+  ITEM_ID=$(jq -r --arg url "$ISSUE" '.items[] | select(.content.url==$url) | .id' <<<"$items")
+else
+  ITEM_ID=$(jq -r .id <<<"$ITEM_JSON")
 fi
-[ -n "$OWNER" ]   || { echo "couldn't infer --owner (no origin remote?); pass --owner"; exit 1; }
-[ -n "$PROJECT" ] || { echo "--project (number or name) is required"; exit 1; }
+[ -n "$ITEM_ID" ] && [ "$ITEM_ID" != null ] || { echo "could not add or find $ISSUE on project $OWNER/$PROJECT_NUM" >&2; exit 1; }
 
-# If a project name was given, resolve it to a number.
-if ! [[ "$PROJECT" =~ ^[0-9]+$ ]]; then
-  PROJECT=$(gh project list --owner "$OWNER" --format json \
-    --jq '.projects[] | select(.title=="'"$PROJECT"'") | .number')
-  [ -n "$PROJECT" ] || { echo "project not found for owner $OWNER"; exit 1; }
-fi
-
-PROJECT_ID=$(gh project list --owner "$OWNER" --format json \
-  --jq '.projects[] | select(.number=='"$PROJECT"') | .id')
-FIELD_ID=$(gh project field-list "$PROJECT" --owner "$OWNER" --format json \
-  --jq '.fields[] | select(.name=="'"$FIELD"'") | .id')
-OPT_ID=$(gh project field-list "$PROJECT" --owner "$OWNER" --format json \
-  --jq '.fields[] | select(.name=="'"$FIELD"'") | .options[] | select(.name=="'"$STAGE"'") | .id')
-
-[ -n "$FIELD_ID" ] || { echo "field '$FIELD' not found on project $PROJECT — create it (see SKILL.md)."; exit 1; }
-[ -n "$OPT_ID" ]   || { echo "option '$STAGE' not found on field '$FIELD'."; exit 1; }
-
-# Add to the board (idempotent: if already added, look up the existing item).
-ITEM_ID=$(gh project item-add "$PROJECT" --owner "$OWNER" --url "$ISSUE" --format json --jq '.id' 2>/dev/null) || \
-  ITEM_ID=$(gh project item-list "$PROJECT" --owner "$OWNER" --format json \
-    --jq '.items[] | select((.content.number // 0)=='"$NUM"') | .id')
-[ -n "$ITEM_ID" ] || { echo "could not add or find issue #$NUM on project $PROJECT."; exit 1; }
-
-gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
-  --field-id "$FIELD_ID" --single-select-option-id "$OPT_ID" >/dev/null
-
-echo "✓ issue #$NUM → $FIELD=$STAGE (project $OWNER/$PROJECT)"
+gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPT_ID" >/dev/null
+echo "issue $ISSUE -> $FIELD=$STAGE (project $OWNER/$PROJECT_NUM)"
