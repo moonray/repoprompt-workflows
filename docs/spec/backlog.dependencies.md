@@ -137,7 +137,7 @@ flowchart TD
 
 | Part | Responsibility |
 |---|---|
-| **track-work** | Backend-agnostic status ledger. Auto-detects GitHub vs file backend; creates/updates one tracking item per work item, applies the repo's label taxonomy, links detail files, and handles the close lifecycle (incl. the exempt-close batch). **The load-bearing dependency** — Backlog's discovery, blocked-marking, and close all route through it. |
+| **track-work** | Backend-agnostic status ledger. Selects GitHub vs file from override/origin identity, blocks rather than silently falling back when capability is unavailable, creates/updates one item per work item, applies labels/status lifecycle, links spec/plan/progress, and owns close semantics. |
 | **spec-plan-readiness** | Deterministic go/no-go gate run before implementation: checks for missing inputs, unresolved spec blockers, incomplete/contradictory plans, task↔scenario traceability, scenario→test-layer mapping, and selects the first safe task. A `blocked` verdict authorizes no code. |
 | **spec-conformance** | Section-by-section spec-vs-implementation audit producing a Conformed/Diverged/Not-built matrix with coverage proof. Required at closeout — Backlog checks the matrix exists and that every Diverged/Not-built item is accepted with reason. Emits `docs/spec/<spec>.conformance.md` (canonical path; Backlog serializes contended specs rather than renaming it). |
 | **user-testing** | Verifies a frontend change actually works for the user by driving the real rendered UI through actual workflows, screenshotting each step (or an explicit user hand-off), against a **throwaway/isolated data location — never the user's real environment data**. Automated tests passing is not sufficient for UI closeout. |

@@ -47,7 +47,7 @@ A stable contract is needed so future changes are made against what Backlog guar
 ### Scenario S-001: Discovery is backend-agnostic via track-work
 - **Given** a run is starting
 - **When** Backlog discovers open work items
-- **Then** it goes through the track-work skill (which auto-detects GitHub vs file backend) and never calls `gh` or reads issues directly
+- **Then** it uses track-work noninteractively, which selects backend from trusted override/origin identity, binds GitHub operations to the canonical repository, and blocks on unavailable capability without prompting or reading a fallback ledger
 
 ### Scenario S-002: Triage order is bugs, then priority, then ease
 - **Given** the discovered open, non-exempt items

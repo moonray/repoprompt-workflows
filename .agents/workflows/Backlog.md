@@ -30,7 +30,7 @@ This is a sibling of **Orchestrate**, not a wrapper: Orchestrate decomposes one 
 
 ## Phase 1 — Discover and triage (silent)
 
-Using the **track-work** skill (it auto-detects the backend in its Step 0), gather open items. Separate them into two lists:
+Using **track-work** in `caller_mode: noninteractive` (ledger selected from trusted override/origin identity, then capability-probed), gather open items. If identity or capability is blocked, stop before the wizard rather than reading a fallback ledger.
 
 - **Work queue** — open, non-exempt items, sorted: `type:bug` first; then `priority` `p0 → p1 → p2 → p3`; then ease (small / labeled-effort before large; unlabeled last).
   - **GitHub:** `gh issue list --state open --json number,title,labels,body` (via track-work).
@@ -68,6 +68,7 @@ Then ask everything once via `ask_user`, then proceed unattended:
 6. **Escalation policy** — `autonomous` (default: decide-or-block) or `conservative` (treat oracle-decidable ambiguities as blocked).
 7. **Max issues this run** (optional cap; this is the **autonomy contract** — the orchestrator drains the queue ≤3-concurrent with zero "proceed to next batch?" asks). If concurrent orchestration elsewhere is `yes` or `unknown`, default this run to **one dispatch-at-a-time** unless the user explicitly selects a higher local ceiling; this reduces shared provisioning contention but does not claim to eliminate it.
 8. **Retain for inspection** — `retain_for_inspection` (default **off**). When off, the end-of-run cleanup pass reaps closed-issue sessions and merged-issue worktrees (default-clean). When on, removal is deferred to a one-command, ledger-driven sweep you trigger manually (the ledger carries every `worktree_id`/path + branch). `backlog/*` branches are kept either way.
+9. **Track-work repository mutations** — approve or decline any preflighted missing-label seed/config mutation. Migration is never performed by Backlog. A later unanticipated confirmation returns the item blocked; no mid-run prompt.
 
 **Persist the wizard answers and authorization scope** (`git_scope`, `doc_edits=false` unless doc edits are authorized, `issue_scope` = the triaged track-work IDs, `granted_at`) into `docs/progress/backlog-<run>.md` at Phase 2 — this is what makes the run resumable without re-asking. State the invariants in the wizard prompt so the user sees them.
 
