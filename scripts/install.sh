@@ -64,7 +64,7 @@ manage() {
 # Safe: parses JSON via python3, backs up before writing, never duplicates an entry, honors --dry-run/--uninstall, non-fatal.
 register_claude_settings() {
   local settings="$HOME/.claude/settings.json"
-  local regs='[{"event":"PostToolUse","matcher":"Bash","command":"~/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"~/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"~/.claude/hooks/test-quality-reminder.py"}]'
+  local regs='[{"event":"PostToolUse","matcher":"Bash|Skill","command":"~/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"~/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"~/.claude/hooks/test-quality-reminder.py"}]'
   if ! command -v python3 >/dev/null 2>&1; then
     echo "  skip     $settings (python3 not found — register hooks manually; see .agents/hooks/README.md)" >&2
     SKIPPED=$((SKIPPED+1)); return

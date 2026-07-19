@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Claude Code hook: keep test work run + vetted with the test-quality skill.
+"""Claude Code hook: keep test work run AND vetted with the test-quality skill.
 
-Wired to two events in ~/.claude/settings.json:
-  PostToolUse (Bash, test-run command): record a last-run marker for the repo and
-    emit a reminder to vet added/modified tests with the test-quality skill.
-  Stop: if any uncommitted test file was edited since the last test run, block the
-    stop and ask to run + vet first. edit->run->stop is allowed; edit->stop is not.
-    Running the suite (or committing/cleaning the tests) is the escape, so it never traps.
+Wired to two events in ~/.claude/settings.json. IMPORTANT: the PostToolUse matcher
+must be "Bash|Skill" (not just "Bash") — Skill invocations stamp the skill marker that
+the Stop gate needs. On a machine where the matcher lacks "Skill", the skill half can
+never clear and test edits require commit/clean to stop (the always-available escape).
+
+  PostToolUse (Bash test-run, or Skill "test-quality"): record a last-run marker
+    (a test run) or a skill marker (an actual Skill-tool invocation) for the repo.
+    A test run also emits a reminder to vet added/modified tests with the skill.
+  Stop: block if any uncommitted test file was edited since the LATER of {last test
+    run, last test-quality skill invocation}. edit->run->invoke-skill->stop is allowed;
+    edit->run->stop (skill skipped or "applied from context") is NOT. This closes the
+    loophole where an agent runs the suite and rationales the checklist from memory.
+    Committing/cleaning the tests is always an escape, so it never traps.
 
 Source of truth: `.agents/hooks/test-quality-reminder.py` in this repo; symlink it into your runtime's hooks directory (e.g. `~/.claude/hooks/`).
 """
@@ -28,10 +35,15 @@ VET_REMINDER = (
     "layer; (4) consolidate equivalent branch cases."
 )
 STOP_REASON = (
-    "TEST QUALITY GATE: uncommitted test files changed since the last test run. Run the "
-    "affected suite, then run the test-quality skill to vet added/modified tests before "
-    "stopping. (Committing/cleaning test changes also clears this gate.)"
+    "TEST QUALITY GATE: uncommitted test files changed since the last test run AND the last "
+    "test-quality skill invocation. After editing tests you must BOTH (1) run the affected "
+    "suite AND (2) invoke the test-quality skill (Skill tool) to vet the changes — each after "
+    "the last edit. Applying the checklist 'from context' does not count; the skill must be "
+    "actually invoked. (Committing/cleaning test changes also clears this gate.)"
 )
+
+# The skill name whose actual Skill-tool invocation clears the second half of the Stop gate.
+_TEST_QUALITY_SKILL = "test-quality"
 
 # --- Test-run command detection ------------------------------------------------
 # Match only real command-position invocations, not the bare words "pytest"/"jest"/"test"
@@ -192,6 +204,12 @@ def lastrun_path(root):
     return os.path.join(CACHE_DIR, f"lastrun-{key}")
 
 
+def skill_path(root):
+    """Marker touched when the test-quality Skill is actually invoked (not 'applied from context')."""
+    key = hashlib.sha1(root.encode()).hexdigest()[:12]
+    return os.path.join(CACHE_DIR, f"tqskill-{key}")
+
+
 def dirty_test_files(root):
     try:
         out = subprocess.run(
@@ -223,8 +241,9 @@ def main():
     os.makedirs(CACHE_DIR, exist_ok=True)
 
     if event == "PostToolUse":
-        cmd = (payload.get("tool_input") or {}).get("command", "") or ""
-        if is_test_run_command(cmd):
+        tool_name = payload.get("tool_name", "")
+        ti = payload.get("tool_input") or {}
+        if is_test_run_command(ti.get("command", "") or ""):
             # Touch the last-run marker (its mtime = last run time for this repo).
             try:
                 open(lastrun_path(root), "w").close()
@@ -236,17 +255,29 @@ def main():
                     "additionalContext": VET_REMINDER,
                 }
             }))
+        elif tool_name == "Skill" and ti.get("skill") == _TEST_QUALITY_SKILL:
+            # The test-quality skill was actually invoked (not 'applied from context'):
+            # stamp the skill marker so the Stop gate's second half can clear.
+            try:
+                open(skill_path(root), "w").close()
+            except Exception:
+                pass
     elif event == "Stop":
         tests = dirty_test_files(root)
         if not tests:
             sys.exit(0)
-        lr = lastrun_path(root)
-        lastrun_ts = os.path.getmtime(lr) if os.path.exists(lr) else 0.0
         newest_edit = max(
             (os.path.getmtime(t) for t in tests if os.path.exists(t)),
             default=0.0,
         )
-        if newest_edit > lastrun_ts:
+        lr = lastrun_path(root)
+        lastrun_ts = os.path.getmtime(lr) if os.path.exists(lr) else 0.0
+        sk = skill_path(root)
+        skill_ts = os.path.getmtime(sk) if os.path.exists(sk) else 0.0
+        # Two gates must both clear after the last test edit: the suite was run AND the
+        # test-quality skill was invoked. newest_edit newer than either marker means that
+        # step is still owed (closes the 'applied from context' loophole).
+        if newest_edit > lastrun_ts or newest_edit > skill_ts:
             print(json.dumps({"decision": "block", "reason": STOP_REASON}))
 
     sys.exit(0)

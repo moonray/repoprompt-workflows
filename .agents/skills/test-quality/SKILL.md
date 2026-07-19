@@ -19,7 +19,7 @@ Before adding a test, work through this in order:
 
 1. **Name the behavior and a plausible defect** — a user failure, data loss, protocol or security break, race, persistence error, malformed input, or costly operational failure. If you cannot name a concrete defect, do not add the test.
 2. **Search existing coverage** — direct tests and outcome-level assertions that already protect this behavior.
-3. **Define an oracle** that distinguishes broken from fixed behavior (an exact observable outcome, not "does not crash").
+3. **Define an oracle that covers the bug population.** It must distinguish broken from fixed behavior (an exact observable outcome, not "does not crash") and be drawn from the population where the bug actually manifests. Validating a fix only against inputs that *don't* exhibit the bug — e.g. a decoder checked only against rows that already carry the decoded text, when the bug lives in rows that don't — proves nothing about the fix. If no oracle exists for the bug population, say so explicitly; sampling it by eye is investigation, not verification (see Diagnostics vs coverage).
 4. **Choose the lowest layer** that faithfully reproduces the risk (see Layer selection).
 5. **Decide**: add, consolidate into an existing test, redesign, classify as a diagnostic (see Diagnostics vs coverage), or omit.
 
@@ -36,6 +36,7 @@ For a bug fix, prefer a test that fails against the known-bad behavior before th
 7. Avoid mocks that reimplement production logic unless the mock behavior itself is the point.
 8. For bug fixes, prove the regression test fails on the current buggy code and reproduces the reported symptom before trusting it.
 9. Keep tests deterministic, isolated, and easy to diagnose.
+10. For a bug fix, the oracle must cover the **bug population** — the inputs/rows/states where the bug manifests — not just the easy cases where behavior is already correct. A test that passes only on non-bug inputs protects the status quo, not the fix.
 
 ## Layer selection
 
@@ -126,6 +127,7 @@ Before keeping a test, ask:
 5. Is it deterministic and isolated?
 6. Is it redundant with stronger coverage elsewhere?
 7. Would a future maintainer understand the fixture and expected result?
+8. If this is a bug fix, does the oracle cover the bug population (where the bug manifests), not just cases that already work?
 
 If the answer is weak, consolidate, move to a lower layer, convert to a smoke/diagnostic, or delete it.
 
