@@ -24,7 +24,7 @@ After selecting GitHub, probe capability in order and retain the exact failing c
 ```bash
 command -v gh
 gh auth status
-gh repo view -R "$REPO" --json nameWithOwner,hasIssuesEnabled
+gh repo view "$REPO" --json nameWithOwner,hasIssuesEnabled
 ```
 
 - If all probes pass, `nameWithOwner` equals `$REPO`, and `hasIssuesEnabled` is true, proceed with GitHub. Retain `$REPO` and pass `-R "$REPO"` to every repository-scoped `gh` command; do not trust ambient `GH_REPO` or current-directory inference.
@@ -111,7 +111,7 @@ OWNER=$(git remote get-url origin | sed -E 's#.*(github.com[:/])([^/]+)/.*#\2#')
 gh project list --owner "$OWNER" --limit 100 2>/dev/null                              # board?
 ls .github/workflows/ 2>/dev/null | grep -i 'close'                                 # close-gate?
 grep -oE '[A-Z0-9_]*(KEY|TOKEN|SECRET)[A-Z0-9_]*' .env.example 2>/dev/null | sort -u   # secrets?
-gh repo view -R "$REPO" --json visibility 2>/dev/null                               # public?
+gh repo view "$REPO" --json visibility 2>/dev/null                               # public?
 ls docs/ 2>/dev/null                                                                # detail dirs?
 find docs -iname '*persona*' 2>/dev/null | head                                    # personas?
 gh label list -R "$REPO" --json name --jq '.[].name' 2>/dev/null | sed -E 's/:.*//' | sort -u   # custom prefixes?
@@ -151,7 +151,7 @@ gh issue list -R "$REPO" --state all --search "<keywords>" --json number,title,s
 If a match exists → update it (comment / relabel / reopen) instead of duplicating. Cross-link with `#<n>`.
 
 ### 3. Create the issue
-Apply labels from the repo's actual set (`gh label list -R "$REPO"`), honoring configured cardinality. Run deterministic redaction before writing. Use a private unique temp file, bind creation to `$REPO`, clean up on every exit, then read back the canonical URL and repository identity.
+Apply labels from the repo's actual set (`gh label list -R "$REPO"`), honoring configured cardinality. Run deterministic redaction before writing. Use a private unique temp file, bind creation to `$REPO`, clean up on every exit, then read back the canonical URL (and confirm it is at `$REPO`).
 ```bash
 umask 077
 BODY=$(mktemp "${TMPDIR:-/tmp}/track-work.XXXXXX") || exit 1
@@ -159,7 +159,7 @@ trap 'rm -f "$BODY"' EXIT HUP INT TERM
 # Write the already-redacted body to "$BODY".
 URL=$(gh issue create -R "$REPO" --title "<imperative title, <=80 chars>" \
   --label "type:bug,area:ui,priority:p1,status:draft" --body-file "$BODY")
-gh issue view "$URL" -R "$REPO" --json url,repository
+gh issue view "$URL" -R "$REPO" --json url
 ```
 
 ### 4. Link the detail files
