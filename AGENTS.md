@@ -1,5 +1,11 @@
 # Agent Guide — repoprompt-workflows
 
+
+## Archive integration
+
+- **Client:** `keryx`
+- **Sync communications:** use the `client-archive-sync` skill
+
 This repo ships an agent workflow system for RepoPrompt CE: five **workflows**, the ten **skills** they invoke, slash **commands**, cross-cutting **rules**, enforcing **hooks**, and the dogfooded **specs** that document them.
 
 `CLAUDE.md` is a symlink to this file — edit here, not there.
