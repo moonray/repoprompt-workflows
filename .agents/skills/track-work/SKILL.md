@@ -269,10 +269,12 @@ Before writing any temporary body or creating either backend item, run a determi
 - **Do** stop on GitHub capability failure instead of creating a second ledger.
 - **Do** discover labels from `gh label list`; honor configured cardinality.
 - **Do** name the locking test in the close comment when the repo locks fixes with a test.
+- **Do** verify explicit ownership before claiming work is tracked: an item tracks the work only through its primary scope or a concrete acceptance criterion with an actionable completion condition — narrative mention in another item's body, a report, a caution banner, or a spec doc is **not** tracking. Consequential work (especially P0/P1) gets a dedicated item unless an existing item explicitly owns the same work; never create a duplicate when an authoritative equivalent exists. Any "tracked in #N" claim must first verify #N actually carries that obligation.
 - **Don't** put a full deep-plan or spec inside the item body — link the file.
 - **Don't** write a backend override, seed labels, or retire a source ledger without the required confirmation.
 - **Don't** append new reports to anything in `legacy_paths_do_not_write` — create an item instead.
 - **Don't** invent labels outside the repo's set; ask the user (or extend the config) if a new area/type is genuinely needed.
+- **Don't** cache ledger state across commitments — the ledger is shared and mutable by other actors (humans, other agents) while you work. Re-read authoritative item state at commitment boundaries: before assigning or dispatching, before changing open/blocked/done state, before closing/replacing/claiming completion, and after any indication of external change.
 
 ## Multi-runtime discovery
 

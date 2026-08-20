@@ -264,6 +264,16 @@ A stable standalone-first contract is needed so Loop remains useful on its own w
 - **When** standalone Loop pauses, terminates, or hands off
 - **Then** progress records the exact contract range and whether it is local, pushed, in PR, or landed, and no contract-only publication occurs without `contract_publication_scope`
 
+### Scenario S-044: Unreturned delegate reports are failures with bounded recovery
+- **Given** a dispatched delegate's report has not arrived and its journal/transcript is stale
+- **When** independent sources (progress doc, worktree state, artifacts) show no advancement
+- **Then** the unit is treated as failed after corroboration (no single absence signal establishes death), one recovery attempt is made from the checkpoint, and a second silent death routes to the infrastructure-failure exception or blocked — never a third dispatch
+
+### Scenario S-045: The infrastructure-failure exception is narrow and never self-reviewed
+- **Given** the same delegated unit has two confirmed infrastructure-level silent deaths, a recorded checkpoint, and bounded remaining work
+- **When** Loop completes that work itself under the exception
+- **Then** the progress doc records why the gate was bypassed, both failed attempts, the checkpoint, the work self-completed, and outstanding gates; the coordinator never independently reviews its own exception work, and mandatory review keeps the result blocked/pending rather than complete
+
 ## Proposed Surface
 
 ### Inputs

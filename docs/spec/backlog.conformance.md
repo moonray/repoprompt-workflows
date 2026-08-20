@@ -64,6 +64,10 @@
 | S-053 Conformance generation and acceptance are separate | Conformed | `.agents/workflows/Backlog.md:139-150` |
 | S-054 Contract-only commits remain visible | Conformed | `.agents/workflows/Backlog.md:185-193,225-241` |
 | S-055 Lifecycle controls resume/replacement/cleanup | Conformed | `.agents/workflows/Backlog.md:172-191` |
+| S-056 In-flight silent death is detected and recovered once | Conformed | `.agents/workflows/Backlog.md:140-148` |
+| S-057 In-flight monitoring is bounded, never a poll loop | Conformed | `.agents/workflows/Backlog.md:140-148,267,323-324` |
+| S-058 Shared-ledger changes invalidate cached state at commitment boundaries | Conformed | `.agents/workflows/Backlog.md:41-44` |
+| S-059 Route degradation trips a circuit breaker | Conformed | `.agents/workflows/Backlog.md:30` |
 
 ## Proposed Surface and Constraints
 
@@ -168,6 +172,7 @@
 
 ## Coverage Proof
 
-- **audited:** S-001…S-055, 88 atomic Proposed Surface/field/enum items, and all 8 constraints.
+- **audited:** S-001…S-059, 88 atomic Proposed Surface/field/enum items, and all 8 constraints.
+(Rows S-056…S-059 added 2026-08-19 together with the scenarios and their workflow implementation; earlier rows unchanged from the prior audit.)
 - **unreconciled:** none.
 - **status:** `passed`.

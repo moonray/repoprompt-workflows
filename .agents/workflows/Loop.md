@@ -125,6 +125,10 @@ Each delegated test, implementation, review, or refactor report must be compact 
 
 Loop may not advance a task gate until the delegate report satisfies this evidence contract. Transcript-style reports, exploratory reasoning dumps, unbounded raw logs, broad pasted file contents, or missing required report fields block the gate.
 
+**A delegate report that never arrives is failure, not patience.** A dispatched delegate can die silently — journal stuck at `started`, transcript stale, and no independent source (progress doc, worktree state, artifacts) shows advancement. Corroborate through those independent sources before concluding anything; no single absence signal establishes death (a delegate may be thinking or doing long read-only work). After one recovery attempt (fresh brief referencing the checkpoint) fails the same way, apply the infrastructure-failure exception below.
+
+**Infrastructure-failure exception — the only sanctioned coordinator substitution.** The coordinator never substitutes for delegated implementation, test authoring, review, or refactor, with one narrow exception. When **all** of the following hold: the same delegated unit has suffered two confirmed infrastructure-level silent deaths; a recorded checkpoint identifies the remaining work; that work is bounded for the coordinator's current context; and performing it violates no repository policy and needs no unavailable credential/capability — the coordinator may finish the remaining bounded implementation or test execution itself, recording in the progress doc: why the gate was bypassed, the two failed attempts, the checkpoint used, which work it completed itself, and which quality gates remain outstanding. The coordinator must never act as the independent reviewer of work it authored: when independent review is mandatory and delegation remains unavailable, the result stays `blocked`/pending review, never complete. High-risk, broad, or poorly-checkpointed work blocks or hands to the operator instead of being absorbed in-session.
+
 If the report lacks enough evidence for a gate decision, ask the same delegate for a focused follow-up or read the narrowest relevant file slice yourself. Record why the report was insufficient, what follow-up or narrow context was used, and which gate decision it enabled. Do not pull the entire task-local working set into orchestrator context.
 
 ## Phase 5: Per-task loop
@@ -188,6 +192,7 @@ Progress and conformance are mandatory operational artifacts at disclosed paths 
 - **No meaningful red test:** stop and ask for Spec/Plan correction.
 - **Repeated P0/P1:** ask oracle to classify after the repeat threshold; document false positives, return core issues to implementation, or stop on futility.
 - **Insufficient delegate evidence:** ask the same delegate for a focused follow-up or inspect the narrowest relevant context needed for the gate; do not absorb the whole task context.
+- **Delegation infrastructure dead (silent death ×2):** after one failed recovery attempt for the same delegated unit, apply the infrastructure-failure exception (see the delegation contract) — never a third dispatch into the dead path.
 - **Parallel risk:** serialize tasks when file overlap, dependency order, or validation lane conflict is unclear.
 - **Long validation:** use async conductor tickets where available; otherwise serialize and record command evidence.
 - **Low-impact refactor:** skip and document rationale rather than churn code.
@@ -212,6 +217,6 @@ Progress and conformance are mandatory operational artifacts at disclosed paths 
 - 🚫 Labeling a unit or contract test as user-testing, or running user-testing against the user's real environment data.
 - 🚫 Treating authorization as responsibility, or performing publication/landing/status/close/replacement/cleanup assigned to Backlog. Orchestrated Loop stops at `merge_ready`.
 - 🚫 Ignoring the repo's hard constraints (`CLAUDE.md`/`AGENTS.md`) — they supersede plan/scope preferences.
-- 🚫 (GitHub, merge authorized) squash-merging without `(#<id>)` in the subject and `Closes #<id>` in the PR body.
+- 🚫 Treating an unreturned delegate report as "still working" indefinitely, or absorbing delegated work in-session without the two-death + checkpoint + bounded-scope preconditions of the infrastructure-failure exception — and never self-reviewing work completed under it.
 
 Now begin by reading the Spec and Deep Plan paths from the input.

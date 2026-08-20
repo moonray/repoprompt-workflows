@@ -129,6 +129,16 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **When** an operation would require confirmation or unavailable capability
 - **Then** preflightable approvals are collected in the caller's sole authorization step and later discoveries return blocked with a reason rather than prompting or mutating silently
 
+### Scenario S-020: Tracked means explicitly owned
+- **Given** a defect or consequential finding is mentioned narratively in another item's body, a report, or a spec document
+- **When** an agent claims the work is tracked
+- **Then** the claim is valid only if an authoritative item carries it in its primary scope or a concrete acceptance criterion; otherwise a dedicated item is created (preferred for P0/P1) or an existing explicitly-owning item is updated, without duplicating an authoritative equivalent
+
+### Scenario S-021: Ledger rereads at commitment boundaries
+- **Given** the ledger is shared and mutable by other actors
+- **When** an agent reaches a commitment boundary (assigning/dispatching, changing open/blocked/done state, closing/replacing/claiming completion, or detecting external change)
+- **Then** authoritative item state is re-read rather than carried from discovery
+
 ## Proposed Surface
 
 ### Inputs

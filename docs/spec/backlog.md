@@ -322,6 +322,26 @@ Backlog needs a precise orchestration contract that preserves Loop's standalone 
 - **When** Backlog considers steer/replace/clean
 - **Then** only live paused is steerable, terminal states need new epoch, dirty replacement work is preserved, outside handoff is not completion, and only safely disposable state cleans
 
+### Scenario S-056: In-flight silent death is detected and recovered once
+- **Given** a dispatched Loop is confirmed `running` with a recorded expected milestone and checkpoint
+- **When** the milestone passes overdue with no advancing result, independent sources (log freshness, worktree state, artifacts) show no progress, and a bounded steer produces neither checkpoint nor renewed progress
+- **Then** the delegated unit is treated as failed, one recovery attempt is made from the checkpoint consuming the dispatch attempt allowance, and a second silent death of the same unit stops dispatch (Loop escape hatch only if its preconditions hold, else blocked with a resumable operator handoff)
+
+### Scenario S-057: In-flight monitoring is bounded, never a poll loop
+- **Given** Loops are in flight and the wait path may not block
+- **When** Backlog monitors progress
+- **Then** every check ties to a milestone condition with a deadline/attempt budget and backoff and can change the next action; a persistent watchdog/poll-loop agent is never used
+
+### Scenario S-058: Shared-ledger changes invalidate cached state at commitment boundaries
+- **Given** another actor may close items or land equivalent code mid-run
+- **When** Backlog reaches a commitment boundary (dispatch, accepting/verifying a result, status mutation or closure, landing)
+- **Then** it re-reads authoritative item state and refreshes the integration target first; externally completed work stops duplicate implementation/closure and is verified against the task's requirements instead of reopened
+
+### Scenario S-059: Route degradation trips a circuit breaker
+- **Given** orchestration-tool failures recur without advancing any milestone
+- **When** the degradation persists past one deliberate route change
+- **Then** the run checkpoints and blocks or hands off rather than continuing to spend calls; the trigger is failure without useful state transition, never a raw failure count
+
 ## Proposed Surface
 
 ### Wizard

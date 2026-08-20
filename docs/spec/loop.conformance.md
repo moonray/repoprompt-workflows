@@ -52,6 +52,8 @@
 | S-041 Progress and conformance are mandatory operational artifacts | Conformed | `.agents/workflows/Loop.md:28-39,147-182` |
 | S-042 Conformance acceptance requires authoritative item-specific decisions | Conformed | `.agents/workflows/Loop.md:180-182` |
 | S-043 Contract-only commits have explicit disposition | Conformed | `.agents/workflows/Loop.md:180-182` |
+| S-044 Unreturned delegate reports are failures with bounded recovery | Conformed | `.agents/workflows/Loop.md:128-130,195` |
+| S-045 The infrastructure-failure exception is narrow and never self-reviewed | Conformed | `.agents/workflows/Loop.md:130,220` |
 
 ## Proposed Surface and Constraints
 
@@ -153,6 +155,7 @@
 
 ## Coverage Proof
 
-- **audited:** S-001…S-043, 83 atomic Proposed Surface/field/enum items, and all 9 constraints.
+- **audited:** S-001…S-045, 83 atomic Proposed Surface/field/enum items, and all 9 constraints.
+(Rows S-044…S-045 added 2026-08-19 together with the scenarios and their workflow implementation; earlier rows unchanged from the prior audit.)
 - **unreconciled:** none.
 - **status:** `passed`.
