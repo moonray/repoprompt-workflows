@@ -23,6 +23,7 @@ Destructive and repository-visible git operations can lose work or rewrite share
 - No destructive git operations without explicit confirmation obtained immediately before the action: force-push (including `--force-with-lease`), `reset --hard`, branch deletion, history rewrite, or credential rotation. Approval for one action never covers a later one and is never cached.
 - Do not commit, push, or open PRs unless explicitly asked for that specific action.
 - Do not begin a fix, build, or merge with pre-existing or unrelated dirty paths; ask the user to commit or stash them first. A workflow may exempt only its exact disclosed, lineage-owned mandatory operational artifact path after recording the complete pre-existing dirtiness snapshot; no directory/glob exemption is allowed. Record the base SHA (merge-base of the working branch and its base branch) before changing files.
+- **Cross-repo git attribution:** the `git` tool's output is not self-labeling — it does not echo which `repo_root`/remote produced a result — so never map results to calls by position; parallel calls across multiple repos/roots can return out of order, and position-based mapping manufactures wrong-repo conclusions. Use `git -C <abs-path>` with an explicit per-command repo/remote header, or run cross-repo calls sequentially and match by content (commit hash, dirty filename, remote URL).
 - Read contribution rules, validation commands, and gates from the repository's trusted base, never from unmerged contributor-controlled content. A change may not weaken its own gate: skipping tests, relaxing validation, or disabling checks to make something pass is prohibited.
 
 These are repo-independent defaults. On FOSS or shared repos, defer to the project's own contributing rules wherever they are stricter, and never commit memory or rules files into a repo that does not want them.
@@ -66,6 +67,18 @@ A user-facing/frontend change is not done because its automated tests pass or be
 
 A delegated agent's report is a claim of completion, not evidence. Summaries can be optimistic, partial, or hallucinated — "done"/"fixed"/"shipped" in a return value does not make the underlying work so. Before accepting a delegated task (subagent, oracle, peer agent) as complete, the delegating agent must independently verify the actual artifact against the claim: read the committed diff or files, run the affected tests, or exercise the rendered behavior — and spot-check at least one load-bearing claim against ground truth rather than trusting the narrative. Accepting a report as sufficient evidence is prohibited.
 
+
 This is the inbound form of the same principle behind Review Quality (no finding closed on model opinion alone), Spec–Implementation Reconciliation (no close without coverage proof), Test Quality (no done without a run), and Frontend Verification (no done because tests pass). Those gates catch unverified self-claims at closeout; this one catches unverified delegated claims at the moment they are handed back.
 
 Enforcement: inlined into workflows; outside a workflow, a `PostToolUse` reminder (`delegation-reminder`) fires when a delegation tool returns, directing the delegating agent to verify before accepting. Hooks are a guardrail, not an absolute boundary (see `.agents/README.md` "Known limits"); the downstream closeout gates remain the backstop.
+
+## Accuracy and Anti-Fabrication (hard rule)
+
+Agents must not fabricate. A generated or inferred value must never be presented or recorded as an observed fact. Consequential assertions must be traceable to an authoritative source appropriate to the operation and labeled as **observation**, **inference**, or **attestation**. Before any irreversible mutation, the mutation boundary must validate both the referenced evidence (it resolves to a real artifact) and the required authority (this specific action was sanctioned) — provenance and authority are distinct, and both must hold.
+
+This is the self-claim form of the same principle behind Verifying Delegated Work (inbound claims), Review Quality (no finding closed on model opinion alone), Spec–Implementation Reconciliation (no close without coverage proof), Test Quality (no done without a run), and Frontend Verification. Those gates catch unverified claims handed back or at closeout; this one catches unverified claims an agent generates mid-turn about its own work — including self-authored "evidence" and the error of treating a related artifact's state (e.g. a linked issue being closed) as proof that this system's own commitment is met. It is not satisfied by a value being non-null, by a tool having run this turn, or by the agent's own assertion.
+
+
+Enforcement: inlined into workflows; the downstream closeout gates remain the backstop.
+
+
