@@ -23,12 +23,13 @@
 | Impossible user testing is blocked, not skipped | Conformed | "When it can't run" + smoke-is-floor note |
 | Testing runs against throwaway data | Conformed | "Data isolation (hard rule)" |
 | A user-test record is produced | Conformed | step 7 + Output |
+| Failed transfers are classified before a workaround is chosen | Conformed | Workflow step 4 (line 29) |
 | Surface: inputs (feature, spec scenarios) | Conformed | "When to use" (feature: user-facing change) + Workflow step 1 (spec scenarios as workflow source) |
 | Surface: output (workflows, issues, not_tested) | Conformed | Output section |
 
 ## Coverage proof
 
-- **audited:** Goals 1–6; all 8 scenarios; Proposed Surface (inputs; output)
+- **audited:** Goals 1–6; all 9 scenarios; Proposed Surface (inputs; output)
 - **unreconciled:** []
 
 ## Notes

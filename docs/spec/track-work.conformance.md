@@ -35,13 +35,15 @@
 | S-019 unattended callers never prompt | Conformed | Caller mode section; Backlog invokes noninteractive and collects predictable taxonomy approval in its sole wizard |
 | S-020 Tracked means explicitly owned | Conformed | `.agents/skills/track-work/SKILL.md:272` |
 | S-021 Ledger rereads at commitment boundaries | Conformed | `.agents/skills/track-work/SKILL.md:277` |
+| S-022 Mitigated is not fixed | Conformed | `.agents/skills/track-work/SKILL.md:278` |
+| S-023 Local personal exposure requires confirmation | Conformed | `.agents/skills/track-work/SKILL.md:279` |
 | Surface inputs | Conformed | Step 1 request and repo conventions |
 | Surface outputs item, links, status, backend | Conformed | Body template; lifecycle; Step 0 diagnostic |
 
 ## Coverage proof
 
-- **audited:** Goals 1–5; S-001–S-021; Proposed Surface inputs and outputs; both helper scripts
-(S-020–S-021 added 2026-08-19 together with the scenarios and their skill implementation; earlier scope unchanged from the prior re-audit)
+- **audited:** Goals 1–5; S-001–S-023; Proposed Surface inputs and outputs; both helper scripts
+(S-020–S-023 added 2026-08-19/20 together with the scenarios and their skill implementation; earlier scope unchanged from the prior re-audit)
 - **unreconciled:** []
 
 ## Notes

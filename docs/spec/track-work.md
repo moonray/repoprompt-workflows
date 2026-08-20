@@ -139,6 +139,16 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **When** an agent reaches a commitment boundary (assigning/dispatching, changing open/blocked/done state, closing/replacing/claiming completion, or detecting external change)
 - **Then** authoritative item state is re-read rather than carried from discovery
 
+### Scenario S-022: Mitigated is not fixed
+- **Given** an incident's mitigations are complete and its causal defect remains unresolved (including defects that are not ours to fix)
+- **When** tracking is reconciled
+- **Then** the causal defect remains explicitly owned — the existing incident item stays open as owner, or a separate root item exists only because ownership or lifecycle genuinely differs (upstream defects mark blocked/external-owner with "report upstream" recorded as next action only where a channel exists and disclosure is authorized) — and mitigation completion alone cannot close it
+
+### Scenario S-023: Local personal exposure requires confirmation
+- **Given** a finding that is personal-only, untracked, not shared into team/client systems, shows no active compromise, and violates no repository/organization policy
+- **When** tracking is requested
+- **Then** an interactive caller confirms with the user before creating a standalone item; a noninteractive caller returns blocked/pending-confirmation with no item created; if the user declines an already-created item it is closed wontfix with the decision recorded, never deleted; shared credentials, repository exposure, client systems, or policy-governed secrets remain eligible for normal tracking
+
 ## Proposed Surface
 
 ### Inputs

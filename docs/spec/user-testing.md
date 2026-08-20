@@ -71,6 +71,11 @@ A frontend feature is not done because its automated tests pass — automated te
 - **When** the output is produced
 - **Then** it records workflows exercised (steps, result, screenshot refs), issues found (severity, what/where, screenshot), and `not_tested` (what couldn't be tested + why)
 
+### Scenario: Failed transfers are classified before a workaround is chosen
+- **Given** a browser transfer fails mid-flight during a driven workflow
+- **When** the failure is investigated
+- **Then** the evidence is captured (request state/error reason, HTTP status if any, bytes transferred vs expected, termination timing, range/resumption headers), classified as client/browser abort, server/proxy cutoff, or inconclusive, and the workaround is chosen only after classification — an inconclusive result is corroborated through another source rather than claimed as proven
+
 ## Proposed Surface
 
 ### Inputs
