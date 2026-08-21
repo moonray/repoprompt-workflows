@@ -9,7 +9,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Loop Workflow](loop.md) | none | implemented |
 | [Backlog Workflow](backlog.md) | none | implemented |
 | [Deep Review Workflow](deep-review.md) | none | implemented |
-| [Document Skill](document.md) | none | implemented |
+| [Document Skill](document.md) | 3 | draft |
 | [Spec Quality Skill](spec-quality.md) | none | implemented |
 | [Spec-Plan Readiness Skill](spec-plan-readiness.md) | none | implemented |
 | [Test Quality Skill](test-quality.md) | none | implemented |
@@ -26,7 +26,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 
 ## Conformance matrices
 
-Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 10 skills, and 4 hooks.
+Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 10 skills, and 4 hooks. Exception: the **Document Skill** spec is under revision ([issue #3](https://github.com/moonray/repoprompt-workflows/issues/3), status: draft) — its current conformance matrix covers the prior implemented contract and will be refreshed after implementation.
 
 ## Coverage policy
 
