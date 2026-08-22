@@ -8,3 +8,6 @@
 
 # Node (for the sync script's deps, if any are added later)
 node_modules/
+
+# Python (hook bytecode)
+__pycache__/
