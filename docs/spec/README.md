@@ -26,7 +26,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 
 ## Conformance matrices
 
-Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 10 skills, and 4 hooks. Exception: the **Document Skill** spec is under revision ([issue #3](https://github.com/moonray/repoprompt-workflows/issues/3), status: draft) — its current conformance matrix covers the prior implemented contract and will be refreshed after implementation.
+Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 10 skills, and 4 hooks.
 
 ## Coverage policy
 
