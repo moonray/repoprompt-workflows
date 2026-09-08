@@ -37,7 +37,7 @@ This workflow inlines three reusable skills so it is deterministic whether or no
 
 Inlined from the global rules.
 
-- **Git safety is hard.** No destructive git operations without explicit, immediately-prior confirmation (no force-push or `--force-with-lease`, `reset --hard`, branch deletion, or history rewrite); approval never carries over. Do not commit, push, or open PRs unless explicitly asked. Record the base SHA (merge-base of the reviewed branch and its base) at start. Do not begin a mutating review on a dirty worktree; review and map may proceed on a dirty tree but must record that state. Never weaken a gate to pass.
+- **Git safety is hard.** No destructive git operations without explicit, immediately-prior confirmation (no force-push or `--force-with-lease`, `reset --hard`, branch deletion, or history rewrite); approval never carries over. Local `git commit` is allowed without an explicit ask; push and PRs still require an explicit ask. Record the base SHA (merge-base of the reviewed branch and its base) at start. Do not begin a mutating review on a dirty worktree; review and map may proceed on a dirty tree but must record that state. Never weaken a gate to pass.
 - **Stable identifiers.** Every finding carries a stable signature = severity + normalized file path + normalized finding summary + related scenario/task/area ID. Signatures are never renumbered or reused; if a finding is removed, mark it.
 
 ## Depth selection (auto; overridable)
