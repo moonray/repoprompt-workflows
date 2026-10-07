@@ -18,6 +18,8 @@ This file holds cross-cutting, repo-independent conventions — hard rules that 
 
 If it is task-specific guidance → a skill (`.agents/skills/`). If it is a phased procedure → a workflow (`.agents/workflows/`). If it is a universal hard rule → here. When in doubt, leave it in a skill and reference it from `global.md` rather than duplicating the detail.
 
+**Cheapest sufficient home (per-request token cost):** this file loads into context on every agent request — every line added is paid on every future turn, in every runtime, forever. Prefer a skill or documentation file as the home whenever the guidance can be applied consistently there; reserve this file for what must hold in every session regardless of task. When something does belong here, add the minimal text — a corollary line on an existing rule beats a new section — and let skills, workflows, or docs carry the procedure and detail.
+
 ## Git Safety (Hard Rules)
 
 Destructive and repository-visible git operations can lose work or rewrite shared history that other agents and humans depend on. They are gated behind explicit, per-action confirmation.
