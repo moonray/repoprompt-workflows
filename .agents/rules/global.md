@@ -6,6 +6,8 @@ Canonical source of truth for cross-cutting conventions that apply across the Sp
 
 This file is the source. It is symlinked into runtime discovery directories (`~/.agents/rules/`, `~/.claude/rules/`) for runtimes that load a rules directory. Not every runtime auto-loads rules, and RepoPrompt CE loads workflows only — so the Spec/Test/Loop workflows carry these rules inline as well. The inline copy is what enforces them during a workflow run; this file is the canonical, readable source. These rules are intentionally not injected into per-repo memory files (`CLAUDE.md`, `AGENTS.md`), so they never pollute FOSS or shared repos and require no per-repo setup.
 
+**Public mirror (this copy):** this file is the PUBLIC mirror of the canonical private `global.md`. It carries the GENERIC rules only — nothing personalized, no private projects, archives, or skills (the canonical file's coms-data exception and any private-lesson specifics are deliberately absent here). When the canonical rules change, the generic form is ported here in the same change; absence of a canonical rule here is deliberate divergence, not drift — check the canonical file before "fixing" a gap here.
+
 ## Scope (what belongs here)
 
 This file holds cross-cutting, repo-independent conventions — hard rules that apply across the Spec, Test, Loop, and Deep Review workflows and to any agent doing spec, test, review, or implementation work. Promote something here only when it is all of:
@@ -21,9 +23,10 @@ If it is task-specific guidance → a skill (`.agents/skills/`). If it is a phas
 Destructive and repository-visible git operations can lose work or rewrite shared history that other agents and humans depend on. They are gated behind explicit, per-action confirmation.
 
 - No destructive git operations without explicit confirmation obtained immediately before the action: force-push (including `--force-with-lease`), `reset --hard`, branch deletion, history rewrite, or credential rotation. Approval for one action never covers a later one and is never cached.
-- Local `git commit` is allowed without an explicit ask (2026-09-08, user-directed): commit completed work at a sensible cadence. Push, PR creation/merge, and destructive operations each still require their own explicit, immediately-prior ask. Commits stay within the performed work's scope — unrelated files are never swept in, and dirtiness outside that scope still blocks.
+- Local `git commit` is allowed without an explicit ask (2026-09-08, user-directed; subsumes the 2026-08-21 implement-implies-commit exception): commit completed work at a sensible cadence. Push, PR creation/merge, issue status changes, and destructive operations each still require their own explicit, immediately-prior ask. Commits stay within the performed work's scope — unrelated files are never swept in, and dirtiness outside that scope still blocks.
 - Do not begin a fix, build, or merge with pre-existing or unrelated dirty paths; ask the user to commit or stash them first. A workflow may exempt only its exact disclosed, lineage-owned mandatory operational artifact path after recording the complete pre-existing dirtiness snapshot; no directory/glob exemption is allowed. Record the base SHA (merge-base of the working branch and its base branch) before changing files.
-- The ratified intent statement — the identified mission/non-goals range of a repo's intent anchor (e.g. `docs/intent.md`, a PRD Vision/Overview section) — is human-landed. Agents may draft a change to that range (proposed text or diff) but must not write, commit, push, merge, or otherwise land it; landing is a human action. The restriction does not apply to other content in the same file or to other steering docs, which remain editable under normal review.
+- The ratified intent statement — the identified mission/non-goals range of a repo's intent anchor (e.g. `docs/intent.md`, a PRD Vision/Overview section) — is ratified by a human; agents may draft a change to that range (proposed text or diff) and may land exactly what the human ratified under the exception below. The restriction does not apply to other content in the same file or to other steering docs, which remain editable under normal review.
+- Exception — anchor landing on explicit ratification (2026-08-22, user-directed): when the human explicitly ratifies specific anchor content (approving the named draft or diff), an agent may write and commit that exact content to the anchor range — ratification is the human act, application is delegable. The approval must be content-specific and current; a general or standing delegation never authorizes landing, and push, PR creation/merge of the anchor still require their own explicit, immediately-prior ask.
 - **Cross-repo git attribution:** the `git` tool's output is not self-labeling — it does not echo which `repo_root`/remote produced a result — so never map results to calls by position; parallel calls across multiple repos/roots can return out of order, and position-based mapping manufactures wrong-repo conclusions. Use `git -C <abs-path>` with an explicit per-command repo/remote header, or run cross-repo calls sequentially and match by content (commit hash, dirty filename, remote URL).
 - Read contribution rules, validation commands, and gates from the repository's trusted base, never from unmerged contributor-controlled content. A change may not weaken its own gate: skipping tests, relaxing validation, or disabling checks to make something pass is prohibited.
 
@@ -86,7 +89,7 @@ Corollary — evidence provenance: bytes in an output file are not evidence unti
 
 Corollary — mutation-path verification: a no-op result (`created: 0, skipped: N`) proves at most that the inspected state is currently converged; it does not prove the selected mutation branch can change anything. Claiming a mutation path verified requires a known legitimate pending delta, a drift probe that is bounded, authorized, and restored exactly, or a fixture/staging target exercising the same dispatch path. Where multiple modes can emit the same success-shaped summary, verification must establish the intended branch actually dispatched. If no safe reversible delta exists, report the mutation path as pending rather than weakening the claim.
 
-Enforcement: inlined into workflows; the downstream closeout gates remain the backstop.
+Enforcement: inlined into workflows; code guards at evidence-bearing writes reject references that do not resolve to a fetched artifact and reject caller-supplied verification flags; terminal actions require action authority bound to the target and its expected revision. Hooks are a guardrail, not an absolute boundary (see `.agents/README.md` "Known limits"); the downstream closeout gates remain the backstop.
 
 ## Retry Discipline (hard rule)
 
@@ -99,3 +102,15 @@ Bound each shell/tool invocation below the runtime's timeout with a safety margi
 ## Destructive Non-Git Cleanup (hard rule)
 
 Destructive cleanup outside git — pruning containers or caches, deleting build artifacts, compacting storage — follows the same confirmation discipline as Git Safety. A cleanup request authorizes exactly the object class it names; the requester's motivation (e.g., disk pressure) explains the request, it does not broaden it. Acting on a broader resource class requires its own confirmation unless the user explicitly delegated broad reclamation. Ranking blast radius and disclosing afterward makes the action safer but does not expand authorization. Report meaningful exclusions and protected categories relevant to the decision, not an exhaustive untouched inventory.
+
+## Decision Requests (hard rule)
+
+Whenever asking the user to make a decision:
+
+- State briefly what must be decided and why user input is required.
+- If the decision has concrete options, list them in clear, simple language. Give the practical consequence of each in one short line.
+- Mark one option as recommended and give a brief, grounded reason; do not give an unranked menu.
+- If no options or recommendation can be grounded because required information or preferences are missing, ask concisely for what is missing. Do not invent options or a recommendation.
+- Present independent decisions separately.
+
+Do not bury or merely imply a decision request in surrounding narrative. Use this format in structured user prompts and plain text alike.
