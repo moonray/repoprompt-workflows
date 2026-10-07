@@ -81,6 +81,7 @@ Suggested oracle verdict:
 4. Update progress with phase, current task, review-cycle counts, stable signatures, and `implementation_base_sha`.
 5. Preserve the original `base_sha`. Review/map may proceed on a dirty tree only with provenance recorded.
 6. **Resolve toolchain once.** Accept test/build commands and env from the brief when present; otherwise discover them. Record absolute commands in the progress doc and use them for every test run — this is what lets an orchestrator re-run the same targeted tests during verification.
+7. **Base freshness.** Confirm the branch/worktree is based on the current base (the recorded `base_sha` is the pinned current base). The default is a fresh branch/worktree cut from it; rebasing or otherwise rewriting an existing branch requires its own authorization per Git Safety — verify freshness, never force it.
 
 Progress body sections:
 

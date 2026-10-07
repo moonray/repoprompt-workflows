@@ -33,6 +33,8 @@ Optional: the validation commands available for the changed behavior (tests/lint
 4. **Revalidation gate.** A finding is `fixed` only when a fresh review no longer finds it *and* the targeted validation commands (tests/lint/build for the changed behavior) pass; record the command results. If validation cannot run because of missing infrastructure or environment, the status is `blocked` or `uncertain`, never `fixed`. Manual confirmation or model opinion alone does not close a finding.
 5. **Stable signatures.** Each finding carries a signature = severity + normalized file path + normalized finding summary + related scenario/task ID. Use it to detect repeats and dedup.
 6. **Triage before acting.** Dedup identical signatures; rerank survivors by severity, confidence, reachability, test coverage, and patchability. After two failed fix attempts or three review observations of the same signature, classify it `false_positive`, `core_issue`, or `futility` rather than looping.
+7. **Record the review base at intake** — the merge-base and commit range the review covers. If the base moves mid-review, recompute the scope and review the delta explicitly rather than silently absorbing it.
+8. **Frozen-baseline re-anchoring.** A guard test that freezes a baseline (pinned base SHA, byte-frozen file) may be re-anchored to admit an additive change only when independent verification confirms the protected scope and assertions did not narrow — the guard still runs, still passes, and still constrains future edits. Record the re-anchor alongside the change; treat any narrowing as gate-weakening.
 
 ## Non-goals
 

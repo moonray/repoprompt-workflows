@@ -35,7 +35,7 @@ For a bug fix, prefer a test that fails against the known-bad behavior before th
 6. Consolidate equivalent branch cases into table-driven tests.
 7. Avoid mocks that reimplement production logic unless the mock behavior itself is the point.
 8. For bug fixes, prove the regression test fails on the current buggy code and reproduces the reported symptom before trusting it.
-9. Keep tests deterministic, isolated, and easy to diagnose.
+9. Keep tests deterministic, isolated, and easy to diagnose. Isolation includes relevant ambient state (credentials, environment), controlled by whatever mechanism the test harness supports, and final acceptance is the repository's required suite — not only the targeted run. A test that passes in isolation but fails in the required suite may reveal state leakage (ambient env, finite mock sequences, fixture pollution) or ordering dependence; both are defects to fix, not ordering to work around.
 10. For a bug fix, the oracle must cover the **bug population** — the inputs/rows/states where the bug manifests — not just the easy cases where behavior is already correct. A test that passes only on non-bug inputs protects the status quo, not the fix.
 
 ## Layer selection
@@ -91,6 +91,7 @@ A benchmark, performance probe, or exploratory harness without an acceptance thr
 - Treat committed fixtures as immutable and read-only. Tests that mutate fixture data (write tags, edit files, transform records) operate on copies in a temp directory — destructive tests copy; they never overwrite the committed source.
 - Use generated fixtures for readability and precise edge cases.
 - Use raw fixtures for compatibility with persisted, external, or wire-format data.
+- A fixture that manufactures **both sides of a comparison** (input *and* expected value) cannot catch divergence between the real sources. Derive each source's shape independently from observed or authoritative contracts; use raw real-shape fixtures (layer 4) when real persisted/wire drift matters. Real services return numeric ids from one endpoint and string ids from another — a symmetric fixture's join/dedup test passes while the production join never fires. A fixture built from an authoritative published contract or a captured, sanitized observation is a valid oracle; a shape assumed from nothing is not, and where the `live-dryrun` boundary applies, shape handling still needs live verification.
 - Do not check in large, private, or noisy production artifacts.
 - Sanitize secrets, personal data, proprietary content, absolute paths, tokens, credentials, and unrelated payloads.
 - Prefer small fixtures that preserve only fields needed to reproduce the contract.
@@ -128,6 +129,8 @@ Before keeping a test, ask:
 6. Is it redundant with stronger coverage elsewhere?
 7. Would a future maintainer understand the fixture and expected result?
 8. If this is a bug fix, does the oracle cover the bug population (where the bug manifests), not just cases that already work?
+9. If the test compares data from two sources, is each source's shape derived independently (observed or authoritative) — or does one fixture manufacture both sides?
+10. Do the tests pass in the repository's required suite, with relevant ambient state controlled — not only as a targeted run?
 
 If the answer is weak, consolidate, move to a lower layer, convert to a smoke/diagnostic, or delete it.
 
@@ -139,6 +142,7 @@ Commit a test only when it:
 - fails for a meaningful defect and asserts an exact observable outcome (value, state, error, side effect, cleanup, wire format, or bounded performance);
 - adds distinct coverage at the lowest faithful layer;
 - is deterministic, isolated, failure-focused, and maintainable relative to the risk.
+- for changes that touch a dependency manifest (pyproject/requirements/lockfile), additionally verifies resolution from a clean, isolated install using the repository-supported resolver and validation command — a green suite in a warm environment proves nothing about whether the declared dependencies resolve.
 
 Otherwise consolidate, redesign, classify as a diagnostic, or omit it.
 
