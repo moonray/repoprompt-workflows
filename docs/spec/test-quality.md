@@ -83,6 +83,16 @@ Tests get written to increase coverage or restate implementation details rather 
 - **When** it is summarized
 - **Then** the report states the protected contract and risk, the chosen layer and why, fixture strategy, validation commands run, and coverage intentionally omitted/consolidated/deferred
 
+### Scenario: A fixture that manufactures both sides of a comparison is rejected
+- **Given** a test comparing data from two sources, where one fixture derives both the input and the expected value
+- **When** fixture guidance is applied
+- **Then** each source's shape is derived independently (observed or authoritative); raw real-shape fixtures are used when real persisted/wire drift matters; where the live-dryrun boundary applies, shape handling still gets live verification
+
+### Scenario: Dependency-manifest changes verify clean resolution
+- **Given** a change touching a dependency manifest (pyproject/requirements/lockfile)
+- **When** the commit gate runs
+- **Then** resolution is verified from a clean, isolated install using the repository-supported resolver and validation command — a green suite in a warm environment is not sufficient
+
 ## Proposed Surface
 
 ### Inputs

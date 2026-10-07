@@ -67,6 +67,16 @@ Review findings can be vague, ungrounded, or closed on model opinion. Findings n
 - **When** the output is produced
 - **Then** it states findings with evidence and signatures, the `inspected` scope, dropped findings and why, validation commands/results for any `fixed`, and any `blocked`/`uncertain` items
 
+### Scenario: The review base is recorded at intake
+- **Given** a review starting against a base
+- **When** intake completes
+- **Then** the merge-base and commit range are recorded; if the base moves mid-review, the scope is recomputed and the delta reviewed explicitly rather than silently absorbed
+
+### Scenario: Frozen-baseline re-anchoring is adjudicated, not assumed
+- **Given** a guard test that freezes a baseline (pinned base SHA, byte-frozen file) and an additive change that needs admission
+- **When** re-anchoring is considered
+- **Then** it is allowed only when independent verification confirms the protected scope and assertions did not narrow — the guard still runs, passes, and constrains future edits; the re-anchor is recorded alongside the change, and any narrowing is treated as gate-weakening
+
 ## Proposed Surface
 
 ### Inputs

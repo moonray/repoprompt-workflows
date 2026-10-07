@@ -82,3 +82,11 @@ Skills are invoked from any workspace and may operate on a different target repo
 3. **Root-scoping fallback.** Root-scoped tooling (e.g. MCP file tools) refuses paths outside loaded workspace roots — use absolute-path shell reads/writes as the fallback, or prefer running from a session rooted in the target repo, which restores full tooling.
 4. **Config discovery is anchored, never cwd-relative.** Prefer an explicit per-repo config path convention (`<target-root>/.agents/settings/<skill>.yml`) over anything resolved against the current working directory.
 5. **Attribution clarity.** The skill names which workspace/repo it operated on when reporting, so session attribution and downstream tooling stay correct.
+
+## Every skill ships with a spec
+
+Each skill's behavioral contract lives at `docs/spec/<skill-name>.md` (spec-quality vetted: contract-level, scenario-driven, traceable). Canonical skills' specs live in THIS repo; the FOSS mirror carries the generic copies per the divergence contract. Conventions:
+
+- Creating a skill includes creating its spec (part of the skill-creator pass); the SKILL STANDARDS hook reminder checks for it.
+- Material changes to a skill amend its spec in the same change, and the conformance matrix (`docs/spec/<name>.conformance.md`) is refreshed at closeout — the spec-conformance gate enforces this for closeout flows.
+- A skill without a spec is tracked debt, not an accepted state.
