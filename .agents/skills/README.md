@@ -72,3 +72,13 @@ A skill's `description` is the primary trigger. A new skill that overlaps an exi
 
 1. **Quick check:** read every existing skill's `description`; give the new one a unique trigger. Keep the `review-*` and `spec-*` families distinct with role/phase words ("governs findings", "selects depth", "is a lens"; "well-formedness" vs "implementability").
 2. **Authoritative check:** validate with trigger evals (~20 should-/should-not-trigger queries whose negatives are genuine near-misses), then iterate the description against a held-out set.
+
+## Cross-workspace portability (checklist when creating or updating a skill)
+
+Skills are invoked from any workspace and may operate on a different target repo. Codified 2026-10-07 after the live-dryrun gap; check every skill against this list:
+
+1. **No repo-specific content.** No paths, class names, client names, or doc references belonging to another repo — per-repo specifics live in the repo that owns them (an AGENTS.md/CLAUDE.md pointer or `.agents/settings/<skill>` config), per the AGENTS.md repo-placement policy.
+2. **Target resolution is explicit.** State how the skill resolves the TARGET repo/workspace when invoked from elsewhere: resolve the root from the request, then read the target's memory/config/docs **by absolute path** — the session's loaded AGENTS.md/CLAUDE.md belongs to the hosting workspace and will not carry the target's pointers.
+3. **Root-scoping fallback.** Root-scoped tooling (e.g. MCP file tools) refuses paths outside loaded workspace roots — use absolute-path shell reads/writes as the fallback, or prefer running from a session rooted in the target repo, which restores full tooling.
+4. **Config discovery is anchored, never cwd-relative.** Prefer an explicit per-repo config path convention (`<target-root>/.agents/settings/<skill>.yml`) over anything resolved against the current working directory.
+5. **Attribution clarity.** The skill names which workspace/repo it operated on when reporting, so session attribution and downstream tooling stay correct.
