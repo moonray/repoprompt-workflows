@@ -18,6 +18,7 @@ Backend identity and current capability are separate. Select the ledger first:
 1. **Resolve config first** — read `TRACK_WORK_BACKEND`, then trusted-base repo config (Step 1). Accept only `auto | github | file`; environment wins config, `auto` falls through, and invalid/duplicate values stop. A newly proposed persistent override requires confirmation. A `github` override without a GitHub origin also requires `github.repo: owner/repo`.
 2. **GitHub identity** — otherwise parse `origin` only from exact `https://github.com/OWNER/REPO(.git)` or `git@github.com:OWNER/REPO(.git)` forms. Normalize to `owner/repo`; reject userinfo, lookalike hosts, multiple push URLs, and ambiguous forms.
 3. **File identity** — no origin, or a confirmed non-GitHub origin, selects the committed file backend. Read behavior-changing config from the trusted base; an unmerged config difference requires confirmation.
+4. **Rejected ≠ non-GitHub** — a GitHub-shaped origin that fails strict parsing (userinfo, lookalike host, ambiguity) is neither absent nor confirmed non-GitHub: stop before selecting a backend, report `origin-rejected(<reason>)` with the remediation (strip the userinfo from the remote URL, or pin `backend: github` + `github.repo` in config), and confirm the intended ledger before any write. Silently falling back to the file backend here is how a repo ends up with two live ledgers.
 
 After selecting GitHub, probe capability in order and retain the exact failing command/error class:
 
@@ -29,7 +30,7 @@ gh repo view "$REPO" --json nameWithOwner,hasIssuesEnabled
 
 - If all probes pass, `nameWithOwner` equals `$REPO`, and `hasIssuesEnabled` is true, proceed with GitHub. Retain `$REPO` and pass `-R "$REPO"` to every repository-scoped `gh` command; do not trust ambient `GH_REPO` or current-directory inference.
 - If `gh` is missing, unauthenticated, network/API access fails, permissions are insufficient, or Issues are disabled, **stop before reading or writing either ledger**. Report `backend: github`, the identity evidence (`origin` or override), the failed probe, and remediation.
-- Offer retry/authentication/permission repair. For a GitHub-identified repo with existing issues, authoritative file mode requires a completed migration while GitHub is reachable; an outage may use only a clearly non-authoritative pending capture that Backlog cannot dispatch or close.
+- Offer retry/authentication/permission repair. For a GitHub-identified repo with existing issues, authoritative file mode requires a completed migration while GitHub is reachable; an outage may use only a clearly non-authoritative pending capture that Backlog cannot dispatch or close. That capture still goes through `issue.sh` (hand-written frontmatter once produced an invalid status — the helper's validation is the guard), carries a pending-mirror note, and the first successful GitHub operation mirrors it and cross-links; a fallback that outlives its outage is a second ledger.
 - Do not infer why an earlier run selected a backend from current state. State only observed evidence and clearly label any historical explanation as unverified.
 
 Every operation reports a compact diagnostic, for example: `backend=github; repo=owner/repo; selected_by=origin; capability=metadata-ready` or `capability=blocked(gh-auth)`. Capability is per operation, never cached: metadata success does not imply issue-write, label-admin, or Project access. Sanitize diagnostics before reporting.
@@ -194,6 +195,7 @@ bash <this-skill>/scripts/issue.sh reopen <ID> [backlog]
 - Items live as `<issues_dir>/<ID>.md` with validated YAML frontmatter (`id`, `title`, `status`, `previous_status`, `type`, `priority`, `created`, `labels`). The helper confines a repo-relative non-symlink path, validates scalar inputs, serializes mutations with a lock, and atomically replaces items/indexes. **IDs are immutable**.
 - A synced index table lives at `<issues_dir>/README.md`.
 - The issues dir is the **shared team backlog** — it is committed. If `git check-ignore <issues_dir>` says it is ignored, warn the user and fix it (gitignore negation like `!.agents/issues/`, or move the dir) before writing anything.
+- A status or item change commits the item **and** its synced index together — both or neither. Committing the item alone leaves a dirty index for the next session, and item and index drift.
 
 ## Ledger migration
 
@@ -201,7 +203,7 @@ Migration between backends is a separate, confirmed operation, not an automatic 
 
 1. While both ledgers are reachable, create and commit `docs/track-work-migrations/<timestamp>.md` before mutation. Record source revisions and one pending row per item; this journal is outside either ledger.
 2. Confirm migration, persistent override changes, and taxonomy creation. Backlog never initiates migration.
-3. Freeze or revision-check each source, search destination duplicates, and include `Migrated-from: <backend>:<ID>` as an idempotency marker.
+3. Freeze or revision-check each source, search destination duplicates, and include `Migrated-from: <backend>:<ID>` as an idempotency marker. When rewriting in-body source-ID cross-references to destination `#<n>`s, scope the substitution to cross-reference lines — a global replace also rewrites the `Migrated-from:` marker itself, corrupting the idempotency trail.
 4. After each create, update the journal to `created`, read back title/body links/labels/state/repository, then mark `verified`.
 5. Ask separately before source retirement. Retire nothing until all rows verify; partial failure preserves sources and resumes from the journal without duplicate creation.
 
