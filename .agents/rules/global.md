@@ -109,6 +109,10 @@ Bound each shell/tool invocation below the runtime's timeout with a safety margi
 
 Destructive cleanup outside git — pruning containers or caches, deleting build artifacts, compacting storage — follows the same confirmation discipline as Git Safety. A cleanup request authorizes exactly the object class it names; the requester's motivation (e.g., disk pressure) explains the request, it does not broaden it. Acting on a broader resource class requires its own confirmation unless the user explicitly delegated broad reclamation. Ranking blast radius and disclosing afterward makes the action safer but does not expand authorization. Report meaningful exclusions and protected categories relevant to the decision, not an exhaustive untouched inventory.
 
+## Externally Managed Files (hard rule)
+
+Never hand-edit a file another system owns and regenerates — identified by a management marker (e.g. `repoprompt_managed: true`, "generated — do not edit" headers, tool-regenerated lockfile/config paths). Such edits survive only until the manager's next write, then vanish silently. Customizations belong in user-owned, version-controlled files, linked in where the consumer supports it; when a lesson's natural home is a managed file, re-home it and leave the managed file pristine.
+
 ## Decision Requests (hard rule)
 
 Whenever asking the user to make a decision:
