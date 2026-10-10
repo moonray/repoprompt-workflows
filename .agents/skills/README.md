@@ -18,6 +18,8 @@ The workflows inline the discipline from these skills so they run deterministica
 | `document` | [`document/SKILL.md`](document/SKILL.md) | Syncing documentation to code changes or auditing documentation drift, with dry-run proposals, cited code basis, and contract-doc conflict reporting. |
 | `user-testing` | [`user-testing/SKILL.md`](user-testing/SKILL.md) | Verifying a frontend feature actually works for the user — exercise real workflows end-to-end with screenshots or a user hand-off; automated tests are necessary but not sufficient. |
 | `track-work` | [`track-work/SKILL.md`](track-work/SKILL.md) | Create/update one tracking item per unit of work (GitHub Issues, or a file-based `.agents/issues/` backlog when there is no GitHub). Used first when work is about to start. |
+| `bot-wall` | [`bot-wall/SKILL.md`](bot-wall/SKILL.md) | A fetch of a publicly served site is blocked by a bot wall (403/Access Denied, Cloudflare "Just a moment…" challenge, CAPTCHA interstitial) — retry with `curl_cffi` browser impersonation; verify content not just status, escalate bounded, stay polite. |
+| `rpce-tool-gotchas` | [`rpce-tool-gotchas/SKILL.md`](rpce-tool-gotchas/SKILL.md) | RPCE file/edit tools failing or blind on paths outside the loaded workspace roots (route through Bash from the start), or stacking more edits on freshly batch-edited files (re-read + syntax-check before building on the result). |
 
 ## Discovery and install
 
