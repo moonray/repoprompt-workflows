@@ -245,7 +245,7 @@ After the queue drains or the cap is reached, give the user a **final rollup**:
 - the loaded authorization scope (restated);
 - exact resume instruction pointing at the progress doc.
 
-**End-of-run doc sync (R8).** After the queue drains, run the `document` skill in `sync` mode over the session's merged PRs (dry-run first → drift report → apply only if `doc_edits` is granted in the authorization scope). Record the drift/sync result in the rollup — don't leave the user to close that loop by hand.
+**End-of-run doc sync (R8).** After the queue drains, run the `document` skill in `code` mode over the session's merged PRs (change-driven over that range; dry-run first → drift report → apply only if `doc_edits` is granted in the authorization scope). Record the drift/sync result in the rollup — don't leave the user to close that loop by hand.
 
 **End-of-run cleanup pass (R11).** Before the rollup finalizes, reap the disposable layer in one batched pass — unless `retain_for_inspection` is on (then defer to a manual, ledger-driven sweep): dismiss every closed-issue Loop session (`agent_manage op=cleanup_sessions`; tolerate skips) and remove every merged-issue worktree (`manage_worktree op=unbind` → `git worktree remove <path>`), per the §3f completion-path gating. **Keep all `backlog/*` branches** (the backup). Record the cleaned set (sessions dismissed, worktrees removed, worktrees retained + why) in the ledger and rollup.
 
@@ -271,7 +271,7 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 | Verify (two beats) | `git diff`/`read_file` + amendment grep; re-run targeted tests in the issue worktree via the recorded toolchain |
 | Sync-on-resume / retroactive verify | `git fetch origin` → `git merge --ff-only origin/<default>` → grep-confirm fix present before testing |
 | Browser-isolation detect | inspect MCP args or two-caller probe; not isolated → serialize browser UT |
-| End-of-run doc sync | `document` skill, sync mode over merged PRs (apply only if `doc_edits` granted) |
+| End-of-run doc sync | `document` skill, code mode (change-driven) over merged PRs (apply only if `doc_edits` granted) |
 | Approval (attended-fallback) | `agent_run op=wait` → `op=respond` (accept/decline; amendments capped at 1) |
 | Close (GitHub) | PR body `Closes #N` + squash subject `(#N)`; CI red → `branch+pr` + `status:review` |
 | Concurrent-merge order | serial, most-independent first; rebase each branch onto default-as-updated before its merge (§3e) |

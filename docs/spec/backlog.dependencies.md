@@ -96,7 +96,7 @@ flowchart TD
 
   P4["⑩ Phase 4 — Rollup & resume"]:::phase
   P4 --> A_PROG[/"writes progress doc — docs/progress/backlog-run.md (+ ledger, auth scope, divergences)"/]:::art
-  P4 --> SK_DOC["document (sync mode) — drift report over the session's merged PRs; apply only if doc_edits granted"]:::skill
+  P4 --> SK_DOC["document (code mode, change-driven over merged PRs) — drift report; apply only if doc_edits granted"]:::skill
   P4 --> T_CLEANUP["end-of-run cleanup pass — cleanup_sessions (closed-issue) + unbind/git worktree remove (merged-issue); keep backlog/* branches; deferrable via retain_for_inspection"]:::tool
   P4 --> END([End]):::term
 
@@ -147,14 +147,14 @@ flowchart TD
 | **spec-quality** | Keeps specs contract-level, observable, non-redundant, grounded in repo context, and free of implementation planning. Used as supporting input by the readiness gate and by Spec/track-work. |
 | **test-quality** | Governs that tests protect behavior (named plausible defect, exact observable assertions, lowest faithful layer, no coverage-padding). Vetoes low-value tests. |
 | **review-quality** | Governs review findings: structured evidence, prompt-grounding, a revalidation gate that refuses model-only "fixed", and stable-signature triage/dedup/rerank. Used inside Loop's review phase. |
-| **document** | Dry-run documentation sync/audit against code changes — reports affected docs, proposed edits, unsupported claims, and contract-doc conflicts; writes only on explicit approval. Used in Loop closeout (and to keep this very graph in sync). |
+| **document** | Dry-run code-mode documentation reconciliation/drift audit — reports affected docs, proposed edits, unsupported claims, and contract-doc conflicts; writes only on explicit approval. Used in Loop closeout (and to keep this very graph in sync). |
 
 ### Slash commands (skill shortcuts)
 
 | Part | Responsibility |
 |---|---|
 | **/commit** | Shortcut to the `commit` skill — commits staged changes in logical groups. Reached transitively via track-work ("Commit with the commit skill"). |
-| **/document** | Shortcut to the `document` skill — syncs or audits docs against code, dry-run by default unless `apply` is explicit. |
+| **/document** | Shortcut to the `document` skill — reconciles docs to code changes or scans for drift (code mode) and reviews work against the intent anchor (intent mode); dry-run by default unless `apply` is explicit. |
 
 ### Tools (RPCE MCP / git)
 

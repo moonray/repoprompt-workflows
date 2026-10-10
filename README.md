@@ -22,9 +22,9 @@ Workflows are macOS-only because RPCE is macOS-only today. Skills, slash command
 |---|---|
 | `Spec` | Elicit intent, draft scenarios/constraints, check for redundancy/gaps/ambiguity, write a minimal spec to `docs/spec/`. |
 | `Test` | Read a spec's Given/When/Then, discover the repo's test framework, map scenarios to native tests, write them. |
-| `Loop` | Consume a Spec + Deep Plan, verify readiness, then run red/green/review/refactor loops with resumable progress. |
+| `Loop` | Initialize durable progress, consume an immutable Spec + Deep Plan tuple, gate readiness/delegation, and run red/green/review/refactor. Standalone missing-contract work hands off externally; orchestrated work stops at `merge_ready`. |
 | `Deep Review` | Map a change set, run parallel context-grounded review shots across lenses, govern/revalidate findings, reconcile with the author. |
-| `Backlog` | Triage tracked issues via `track-work`; for each run Spec/plan-if-missing, then a worktree-isolated `Loop` subagent, verify closeout, close. |
+| `Backlog` | Triage tracked issues via `track-work`; own contract preparation and deterministic re-gating, dispatch isolated `Loop` epochs, independently verify `merge_ready`, then own publication, landing, status/close, and cleanup. |
 
 `Spec` → `Test` form a pair; `Loop` builds on both; `Deep Review` pairs with `Loop`; `Backlog` sits above `Loop`.
 
