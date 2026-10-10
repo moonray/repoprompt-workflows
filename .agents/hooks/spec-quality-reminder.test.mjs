@@ -136,6 +136,29 @@ test("codex shape: apply_patch command body + tool_name apply_patch -> SPEC QUAL
   assert.match(c, /SPEC QUALITY/);
 });
 
+test("apply_patch Delete File lines are inspected", () => {
+  // Defect this guards: a spec REMOVAL is as decision-relevant as an edit; the
+  // Delete alternative of the patch regex must keep matching.
+  assert.match(run(edit({ command: "*** Begin Patch\n*** Delete File: docs/spec/gone.md" })), /SPEC QUALITY/);
+});
+
+test("apply_patch Move-to destinations are inspected (source AND destination)", () => {
+  // Defect this guards: a Codex move whose destination lands under docs/spec/ —
+  // Update carries the source, Move to: carries the destination; missing the
+  // Move-to half let moves escape the reminder.
+  const c = run(edit({ command: "*** Begin Patch\n*** Update File: docs/old.md\n-x\n*** Move to: docs/spec/moved.md" }));
+  assert.match(c, /SPEC QUALITY/);
+});
+
+test("plans rule is direct-children only (documented docs/plans/*.md)", () => {
+  // Defect this guards: the recursive regex matched docs/plans/archive/old.md,
+  // over-firing PLAN READINESS beyond the documented contract; spec files stay
+  // recursive by contrast.
+  assert.equal(run(edit({ path: "docs/plans/archive/old.md" })), "");
+  assert.match(run(edit({ path: "docs/plans/active.md" })), /PLAN READINESS/);
+  assert.match(run(edit({ path: "docs/spec/sub/deep.md" })), /SPEC QUALITY/);
+});
+
 test("opencode shape: write tool, spread args + extracted file_path -> SPEC QUALITY", () => {
   // the opencode plugin builds {tool_input: {...args, file_path}} — extra arg keys must be ignored.
   const c = run({

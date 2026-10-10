@@ -16,16 +16,22 @@ AGENTS_SLASH="$HOME/.agents/slash"
 CLAUDE_RULES="$HOME/.claude/rules"
 AGENTS_RULES="$HOME/.agents/rules"
 
-DRY=0; UNINSTALL=0; ORG_REPO="${ORG_REPO:-}"
+DRY=0; UNINSTALL=0; ORG_REPO="${ORG_REPO:-}"; ORG_GIVEN=0
 for a in "$@"; do
   case "$a" in
     --dry-run)   DRY=1 ;;
     --uninstall) UNINSTALL=1 ;;
-    --org-repo=*) ORG_REPO="${a#--org-repo=}" ;;
+    --org-repo=*) ORG_REPO="${a#--org-repo=}"; ORG_GIVEN=1 ;;
     -h|--help)   sed -n '2,6p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown flag '$a' (try --help)" >&2; exit 2 ;;
   esac
 done
+# An explicitly empty --org-repo= is almost certainly a typo'd variable (CI:
+# --org-repo="$ORG_PATH" with ORG_PATH unset) — refuse it rather than silently
+# performing a public-only install the operator believes included the overlay.
+if [ "$ORG_GIVEN" = 1 ] && [ -z "$ORG_REPO" ]; then
+  echo "install.sh: --org-repo requires a path (empty value given)" >&2; exit 2
+fi
 
 # Canonicalize the org repo to an absolute path, failing closed: a relative
 # value would become a relative symlink target (resolved against the link's
@@ -99,20 +105,28 @@ manage() {
 }
 
 # register_claude_settings — keep our Claude Code hook registrations in ~/.claude/settings.json in sync.
-# Matchers are anchored and include MCP-qualified names (bare `apply_edits` never matched
-# `mcp__RepoPromptCE__apply_edits`); commands use `python3 $HOME/...` so they resolve on any shell.
+# The registration table lives inside the python heredoc as native data (no JSON-in-bash
+# quoting); matchers are anchored and include MCP-qualified names (bare `apply_edits` never
+# matched `mcp__RepoPromptCE__apply_edits`); commands quote $HOME so homes with spaces work.
 # Safe: parses JSON via python3, backs up before writing, never duplicates an entry, honors --dry-run/--uninstall, non-fatal.
 register_claude_settings() {
   local settings="$HOME/.claude/settings.json"
-  local regs='[{"event":"PostToolUse","matcher":"Bash|Skill","command":"python3 $HOME/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$","command":"python3 $HOME/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$","command":"python3 $HOME/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"python3 $HOME/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"python3 $HOME/.claude/hooks/test-quality-reminder.py"}]'
   if ! command -v python3 >/dev/null 2>&1; then
     echo "  skip     $settings (python3 not found — register hooks manually; see .agents/hooks/README.md)" >&2
     SKIPPED=$((SKIPPED+1)); return
   fi
   echo "• Claude Code settings.json  (idempotent hook registration)"
-  DRY="$DRY" UNINSTALL="$UNINSTALL" SETTINGS="$settings" python3 - "$regs" <<'PY' || { echo "  skip     $settings (registration failed); register hooks manually — see .agents/hooks/README.md" >&2; SKIPPED=$((SKIPPED+1)); }
+  DRY="$DRY" UNINSTALL="$UNINSTALL" SETTINGS="$settings" python3 - <<'PY' || { echo "  skip     $settings (registration failed); register hooks manually — see .agents/hooks/README.md" >&2; SKIPPED=$((SKIPPED+1)); }
 import json, os, shutil, sys, tempfile
-regs = json.loads(sys.argv[1])
+_ANCHORED_EDIT = "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$"
+_TASKS = "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run"
+regs = [
+    {"event": "PostToolUse", "matcher": "Bash|Skill", "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
+    {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-quality-reminder.py"'},
+    {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-conformance-gate.py"'},
+    {"event": "PostToolUse", "matcher": _TASKS,           "command": 'python3 "$HOME/.claude/hooks/delegation-reminder.py"'},
+    {"event": "Stop",        "matcher": "*",             "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
+]
 path = os.environ["SETTINGS"]; dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
 def _hook_cmds(entry):
     hh = entry.get("hooks") if isinstance(entry, dict) else None
@@ -135,7 +149,11 @@ ours = {r["command"] for r in regs}
 legacy = {"~/.claude/hooks/test-quality-reminder.py",
           "~/.claude/hooks/spec-quality-reminder.py",
           "~/.claude/hooks/spec-conformance-gate.py",
-          "~/.claude/hooks/delegation-reminder.py"}
+          "~/.claude/hooks/delegation-reminder.py",
+          "python3 $HOME/.claude/hooks/test-quality-reminder.py",
+          "python3 $HOME/.claude/hooks/spec-quality-reminder.py",
+          "python3 $HOME/.claude/hooks/spec-conformance-gate.py",
+          "python3 $HOME/.claude/hooks/delegation-reminder.py"}
 strip_targets = (ours | legacy) if uninst else legacy
 added = removed = 0
 for ev in sorted({r["event"] for r in regs}):

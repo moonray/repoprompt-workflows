@@ -26,23 +26,20 @@ import sys
 
 RULES = [
     (
-        re.compile(r"(^|/)docs/spec/"),
-        re.compile(r"\.md$"),
+        re.compile(r"(^|/)docs/spec/.+\.md$"),
         "SPEC QUALITY: you edited a spec file (docs/spec/). Before declaring spec work done, "
         "run the spec-quality skill (Skill tool) on it and resolve findings: contract-level scope, "
         "observable/identifiable/independent/focused scenarios, goal- and surface-to-scenario "
         "coverage, redundancy, ambiguity/testability, Open Questions with recommendations.",
     ),
     (
-        re.compile(r"(^|/)docs/plans/"),
-        re.compile(r"\.md$"),
+        re.compile(r"(^|/)docs/plans/[^/]+\.md$"),
         "PLAN READINESS: you edited an implementation plan (docs/plans/). Before implementing "
         "from it, run the spec-plan-readiness skill on the Spec + plan pair and clear its gates "
         "(a blocked verdict authorizes no implementation).",
     ),
     (
-        re.compile(r"(^|/)\.agents/skills/"),
-        re.compile(r"(^|/)SKILL\.md$"),
+        re.compile(r"(^|/)\.agents/skills/.+/SKILL\.md$"),
         "SKILL STANDARDS: you edited a SKILL.md. Apply the skill-creator standards to it "
         "(frontmatter shape, description budget and triggering, distinctness vs existing skills, "
         "progressive disclosure) AND confirm docs/spec/<skill-name>.md exists — a skill without a spec is tracked debt: create one per the spec conventions if missing.",
@@ -52,13 +49,14 @@ RULES = [
 _EXCLUDE_BASENAMES = {"readme.md"}
 
 _PATCH_FILE_RE = re.compile(r"^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$", re.MULTILINE)
+_PATCH_MOVE_RE = re.compile(r"^\*\*\*\s+Move to:\s*(.+?)\s*$", re.MULTILINE)
 
 
 def _paths_from_patch(command):
     """Codex/opencode deliver file edits as an apply_patch command (no path field)."""
     if not isinstance(command, str):
         return []
-    return _PATCH_FILE_RE.findall(command)
+    return _PATCH_FILE_RE.findall(command) + _PATCH_MOVE_RE.findall(command)
 
 
 def _paths_from_tool_input(ti):
@@ -115,8 +113,8 @@ def classify(path):
     if os.path.basename(norm).lower() in _EXCLUDE_BASENAMES:
         return []
     hits = []
-    for dir_re, file_re, text in RULES:
-        if dir_re.search(norm) and file_re.search(norm):
+    for rule_re, text in RULES:
+        if rule_re.search(norm):
             hits.append(text)
     return hits
 
