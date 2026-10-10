@@ -13,7 +13,7 @@ Implementation audited: `.agents/skills/model-routing/SKILL.md` (canonical guida
 
 | Section | Item | Status | Evidence | Note |
 |---|---|---|---|---|
-| Constraints | Table entries verifiable in the runtime roster | Diverged (accepted, pending refresh) | catalog probes 2026-10-10 (`app_settings models.planning_model` options, agent-filtered and unfiltered) | newest visible Codex generation GPT-5.6; no gpt-6.x/opus-5.x/astra entries visible; live setting is the unlisted custom id `codex_custom_gpt-6-sol-xhigh`. Ratified models postdate the local catalog — restart RepoPrompt CE to refresh, re-verify, then re-point per spec OQ-1 |
+| Constraints | Table entries verifiable in the runtime roster | Conformed | pre-restart probes 2026-10-10 19:52Z (catalog 516; gap found, reported, tracked) + post-restart probes 21:47–21:48Z (catalog 528, +12; `models.planning_model` = `codex_custom_gpt-6.1-sol-high` via get, matching the ratified pick) | Sol 6.1 and Fable 5.1 (`claude_code__claude-fable-5-1:high`) verified; Opus 5.5 and Astra ids sit beyond the options pagination cap — Settings-picker confirmation is the remaining wiring step for `models.additional_oracle_models` |
 | Constraints | Workspace portability — no repo-specific paths, no live setting values baked in | Conformed | full-text scan of `model-routing/SKILL.md` | names setting keys (`:35`) but no current values; grep for repo paths: 0 matches |
 | Constraints | Roles are the stable interface; models are replaceable data | Conformed | `model-routing/SKILL.md:14`, `:35` | call sites reference roles, never model names |
 | Scenarios | S-001 Canonical dated block | Conformed | `model-routing/SKILL.md:12–19` | three roles with model/effort/rationale + as-of date on `:14` |
@@ -31,17 +31,14 @@ Implementation audited: `.agents/skills/model-routing/SKILL.md` (canonical guida
 
 ```yaml
 audited:
-  - Constraints: roster verifiability (SKILL.md:26,45) — Diverged, accepted pending catalog refresh (see unreconciled)
+  - Constraints: roster verifiability (SKILL.md:26,45; verified post-restart 2026-10-10)
   - Constraints: workspace portability (full-text scan)
   - Constraints: roles-as-interface (SKILL.md:14,35)
   - S-001 .. S-007 (all scenarios)
   - Surface: recommendation table fields
   - Surface: re-evaluation triggers
   - Surface: report block
-unreconciled:
-  - item: Constraints — table entries verifiable in the runtime roster
-    reason: ratified models (GPT-6.1 Sol, Opus 5.5, GPT-6 Astra) postdate the local RPCE catalog (probes 2026-10-10)
-    waiver: accepted as environment lag; resolution recorded in spec OQ-1 (restart → re-verify → re-point); matrix to be refreshed when the roster catches up
+unreconciled: []
 ```
 
-Every scenario, Proposed Surface element, and stated constraint was checked. One constraint is Diverged with an accepted waiver (roster lag, OQ-1); everything else Conformed. Open Questions 1–2 are recorded decisions-pending, not conformance gaps (the spec's propose-only contract is what OQ-2 asks about changing).
+Every scenario, Proposed Surface element, and stated constraint was checked; none Diverged or Not-built. The former planning-mirror open question is resolved (post-restart verification above); the remaining Open Question (propose-only settings) is a recorded decision-pending, not a conformance gap.

@@ -80,5 +80,4 @@ New major model release or roster change; pricing change (especially cached-inpu
 The three-role block (role: model (effort) — rationale) produced on every (re-)evaluation.
 
 ## Open Questions
-1. Planning-mirror lag: the ratified block specifies GPT-6.1 Sol at High effort, but the live RPCE `models.planning_model` is the custom id `codex_custom_gpt-6-sol-xhigh` (GPT-6 Sol, xhigh — a different model generation and effort), and no GPT-6.x, Opus 5.x, or Astra entry appeared in the RPCE catalog views obtainable on 2026-10-10 (newest visible Codex generation: GPT-5.6; newest visible Opus: 4.6). Recommendation: refresh the catalog — restart RepoPrompt CE so it re-discovers backend model lists — then re-verify the roster and set `models.planning_model` to the ratified model's exact roster id at High effort; interim, leave the setting unchanged rather than guessing raw ids.
-2. Should re-evaluation auto-apply runtime-setting changes when the user has pre-approved the exact keys? Recommendation: no — keep propose-only; settings are user-owned and a proposal diff is cheap to apply.
+1. Should re-evaluation auto-apply runtime-setting changes when the user has pre-approved the exact keys? Recommendation: no — keep propose-only; settings are user-owned and a proposal diff is cheap to apply.
