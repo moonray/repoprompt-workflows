@@ -7,7 +7,7 @@ Canonical hook scripts that enforce the rules in [`../rules/global.md`](../rules
 | Script | Kind | Event(s) | Guarantee |
 |---|---|---|---|
 | `test-quality-reminder.py` | reminder + Stop gate | PostToolUse:Bash\|Skill, Stop | Records a run when a test command fires and a marker when the `test-quality` Skill is actually invoked; at Stop, blocks if a test file was edited since the later of {last run, last skill invocation} — edit→run→invoke-skill→stop is allowed, edit→run→stop (skill skipped or "applied from context") is not. |
-| `spec-quality-reminder.py` | reminder | PostToolUse:edit | Nudges the `spec-quality` skill when a `docs/spec/*.md` file (other than the index) is edited. |
+| `spec-quality-reminder.py` | reminder | PostToolUse:edit | Nudges the matching quality skill when a spec (`docs/spec/`), a plan (`docs/plans/`), or a skill definition (`.agents/skills/**/SKILL.md`, recursive) is edited — one aggregated reminder per edit event; suppressed when the runtime reports the edit failed. |
 | `spec-conformance-gate.py` | gate (block) | PostToolUse:edit | Blocks closing a spec (frontmatter `status` set to a terminal value) that has no conformance matrix; directs to the `spec-conformance` skill. |
 | `delegation-reminder.py` | reminder | PostToolUse:delegation tools | Nudges independent verification when a delegated agent (`Task` / `TaskOutput` / `agent_run`) returns a report. |
 
