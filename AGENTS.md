@@ -10,7 +10,7 @@ This repo ships an agent workflow system for RepoPrompt CE: five **workflows**, 
 
 - `.agents/workflows/` — five RPCE workflows: `Spec`, `Test`, `Loop`, `Deep-Review`, `Backlog`.
 - `.agents/skills/` — twelve skills, each `<name>/SKILL.md`.
-- `.agents/slash/` — slash commands (`document.md`).
+- `.agents/slash/` — slash commands (`document.md`, `rp-bash-roots.md`).
 - `.agents/rules/global.md` — cross-cutting hard rules (canonical).
 - `.agents/hooks/` — Python hook scripts enforcing those rules.
 - `docs/spec/` — dogfooded specs + conformance matrices for each workflow/skill.
