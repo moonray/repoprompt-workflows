@@ -1,6 +1,6 @@
 # RepoPrompt Workflows
 
-A shareable agent workflow system for [RepoPrompt CE](https://repoprompt.com) (RPCE) and the model CLIs it drives — Claude Code, Codex, opencode, and pi. Five orchestrated **workflows**, the reusable **skills** they invoke, supporting slash **commands**, the cross-cutting **rules** and **hooks** that enforce them, and the dogfooded **specs** that document each piece.
+A shareable agent workflow system for [RepoPrompt CE](https://repoprompt.com) (RPCE) and the model CLIs it drives — Claude Code, Codex, opencode, pi, and Antigravity (`agy`). Five orchestrated **workflows**, the reusable **skills** they invoke, supporting slash **commands**, the cross-cutting **rules** and **hooks** that enforce them, and the dogfooded **specs** that document each piece.
 
 The workflows inline the discipline from the skills they depend on wherever an inline copy suffices — `Backlog` additionally requires the `track-work` and `spec-plan-readiness` skills (discovery, gating, and close go through them, with no inline fallback). The skills are the canonical standalone versions.
 
@@ -14,7 +14,7 @@ The workflows inline the discipline from the skills they depend on wherever an i
 
 Workflows are macOS-only because RPCE is macOS-only today. Skills, slash commands, rules, and hooks are cross-platform (anywhere those CLIs and symlinks are supported).
 
-> **No RepoPrompt CE (or not on macOS)?** Skills and rules work directly with all four CLIs; command and hook support varies by runtime — see the compatibility table under [Reference](#reference).
+> **No RepoPrompt CE (or not on macOS)?** Skills and rules work directly with Claude Code, Codex, opencode, pi, and Antigravity (`agy` — skills); command and hook support varies by runtime — see the compatibility table under [Reference](#reference).
 
 **The five workflows:**
 
@@ -132,7 +132,7 @@ done
 **How the pieces fit**
 
 - **Workflows** (RPCE) orchestrate. They inline the discipline from the skills they depend on; most run without the skill installed, but `Backlog` requires the `track-work` and `spec-plan-readiness` skills outright (no inline fallback).
-- **Skills** are discovered by the backend CLI, **not** RPCE: Claude Code reads `.agents/skills` + `~/.claude/skills`; Codex scans `.agents/skills` + `~/.agents/skills`; opencode and pi read `.agents/skills`.
+- **Skills** are discovered by each runtime: Claude Code reads `.claude/skills` (project) + `~/.claude/skills` (personal) — not `.agents/skills`; Codex, opencode, pi, and Antigravity (`agy`) read `.agents/skills` (plus `~/.agents/skills` user scope); RepoPrompt CE's catalog scans both families for every backend it drives.
 - **Rules** (`global.md`) are the cross-cutting hard rules the workflows and hooks reference.
 - **Hooks** enforce those rules at the tool-call lifecycle; logic lives once in `.agents/hooks/*.py` (runtime-agnostic Python on stdin), registered per backend.
 - **Specs** under `docs/spec/` are the dogfooded contracts for these very workflows/skills, each with a conformance matrix.
@@ -156,12 +156,14 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 
 **Runtime compatibility**
 
-| Artifact | Claude Code | Codex | opencode | pi | RPCE |
-|---|---|---|---|---|---|
-| Workflows | — | — | — | — | loads from app-support dir |
-| Skills | `.agents/skills` + `~/.claude/skills` | `.agents/skills` + `~/.agents/skills` | `.agents/skills` | `.agents/skills` | — |
-| Commands | `~/.claude/commands` | `~/.codex/prompts` (deprecated → skills) | `.opencode/commands/` (not wired by the installer) | — | `~/.agents/slash` + workspace `.agents/slash` |
-| Rules | portable | portable | portable | portable | — |
-| Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | not yet supported | — |
+| Artifact | Claude Code | Codex | opencode | pi | agy | RPCE |
+|---|---|---|---|---|---|---|
+| Workflows | — | — | — | — | — | loads from app-support dir |
+| Skills | `.claude/skills` + `~/.claude/skills` | `.agents/skills` + `~/.agents/skills` | `.agents/skills` | `.agents/skills` | `.agents/skills` + `~/.agents/skills` | scans all skill sources per backend |
+| Commands | `~/.claude/commands` | `~/.codex/prompts` (deprecated → skills) | `.opencode/commands/` (not wired by the installer) | — | — (skills become slash commands in its TUI) | `~/.agents/slash` + workspace `.agents/slash` |
+| Rules | portable | portable | portable | portable | — | — |
+| Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | not yet supported | — | — |
+
+**Standards** — skills follow the [Agent Skills](https://agentskills.io) open standard (`<skill>/SKILL.md` with `name`/`description` frontmatter), which Claude Code, Codex, opencode, pi, and Antigravity all read. The newer `.agents` directory-protocol draft ([dotagentsprotocol.com](https://dotagentsprotocol.com)) specifies a different skill format (lowercase `skill.md`, `id`/`enabled` frontmatter) and defines no `rules/`, `slash/`, `hooks/`, or `workflows/` — deliberately not adopted here; those directories are community extensions consumed by this repo's installer and RepoPrompt CE.
 
 **License** — MIT; see [`LICENSE`](LICENSE). Third-party vendored content (`maintainability-review`, from [cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review), MIT) is attributed in [`NOTICE`](NOTICE).

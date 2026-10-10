@@ -37,9 +37,10 @@ ln -sfn "$REPO/.agents/skills/test-quality" "$HOME/.claude/skills/test-quality" 
 
 How runtimes discover skills (verified against each runtime's own docs):
 
-- **Claude Code** reads `.agents/skills` (project) and `~/.claude/skills` (user).
-- **Codex** scans `.agents/skills` from `$CWD` up to `$REPO_ROOT`, plus `~/.agents/skills` (user scope).
+- **Claude Code** reads `.claude/skills/<skill>/SKILL.md` (project) and `~/.claude/skills` (personal) — it does not read `.agents/skills` itself; under RepoPrompt CE, the app's skill catalog additionally scans `.agents/skills` and `~/.agents/skills` for every backend it drives. On name conflicts, personal beats project.
+- **Codex** scans `.agents/skills` from `$CWD` up to `$REPO_ROOT`, plus `~/.agents/skills` (user scope); custom prompts (`~/.codex/prompts`) are deprecated in favor of skills.
 - **opencode** and **pi** read `.agents/skills`.
+- **Antigravity CLI (`agy`)** reads `<workspace>/.agents/skills/` and `~/.agents/skills/` — the same two paths this repo and its installer already populate, so skills work there with no extra wiring.
 
 One source of truth, read by every runtime — symlink rather than copy.
 
