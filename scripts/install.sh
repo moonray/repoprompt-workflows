@@ -126,6 +126,7 @@ regs = [
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-conformance-gate.py"'},
     {"event": "PostToolUse", "matcher": _TASKS,           "command": 'python3 "$HOME/.claude/hooks/delegation-reminder.py"'},
     {"event": "Stop",        "matcher": "*",             "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
+    {"event": "PreToolUse", "matcher": "^mcp__chrome-devtools__", "command": 'python3 "$HOME/.claude/hooks/chrome-gate.py"'},
 ]
 path = os.environ["SETTINGS"]; dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
 def _hook_cmds(entry):

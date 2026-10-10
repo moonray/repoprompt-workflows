@@ -10,6 +10,7 @@ Canonical hook scripts that enforce the rules in [`../rules/global.md`](../rules
 | `spec-quality-reminder.py` | reminder | PostToolUse:edit | Nudges the matching quality skill when a spec (`docs/spec/`), a plan (`docs/plans/`), or a skill definition (`.agents/skills/**/SKILL.md`, recursive) is edited — one aggregated reminder per edit event; suppressed when the runtime reports the edit failed. |
 | `spec-conformance-gate.py` | gate (block) | PostToolUse:edit | Blocks closing a spec (frontmatter `status` set to a terminal value) that has no conformance matrix; directs to the `spec-conformance` skill. |
 | `delegation-reminder.py` | reminder | PostToolUse:delegation tools | Nudges independent verification when a delegated agent (`Task` / `TaskOutput` / `agent_run`) returns a report. |
+| `chrome-gate.py` | gate (one-shot deny) | PreToolUse:mcp__chrome-devtools__* | Denies the session's **first** chrome-devtools MCP tool call with a reason directing to the `chrome` skill (own-app UI excepted — proceed under user-testing); every later call in the session passes silently. Fails open — a broken gate never disables browsing. |
 
 Two are reminders rather than hard gates because the matching discipline is a Skill with no shell command a hook can observe run; the downstream closeout gates (review-quality revalidation, the conformance matrix) remain the backstops.
 
@@ -37,7 +38,7 @@ Link each script, then merge the registration block into `~/.claude/settings.jso
 ```bash
 REPO="$(pwd)"   # run from the repo root
 mkdir -p "$HOME/.claude/hooks"
-for s in test-quality-reminder spec-quality-reminder spec-conformance-gate delegation-reminder; do
+for s in test-quality-reminder spec-quality-reminder spec-conformance-gate delegation-reminder chrome-gate; do
   ln -sfh "$REPO/.agents/hooks/$s.py" "$HOME/.claude/hooks/$s.py"
 done
 ```
@@ -47,6 +48,9 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
 ```json
 {
   "hooks": {
+    "PreToolUse": [
+      { "matcher": "^mcp__chrome-devtools__", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/chrome-gate.py\"" }] }
+    ],
     "PostToolUse": [
       { "matcher": "Bash|Skill", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/test-quality-reminder.py\"" }] },
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/spec-quality-reminder.py\"" }] },
@@ -60,7 +64,7 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
 }
 ```
 
-To remove: delete those four symlinks and strip the matching entries from `settings.json`, or run `bash scripts/install.sh --uninstall` (does both, and leaves any entries you added yourself untouched).
+To remove: delete those five symlinks and strip the matching entries from `settings.json`, or run `bash scripts/install.sh --uninstall` (does both, and leaves any entries you added yourself untouched).
 
 Hooks are a guardrail, not an absolute enforcement boundary — a model can occasionally route around them. Treat them as strong default enforcement.
 

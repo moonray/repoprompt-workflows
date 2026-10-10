@@ -1,5 +1,5 @@
 ---
-name: chrometools
+name: chrome
 description: Use whenever driving or visiting a website with browser automation — the chrome-devtools MCP (dev chrometools: navigate_page, take_snapshot, evaluate_script), Playwright, or any headed browser under agent control — especially external, unfamiliar, or bot-defended sites. Carries the warm-up protocol (land on the site root and let it settle before any deep link; wait out managed challenges instead of clicking them), the navigator.webdriver automation-tell patch, rate-ban and fingerprint-consistency discipline, and the escalation ladder ending in human-in-the-loop, plus per-site override profiles. Trigger even when nobody says "warm-up" — any browser-automation session against a site you don't control is this skill. Not for plain HTTP fetches blocked by a bot wall (that is bot-wall), Cloudflare Radar analytics (cloudflare-radar), or verifying your own app's UI (user-testing).
 ---
 
@@ -48,7 +48,7 @@ Climb one rung at a time; each rung is heavier than the one below and most tasks
 5. **Hard walls** (DataDome-class with CDP detection, hard CAPTCHAs): nothing fieldable. Record the URL as a blind spot and move on — a hard-blocked domain is a data point, not a challenge to defeat.
 
 ## Site overrides
-Defaults above are the general protocol; some sites warrant per-site tweaks (stricter settle times, known challenge behavior, variant quirks). Before driving a known target, check [`references/site-overrides.md`](references/site-overrides.md) for a profile and let its deltas override the defaults. When a session teaches you a site-specific fact, record it there — that file is the override/tweak layer, kept separate so the default stays general.
+Defaults above are the general protocol; some sites warrant per-site tweaks (stricter settle times, known challenge behavior, variant quirks). Before driving a known target, check [`references/site-overrides.md`](references/site-overrides.md) for a profile and let its deltas override the defaults. Where a site has an extensively field-tested method, the profile routes to a deeper method file at [`references/sites/<domain>.md`](references/sites/) — read it before driving that domain and let its tested sequence (warm-up shape, waits, signals, failure handling) replace the generic defaults; it is a portal to the method, the canonical code stays with the owning repo. When a session teaches you a site-specific fact, record it in the profile — or, once it hardens into a repeatable method, as a `sites/` file — in the same change that used the lesson.
 
 ## Provenance
 - 2026-10-08, dealer-site scan pilot (212 domains): the ladder, the lone `navigator.webdriver` tell, the www-variant fix, the robots-fingerprint self-ban, impersonation rotation, rate bans, human-in-the-loop finish — all demonstrated live.

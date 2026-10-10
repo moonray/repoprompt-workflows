@@ -32,7 +32,7 @@ For scripts that may run where curl_cffi is absent, degrade gracefully (try/exce
 ## If impersonation alone does not clear it
 Escalate one step at a time, one attempt each — repeating an identical blocked request is noise, not progress:
 1. A different impersonation target: `"safari"`, `"firefox"`, or a newer pinned Chrome version exposed by the installed curl_cffi.
-2. Real browser automation (it executes the challenge JS): browser tools or Playwright — the **chrometools** skill owns that rung (warm-up protocol, `navigator.webdriver` patch, human-in-the-loop finish). Heavier — use only what the task needs.
+2. Real browser automation (it executes the challenge JS): browser tools or Playwright — the **chrome** skill owns that rung (warm-up protocol, `navigator.webdriver` patch, human-in-the-loop finish). Heavier — use only what the task needs.
 3. Still walled → record the URL as hard-blocked and move on. Do not hammer the site, and never treat a challenge interstitial as page content in downstream analysis.
 
 ## Politeness and limits
