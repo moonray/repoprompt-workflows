@@ -6,7 +6,7 @@ Canonical source of truth for cross-cutting conventions that apply across the Sp
 
 This file is the source. It is symlinked into runtime discovery directories (`~/.agents/rules/`, `~/.claude/rules/`) for runtimes that load a rules directory. Not every runtime auto-loads rules, and RepoPrompt CE loads workflows only — so the Spec/Test/Loop workflows carry these rules inline as well. The inline copy is what enforces them during a workflow run; this file is the canonical, readable source. These rules are intentionally not injected into per-repo memory files (`CLAUDE.md`, `AGENTS.md`), so they never pollute FOSS or shared repos and require no per-repo setup.
 
-**Public mirror (this copy):** this file is the PUBLIC mirror of the canonical private `global.md`. It carries the GENERIC rules only — nothing personalized, no private projects, archives, or skills (the canonical file's coms-data exception and any private-lesson specifics are deliberately absent here). When the canonical rules change, the generic form is ported here in the same change; absence of a canonical rule here is deliberate divergence, not drift — check the canonical file before "fixing" a gap here.
+**Canonical scope (2026-10-10):** this file is the canonical public source of the GENERIC rules — nothing personalized and no private projects, archives, or skills ever lands here. A consumer workspace with private exceptions keeps them in a small private overlay file in its own checkout (e.g. `.agents/rules/<workspace>-private.md`), linked alongside this file in its runtime rules directories; a rule present in such an overlay but absent here is deliberate divergence, not drift — never "fix" a gap here by porting private content.
 
 ## Scope (what belongs here)
 
