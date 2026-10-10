@@ -27,6 +27,16 @@ for a in "$@"; do
   esac
 done
 
+# Canonicalize the org repo to an absolute path, failing closed: a relative
+# value would become a relative symlink target (resolved against the link's
+# directory, not the cwd) and the ok-check would then report the broken link
+# as healthy on every later run.
+if [ -n "$ORG_REPO" ]; then
+  ORG_CANON="$(cd "$ORG_REPO" 2>/dev/null && pwd -P)" ||
+    { echo "install.sh: --org-repo path not found: $ORG_REPO" >&2; exit 2; }
+  ORG_REPO="$ORG_CANON"
+fi
+
 OK=0; FIXED=0; CONFLICT=0; REMOVED=0; SKIPPED=0
 
 # link_is_ours <target> — does this symlink target belong to this repo or the configured org repo?
@@ -104,20 +114,30 @@ hooks = data.get("hooks")
 if not isinstance(hooks, dict): hooks = {}
 data["hooks"] = hooks
 ours = {r["command"] for r in regs}
+# Registrations from older installers used the bare '~/.claude/hooks/<name>.py'
+# command form with unanchored matchers. Install migrates them to the current
+# entries; uninstall removes both generations, so no dead/duplicate entries
+# are ever left behind pointing at (possibly removed) scripts.
+legacy = {"~/.claude/hooks/test-quality-reminder.py",
+          "~/.claude/hooks/spec-quality-reminder.py",
+          "~/.claude/hooks/spec-conformance-gate.py",
+          "~/.claude/hooks/delegation-reminder.py"}
+strip_targets = (ours | legacy) if uninst else legacy
 added = removed = 0
 for ev in sorted({r["event"] for r in regs}):
     lst = hooks.get(ev, [])
     if not isinstance(lst, list): lst = []
+    kept = []
+    for e in lst:
+        if not isinstance(e, dict): kept.append(e); continue
+        hh = e.get("hooks")
+        if not isinstance(hh, list): kept.append(e); continue
+        before = len(hh)
+        hh = [h for h in hh if not (isinstance(h, dict) and h.get("command") in strip_targets)]
+        removed += before - len(hh)
+        if hh: e["hooks"] = hh; kept.append(e)
+    lst = kept
     if uninst:
-        kept = []
-        for e in lst:
-            if not isinstance(e, dict): kept.append(e); continue
-            hh = e.get("hooks")
-            if not isinstance(hh, list): kept.append(e); continue
-            before = len(hh)
-            hh = [h for h in hh if not (isinstance(h, dict) and h.get("command") in ours)]
-            removed += before - len(hh)
-            if hh: e["hooks"] = hh; kept.append(e)
         if kept: hooks[ev] = kept
         else: hooks.pop(ev, None)
     else:
@@ -125,7 +145,7 @@ for ev in sorted({r["event"] for r in regs}):
             if r["event"] != ev: continue
             matches = [e for e in lst if isinstance(e, dict) and e.get("matcher", "*") == r["matcher"]]
             # already present in ANY same-matcher entry? dedup across duplicates, not just the first
-            if any(isinstance(h, dict) and h.get("command") == r["command"] for e in matches for h in _hook_cmds(e)):
+            if any(isinstance(h, dict) and h["command"] == r["command"] for e in matches for h in _hook_cmds(e)):
                 continue
             if matches:
                 entry = matches[0]
@@ -135,7 +155,7 @@ for ev in sorted({r["event"] for r in regs}):
                 entry = {"matcher": r["matcher"], "hooks": []}; lst.append(entry)
             entry["hooks"].append({"type": "command", "command": r["command"]}); added += 1
         hooks[ev] = lst
-write = (removed > 0) if uninst else (added > 0 or not os.path.exists(path))
+write = (removed > 0 or added > 0 or not os.path.exists(path))
 if dry:
     print(f"    [dry-run] {path}: +{added} -{removed} hook registrations (nothing written)")
 elif write:
@@ -153,46 +173,46 @@ else:
 PY
 }
 
+# link_sources <src-glob> [skip-basename...] -- <dest-dir>...
+# One fan-out for every category: iterate the glob, skip reserved basenames,
+# manage() each source into every destination dir.
+link_sources() {
+  local glob="$1"; shift
+  local skips=() skip f src b dest
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do skips+=("$1"); shift; done
+  [ "${1:-}" = "--" ] && shift
+  for f in $glob; do
+    src="${f%/}"
+    [ -e "$src" ] || continue
+    b="$(basename "$src")"
+    for skip in ${skips:+"${skips[@]}"}; do [ "$b" = "$skip" ] && continue 2; done
+    for dest in "$@"; do
+      manage "$src" "$dest/$b"
+    done
+  done
+}
+
 verb="Installing"; [ "$UNINSTALL" = 1 ] && verb="Uninstalling"
 echo "$verb repoprompt-workflows  (repo: $REPO)$([ "$DRY" = 1 ] && echo '  [dry-run — nothing is changed]')"
 
 shopt -s nullglob
 
 echo "• workflows → RepoPrompt CE  (scanning .agents/workflows/*.md)"
-for f in "$SRC/workflows"/*.md; do
-  b="$(basename "$f")"; [ "$b" = "README.md" ] && continue
-  manage "$f" "$RPCE_WF/$b"
-done
+link_sources "$SRC/workflows/*.md" README.md -- "$RPCE_WF"
 
 echo "• skills → ~/.claude/skills + ~/.agents/skills  (scanning .agents/skills/*/)"
-for d in "$SRC/skills"/*/; do
-  b="$(basename "$d")"
-  manage "${d%/}" "$CLAUDE_SKILLS/$b"
-  manage "${d%/}" "$AGENTS_SKILLS/$b"
-done
+link_sources "$SRC/skills/*/" -- "$CLAUDE_SKILLS" "$AGENTS_SKILLS"
 
 echo "• commands → ~/.claude/commands + ~/.agents/slash  (scanning .agents/slash/*.md)"
-for f in "$SRC/slash"/*.md; do
-  b="$(basename "$f")"; [ "$b" = "README.md" ] && continue
-  manage "$f" "$CLAUDE_CMD/$b"
-  manage "$f" "$AGENTS_SLASH/$b"
-done
+link_sources "$SRC/slash/*.md" README.md -- "$CLAUDE_CMD" "$AGENTS_SLASH"
 
 echo "• rules → ~/.claude/rules + ~/.agents/rules  (scanning .agents/rules/*.md)"
-for f in "$SRC/rules"/*.md; do
-  b="$(basename "$f")"; [ "$b" = "README.md" ] && continue
-  manage "$f" "$CLAUDE_RULES/$b"
-  manage "$f" "$AGENTS_RULES/$b"
-done
+link_sources "$SRC/rules/*.md" README.md -- "$CLAUDE_RULES" "$AGENTS_RULES"
 if [ -n "$ORG_REPO" ]; then
   ORG_RULES="$ORG_REPO/.agents/rules"
   if [ -d "$ORG_RULES" ]; then
     echo "• org overlay rules → both rules homes  (from $ORG_RULES; global.md stays the public core)"
-    for f in "$ORG_RULES"/*.md; do
-      b="$(basename "$f")"; { [ "$b" = "README.md" ] || [ "$b" = "global.md" ]; } && continue
-      manage "$f" "$CLAUDE_RULES/$b"
-      manage "$f" "$AGENTS_RULES/$b"
-    done
+    link_sources "$ORG_RULES/*.md" README.md global.md -- "$CLAUDE_RULES" "$AGENTS_RULES"
   else
     echo "  note: $ORG_RULES not found — no org overlay linked" >&2
     SKIPPED=$((SKIPPED+1))
@@ -202,10 +222,7 @@ else
 fi
 
 echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
-for f in "$SRC/hooks"/*.py; do
-  b="$(basename "$f")"
-  manage "$f" "$HOME/.claude/hooks/$b"
-done
+link_sources "$SRC/hooks/*.py" -- "$HOME/.claude/hooks"
 register_claude_settings
 
 shopt -u nullglob

@@ -119,6 +119,8 @@ def main():
         payload = json.load(sys.stdin)
     except Exception:
         sys.exit(0)
+    if not isinstance(payload, dict):
+        sys.exit(0)  # valid JSON of another shape (list/null/string) is not an event
     if payload.get("hook_event_name") != "PostToolUse":
         sys.exit(0)
     if not _edit_succeeded(payload):

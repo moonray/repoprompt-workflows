@@ -14,6 +14,12 @@ function run(payload) {
   return out ? JSON.parse(out).hookSpecificOutput.additionalContext : "";
 }
 
+function runRaw(input) {
+  const r = spawnSync("python3", [SCRIPT], { input, encoding: "utf8" });
+  assert.equal(r.status, 0, `script exited ${r.status}: ${r.stderr}`);
+  return r.stdout.trim();
+}
+
 const edit = (tool_input, tool_response) => ({
   hook_event_name: "PostToolUse",
   tool_name: "mcp__RepoPromptCE__apply_edits",
@@ -66,9 +72,23 @@ test("negative: unrelated markdown and spec README are silent", () => {
   assert.equal(run(edit({ path: ".agents/skills/foo/OTHER.md" })), "");
 });
 
-test("negative: failed tool call makes no reminder", () => {
-  // Defect this guards: nagging on edits that did not change anything.
-  assert.equal(run(edit({ path: "docs/spec/failed.md" }, { is_error: true }), ""), "");
+test("negative: failed tool call makes no reminder (every failure shape)", () => {
+  // Defect this guards: nagging on edits that did not change anything — across
+  // EVERY failure shape the suppressor recognizes; the positive control guards
+  // the opposite regression (a success-dict wrongly treated as failure would
+  // silently suppress all reminders).
+  for (const tr of [{ is_error: true }, { error: true }, { status: "error" }, { status: "ERROR" }]) {
+    assert.equal(run(edit({ path: "docs/spec/failed.md" }, tr)), "", JSON.stringify(tr));
+  }
+  assert.match(run(edit({ path: "docs/spec/ok.md" }, { status: 200 })), /SPEC QUALITY/);
+});
+
+test("negative: valid-but-non-object JSON exits 0 with no output", () => {
+  // Defect this guards: a JSON array/null/string parses successfully and then
+  // crashes on payload.get() — exit 1 + traceback in the hook log.
+  for (const raw of ["[]", "null", '"x"', "42"]) {
+    assert.equal(runRaw(raw), "", raw);
+  }
 });
 
 test("negative: non-PostToolUse events are ignored", () => {

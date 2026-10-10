@@ -19,7 +19,7 @@ This repo ships an agent workflow system for RepoPrompt CE: five **workflows**, 
 
 ## Editing rules (what an agent must preserve)
 
-- **Inline-sync contract.** Each workflow inlines the discipline of the skills it depends on so it runs deterministically without the skill installed, and names the skill as canonical. When you change a skill's discipline, update every workflow that inlines it — and vice versa. Don't let the inline copy and the skill drift.
+- **Inline-sync contract.** Each workflow inlines the discipline of the skills it depends on and names the skill as canonical — runs stay deterministic without the skill installed wherever an inline copy suffices (`Backlog` is the exception: it requires the `track-work` and `spec-plan-readiness` skills outright). When you change a skill's discipline, update every workflow that inlines it — and vice versa. Don't let the inline copy and the skill drift.
 - **Vendored lens is sync-managed.** `maintainability-review` (the skill and the `Deep-Review` inline block) is bounded by `BEGIN/END` markers and synced from upstream by `scripts/sync-maintainability-review.mjs`. Never hand-edit between the markers — run `node scripts/sync-maintainability-review.mjs --update`.
 - **Stable identifiers.** Spec scenarios use `S-NNN` IDs; review findings carry stable signatures. Never renumber or reuse; if one is removed, mark it, don't shift the rest.
 - **Skill descriptions are triggers.** A skill's frontmatter `description` is what makes it fire. Before adding or renaming a skill, run the distinctness check in [`.agents/skills/README.md`](.agents/skills/README.md) — overlapping descriptions misfire.

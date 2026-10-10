@@ -23,7 +23,7 @@
 | Failed edits are suppressed | Conformed | `_edit_succeeded` returns False on error-shaped `tool_response` |
 | apply_patch edits are recognized | Conformed | `_PATCH_FILE_RE` finds `*** Add/Update/Delete File:` targets |
 | opencode plugin payload shape is recognized | Conformed | `_paths_from_tool_input` reads every known key and ignores extras (test: spread args + `file_path`) |
-| Malformed payload exits cleanly | Conformed | `try/except` on `json.load` + non-PostToolUse guard → `sys.exit(0)` |
+| Malformed payload exits cleanly | Conformed | `try/except` on `json.load` + `isinstance(payload, dict)` guard + non-PostToolUse guard → `sys.exit(0)` (tests: invalid JSON, `[]`, `null`, string, number) |
 | Surface: payload (hook_event_name, tool_input shapes, optional tool_response) | Conformed | `payload.get("hook_event_name")`; `tool_input` handled by `_paths_from_tool_input`; `tool_response` by `_edit_succeeded` |
 | Surface: output (aggregated additionalContext / nothing) | Conformed | joined deduped rule texts via `hookSpecificOutput`; else exit 0 |
 

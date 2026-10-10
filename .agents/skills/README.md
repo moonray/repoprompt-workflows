@@ -2,7 +2,7 @@
 
 Reusable, model-invokable guidance shared across the workflows in this repo. Each skill is a directory with a `SKILL.md`; skills are intentionally generic so they work across repositories and agent runtimes.
 
-The workflows inline the discipline from these skills so they run deterministically even when a skill is not installed; each skill is the canonical standalone version for out-of-workflow use.
+The workflows inline the discipline from these skills wherever an inline copy suffices — `Backlog` requires the `track-work` and `spec-plan-readiness` skills outright; each skill is the canonical standalone version for out-of-workflow use.
 
 ## Skills
 
@@ -58,7 +58,7 @@ One source of truth, read by every runtime — symlink rather than copy.
 Workflows and skills have different jobs; discipline about what lives where keeps both lean and reusable.
 
 - **A skill is canonical, reusable guidance** — independent of any one workflow, usable by any agent or runtime.
-- **A workflow is an orchestrated procedure.** It may inline a skill's discipline so it runs deterministically even when the skill is not installed, while referencing the skill as the canonical source.
+- **A workflow is an orchestrated procedure.** It may inline a skill's discipline so it runs when the skill is not installed, while referencing the skill as the canonical source — except where the workflow requires the skill outright (`Backlog` → `track-work`, `spec-plan-readiness`).
 
 Because a workflow inlines a skill's discipline, the two must stay in sync: **change a skill → update every workflow that inlines it; change an inlined discipline inside a workflow → update the source skill.** Don't let the inline copy and the skill drift.
 

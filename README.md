@@ -2,9 +2,7 @@
 
 A shareable agent workflow system for [RepoPrompt CE](https://repoprompt.com) (RPCE) and the model CLIs it drives — Claude Code, Codex, opencode, and pi. Five orchestrated **workflows**, the reusable **skills** they invoke, supporting slash **commands**, the cross-cutting **rules** and **hooks** that enforce them, and the dogfooded **specs** that document each piece.
 
-The workflows inline the discipline from the skills they depend on, so each runs deterministically whether or not a skill is installed; the skills are the canonical standalone versions.
-
----
+The workflows inline the discipline from the skills they depend on wherever an inline copy suffices — `Backlog` additionally requires the `track-work` and `spec-plan-readiness` skills (discovery, gating, and close go through them, with no inline fallback). The skills are the canonical standalone versions.
 
 ## For users — install and run
 
@@ -16,7 +14,7 @@ The workflows inline the discipline from the skills they depend on, so each runs
 
 Workflows are macOS-only because RPCE is macOS-only today. Skills, slash commands, rules, and hooks are cross-platform (anywhere those CLIs and symlinks are supported).
 
-> **No RepoPrompt CE (or not on macOS)?** The skills, slash commands, rules, and hooks still work directly with Claude Code, Codex, opencode, and pi — you just don't get the orchestrated workflows.
+> **No RepoPrompt CE (or not on macOS)?** Skills and rules work directly with all four CLIs; command and hook support varies by runtime — see the compatibility table under [Reference](#reference).
 
 **The five workflows:**
 
@@ -133,7 +131,7 @@ done
 
 **How the pieces fit**
 
-- **Workflows** (RPCE) orchestrate. They inline the discipline from the skills they depend on, so they run even when a skill isn't installed.
+- **Workflows** (RPCE) orchestrate. They inline the discipline from the skills they depend on; most run without the skill installed, but `Backlog` requires the `track-work` and `spec-plan-readiness` skills outright (no inline fallback).
 - **Skills** are discovered by the backend CLI, **not** RPCE: Claude Code reads `.agents/skills` + `~/.claude/skills`; Codex scans `.agents/skills` + `~/.agents/skills`; opencode and pi read `.agents/skills`.
 - **Rules** (`global.md`) are the cross-cutting hard rules the workflows and hooks reference.
 - **Hooks** enforce those rules at the tool-call lifecycle; logic lives once in `.agents/hooks/*.py` (runtime-agnostic Python on stdin), registered per backend.
