@@ -16,15 +16,17 @@ The workflows inline the discipline from the skills they depend on, so each runs
 
 Workflows are macOS-only because RPCE is macOS-only today. Skills, slash commands, rules, and hooks are cross-platform (anywhere those CLIs and symlinks are supported).
 
+> **No RepoPrompt CE (or not on macOS)?** The skills, slash commands, rules, and hooks still work directly with Claude Code, Codex, opencode, and pi — you just don't get the orchestrated workflows.
+
 **The five workflows:**
 
 | Workflow | Purpose |
 |---|---|
-| `Spec` | Elicit intent, draft scenarios/constraints, check for redundancy/gaps/ambiguity, write a minimal spec to `docs/spec/`. |
-| `Test` | Read a spec's Given/When/Then, discover the repo's test framework, map scenarios to native tests, write them. |
-| `Loop` | Initialize durable progress, consume an immutable Spec + Deep Plan tuple, gate readiness/delegation, and run red/green/review/refactor. Standalone missing-contract work hands off externally; orchestrated work stops at `merge_ready`. |
-| `Deep Review` | Map a change set, run parallel context-grounded review shots across lenses, govern/revalidate findings, reconcile with the author. |
-| `Backlog` | Triage tracked issues via `track-work`; own contract preparation and deterministic re-gating, dispatch isolated `Loop` epochs, independently verify `merge_ready`, then own publication, landing, status/close, and cleanup. |
+| `Spec` | Elicit intent and write a minimal, scenario-based spec to `docs/spec/`. |
+| `Test` | Read a spec's scenarios and write native tests for the repo's test framework. |
+| `Loop` | Verify readiness, then run red/green/review/refactor loops against a Spec + Deep Plan, with durable, resumable progress. |
+| `Deep Review` | Multi-lens review of a change set, producing governed, revalidatable findings. |
+| `Backlog` | Triage tracked issues and run the full Spec → Plan → Loop chain per issue, in isolated worktrees. |
 
 `Spec` → `Test` form a pair; `Loop` builds on both; `Deep Review` pairs with `Loop`; `Backlog` sits above `Loop`.
 
@@ -56,21 +58,31 @@ bash scripts/install.sh --uninstall  # remove the symlinks (repo files are untou
 
 What it links (it scans these dirs — drop in a new file/dir and the next run links it automatically):
 
-- every `*.md` in `.agents/workflows/` (excl. README) → `~/Library/Application Support/RepoPrompt CE/Workflows/`
-- every directory in `.agents/skills/` → `~/.claude/skills/` and `~/.agents/skills/` (available in other repos too)
-- every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` — the latter is RepoPrompt CE's cross-backend command source (Codex/opencode/cursor-driven agents discover commands there; Claude-driven agents use it as a global fallback), so both homes stay in sync
-- every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, and registered in `~/.claude/settings.json` (Claude Code)
-- every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core; `global.md`)
+- every `*.md` in `.agents/workflows/` (excl. README) → the RPCE Workflows directory
+- every directory in `.agents/skills/` → `~/.claude/skills/` and `~/.agents/skills/` (available in every repo, not just this one)
+- every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` (RepoPrompt CE's cross-backend command source)
+- every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, registered in `~/.claude/settings.json` (Claude Code)
+- every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core)
 
-**Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — see [**Your organization repo**](#your-organization-repo-optional) below for the definition, when you need one, and all the ways to configure it.
+**Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — definition, when you need one, and every way to configure it in [**Your organization repo**](#your-organization-repo-optional), after the worked example below.
 
-For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install.
+For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install, or to re-point links from an older checkout.
 
 Then restart RepoPrompt CE and open the workflows picker — Spec, Test, Loop, Deep Review, Backlog should all appear.
 
-> **Re-linking:** if you previously symlinked any of these from another checkout (e.g. an older monorepo), the installer re-points them here — that's the partial-install case it's built for.
+Hooks are active after install + restart (Claude Code); Codex/opencode activate automatically when working in this repo. Manual wiring and undo: [`hooks/README.md`](.agents/hooks/README.md).
 
-Hooks: the installer symlinks the `.py` scripts into `~/.claude/hooks/` **and** idempotently registers them in `~/.claude/settings.json` (Claude Code) — active after install + restart. Codex/opencode activate automatically in this repo. Manual install/undo in [`hooks/README.md`](.agents/hooks/README.md).
+### Run — a worked example
+
+The core loop is **Spec → (Deep Plan) → Test → Loop**.
+
+1. **`Spec`** — point it at a feature description. It elicits intent and writes a minimal behavioral contract (Given/When/Then scenarios, no implementation) to `docs/spec/<feature>.md`.
+   *Run `Spec` with:* «add a `--dry-run` flag that prints actions without performing them»
+2. **Deep Plan** — derive the *how* from the spec. The **Deep Plan** workflow ships with **RepoPrompt CE core** (not this repo); run it against the spec to get an ordered, work-item plan with risk/rollback notes.
+3. **`Test`** — point it at the spec; it discovers the repo's test framework and writes native tests for each scenario (they fail — red).
+4. **`Loop`** — point it at **both** the spec and the deep plan. It verifies readiness, then runs red/green/review/refactor until green, committing one revertible commit per work item.
+
+`Deep Review` runs against any change set to produce governed, revalidatable findings; `Backlog` triages tracked issues and runs the whole Spec → Plan → Loop chain per issue in isolated worktrees (max 3 concurrent).
 
 ### Your organization repo (optional)
 
@@ -99,20 +111,6 @@ done
 
 **Why the overlay link matters.** It is the runtime discovery contract: an agent resolves your two shared homes by following symlink targets — `readlink ~/.claude/rules/global.md` points at this public machinery repo, and the overlay link beside it points at your org repo. Wherever the links point *is* the active source, so re-pointing them (a fork, a moved checkout, a second machine) re-configures discovery with no static config to keep up to date.
 
-### Run — a worked example
-
-The core loop is **Spec → (Deep Plan) → Test → Loop**.
-
-1. **`Spec`** — point it at a feature description. It elicits intent and writes a minimal behavioral contract (Given/When/Then scenarios, no implementation) to `docs/spec/<feature>.md`.
-   *Run `Spec` with:* «add a `--dry-run` flag that prints actions without performing them»
-2. **Deep Plan** — derive the *how* from the spec. The **Deep Plan** workflow ships with **RepoPrompt CE core** (not this repo); run it against the spec to get an ordered, work-item plan with risk/rollback notes.
-3. **`Test`** — point it at the spec; it discovers the repo's test framework and writes native tests for each scenario (they fail — red).
-4. **`Loop`** — point it at **both** the spec and the deep plan. It verifies readiness, then runs red/green/review/refactor until green, committing one revertible commit per work item.
-
-`Deep Review` runs against any change set to produce governed, revalidatable findings; `Backlog` triages tracked issues and runs the whole Spec → Plan → Loop chain per issue in isolated worktrees (max 3 concurrent).
-
-> Workflows are macOS-only because RepoPrompt CE is macOS-only today; skills, commands, and hooks are cross-platform.
-
 ---
 
 ## For developers — extend and contribute
@@ -122,12 +120,12 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 | Path | What |
 |---|---|
 | `.agents/workflows/` | Five RPCE workflows. See [`workflows/README.md`](.agents/workflows/README.md). |
-| `.agents/skills/` | Ten reusable skills the workflows invoke. See [`skills/README.md`](.agents/skills/README.md). |
+| `.agents/skills/` | Fourteen reusable skills the workflows invoke. See [`skills/README.md`](.agents/skills/README.md). |
 | `.agents/slash/` | Slash commands — `/document`, `/rp-bash-roots`, `/commit`, `/pre-mortem`. See [`slash/README.md`](.agents/slash/README.md). |
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
 | `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |
-| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/hooks and registers Claude Code hooks in `~/.claude/settings.json` (`--dry-run`, `--uninstall`). |
+| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/rules, registers Claude Code hooks, and links an org repo's private rules overlay via `--org-repo` (`--dry-run`, `--uninstall`). |
 | `scripts/sync-maintainability-review.mjs` | Re-syncs the vendored `maintainability-review` lens from upstream. |
 | `AGENTS.md` | Agent guide for working in this repo (`CLAUDE.md` is a symlink to it). |
 
@@ -156,7 +154,7 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 
 ## Reference
 
-**Provenance** — extracted from a private mono-repo and de-branded for sharing. The five workflows and ten skills are carried over from that source with install paths and READMEs adapted for this standalone repo.
+**Provenance** — extracted from a private mono-repo and de-branded for sharing. The workflows and skills are carried over from that source with install paths and READMEs adapted for this standalone repo.
 
 **Runtime compatibility**
 
@@ -164,6 +162,7 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 |---|---|---|---|---|---|
 | Workflows | — | — | — | — | loads from app-support dir |
 | Skills | `.agents/skills` + `~/.claude/skills` | `.agents/skills` + `~/.agents/skills` | `.agents/skills` | `.agents/skills` | — |
+| Commands | `~/.claude/commands` | `~/.codex/prompts` (deprecated → skills) | `.opencode/commands/` (not wired by the installer) | — | `~/.agents/slash` + workspace `.agents/slash` |
 | Rules | portable | portable | portable | portable | — |
 | Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | not yet supported | — |
 
