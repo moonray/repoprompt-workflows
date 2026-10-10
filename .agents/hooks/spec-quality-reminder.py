@@ -1,34 +1,57 @@
 #!/usr/bin/env python3
-"""Claude Code hook: nudge spec-quality vetting when a spec file is edited.
+"""Claude Code hook: nudge the matching quality skill when a spec/plan/skill artifact is edited.
 
-Wired to PostToolUse (Write/Edit/MultiEdit/apply_edits/file_actions) in ~/.claude/settings.json.
-When a docs/spec/*.md file (other than the index README) is edited, emit a reminder to run the
-spec-quality skill on it.
+Wired to PostToolUse (Edit/Write/MultiEdit/apply_edits/file_actions — native AND RepoPrompt-CE
+MCP-qualified names; matchers are anchored, so bare `apply_edits` never matched
+`mcp__RepoPromptCE__apply_edits` — the 2026-10-07 #47 diagnosis) in ~/.claude/settings.json,
+.codex/hooks.json, and the opencode plugin.
 
-Reminder-only — there is NO Stop gate. Unlike the test-quality hook (which detects test commands
-via Bash and can gate edit->run->stop), spec-quality is a Skill with no shell command, so the hook
-cannot detect that vetting ran. A gate that could only be cleared by committing would force commits
-on mid-flight spec edits, so we nudge instead.
+Rule table (per affected path, aggregated into ONE reminder):
+  - docs/spec/**/*.md (except README.md)                 -> run spec-quality before relying on it
+  - docs/plans/*.md (except README.md)                   -> run spec-plan-readiness before implementing from it
+  - .agents/skills/**/SKILL.md (recursive — nested dirs) -> apply skill-creator standards
 
-Source of truth: `.agents/hooks/spec-quality-reminder.py` in this repo; symlink it into your runtime's hooks directory (e.g. `~/.claude/hooks/`).
+Reminder-only — no Stop gate. A Skill invocation is observable but "quality check passed" is not
+provable from it; a gate would also obstruct legitimate mid-flight edits. Guarantee is NARROW:
+supported edit tools only (Bash sed/python redirects bypass this — documented, accepted).
+
+Source of truth: `.agents/hooks/spec-quality-reminder.py` in this repo; symlink it into your
+runtime's hooks directory (e.g. `~/.claude/hooks/`). NOTE: the symlink deploys SCRIPT changes
+only — matcher changes in the user-owned settings.json must be merged there separately.
 """
 import json
 import os
 import re
 import sys
 
-REMINDER = (
-    "SPEC QUALITY: you just edited a spec file (docs/spec/). Before declaring spec work done, "
-    "run the spec-quality skill (Skill tool) and resolve any findings on the spec you added or "
-    "modified: contract-level scope (no implementation planning), observable/identifiable/"
-    "independent/focused scenarios, goal- and surface-to-scenario coverage, redundancy, "
-    "ambiguity/testability, and Open Questions that each carry a recommendation."
-)
+RULES = [
+    (
+        re.compile(r"(^|/)docs/spec/"),
+        re.compile(r"\.md$"),
+        "SPEC QUALITY: you edited a spec file (docs/spec/). Before declaring spec work done, "
+        "run the spec-quality skill (Skill tool) on it and resolve findings: contract-level scope, "
+        "observable/identifiable/independent/focused scenarios, goal- and surface-to-scenario "
+        "coverage, redundancy, ambiguity/testability, Open Questions with recommendations.",
+    ),
+    (
+        re.compile(r"(^|/)docs/plans/"),
+        re.compile(r"\.md$"),
+        "PLAN READINESS: you edited an implementation plan (docs/plans/). Before implementing "
+        "from it, run the spec-plan-readiness skill on the Spec + plan pair and clear its gates "
+        "(a blocked verdict authorizes no implementation).",
+    ),
+    (
+        re.compile(r"(^|/)\.agents/skills/"),
+        re.compile(r"(^|/)SKILL\.md$"),
+        "SKILL STANDARDS: you edited a SKILL.md. Apply the skill-creator standards to it "
+        "(frontmatter shape, description budget and triggering, distinctness vs existing skills, "
+        "progressive disclosure) AND confirm docs/spec/<skill-name>.md exists — a skill without a spec is tracked debt: create one per the spec conventions if missing.",
+    ),
+]
 
+_EXCLUDE_BASENAMES = {"readme.md"}
 
-_PATCH_FILE_RE = re.compile(
-    r"^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$", re.MULTILINE
-)
+_PATCH_FILE_RE = re.compile(r"^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$", re.MULTILINE)
 
 
 def _paths_from_patch(command):
@@ -38,32 +61,57 @@ def _paths_from_patch(command):
     return _PATCH_FILE_RE.findall(command)
 
 
-def _paths_from_payload(payload):
-    """All edited paths in the payload — a path field (Claude) or an apply_patch (Codex)."""
-    ti = payload.get("tool_input")
+def _paths_from_tool_input(ti):
+    """Every affected path in the tool input — sources AND destinations, all file kinds.
+
+    One adapter, deliberately per-key tolerant: a malformed entry is skipped, not fatal
+    (one bad input must not suppress the reminders for the other paths in a batch).
+    """
     if not isinstance(ti, dict):
         return []
     paths = []
-    for key in ("file_path", "path", "filePath", "notebook_path"):
+    scalar_keys = ("file_path", "path", "filePath", "notebook_path", "new_path", "old_path")
+    for key in scalar_keys:
         v = ti.get(key)
         if isinstance(v, str) and v:
             paths.append(v)
+    for key in ("files", "edits", "paths"):
+        v = ti.get(key)
+        if isinstance(v, list):
+            for item in v:
+                if isinstance(item, str):
+                    paths.append(item)
+                elif isinstance(item, dict):
+                    for sub in ("path", "file_path", "new_path", "old_path"):
+                        sv = item.get(sub)
+                        if isinstance(sv, str) and sv:
+                            paths.append(sv)
     paths.extend(_paths_from_patch(ti.get("command")))
     return paths
 
 
-_SPEC_DIR_RE = re.compile(r"(^|/)docs/spec/")
+def _edit_succeeded(payload):
+    """Suppress reminders for tool calls that made no change, when the runtime says so."""
+    tr = payload.get("tool_response")
+    if not isinstance(tr, dict):
+        return True  # unknown shape -> assume success (reminders are cheap; misses are not)
+    if tr.get("is_error") is True or tr.get("error") is True or str(tr.get("status", "")).lower() == "error":
+        return False
+    return True
 
 
-def is_spec_file(path):
+def classify(path):
+    """All matching rule texts for one path (a path could theoretically match none)."""
     if not path:
-        return False
+        return []
     norm = path.replace("\\", "/")
-    if os.path.basename(norm).lower() == "readme.md":
-        return False
-    # (^|/) so it matches both absolute (Claude: /abs/docs/spec/x.md)
-    # and relative (Codex apply_patch: docs/spec/x.md) paths.
-    return bool(_SPEC_DIR_RE.search(norm)) and norm.endswith(".md")
+    if os.path.basename(norm).lower() in _EXCLUDE_BASENAMES:
+        return []
+    hits = []
+    for dir_re, file_re, text in RULES:
+        if dir_re.search(norm) and file_re.search(norm):
+            hits.append(text)
+    return hits
 
 
 def main():
@@ -73,11 +121,18 @@ def main():
         sys.exit(0)
     if payload.get("hook_event_name") != "PostToolUse":
         sys.exit(0)
-    if any(is_spec_file(x) for x in _paths_from_payload(payload)):
+    if not _edit_succeeded(payload):
+        sys.exit(0)
+    reminders = []
+    for p in _paths_from_tool_input(payload.get("tool_input")):
+        for text in classify(p):
+            if text not in reminders:
+                reminders.append(text)
+    if reminders:
         print(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
-                "additionalContext": REMINDER,
+                "additionalContext": "\n".join(reminders),
             }
         }))
     sys.exit(0)
