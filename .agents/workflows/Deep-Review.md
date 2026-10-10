@@ -298,7 +298,7 @@ Each shot returns — nothing transcript-style: zone ID and lens; files/symbols 
 
 ## Phase 4: Adversarial verification (deep, or any contested P0)
 
-For each P0/high-severity finding (or any the author disputes) — under a `frugal` budget, limit to contested P0s only — spawn skeptic agent(s) prompted to **refute** it — default to `refuted` if uncertain. Keep a finding only if it survives (majority, or N-of-M). After two failed fix attempts or three observations with the same stable signature, ask `ask_oracle` to classify it `false_positive`, `core_issue`, or `futility` rather than looping.
+For each P0/high-severity finding (or any the author disputes) — under a `frugal` budget, limit to contested P0s only — spawn skeptic agent(s) prompted to **refute** it — default to `refuted` if uncertain. Keep a finding only if it survives (majority, or N-of-M). After two failed fix attempts or three observations with the same stable signature, ask `ask_oracle` — Escalation-role routing per the `model-routing` skill, a stronger model on just this classification — to classify it `false_positive`, `core_issue`, or `futility` rather than looping.
 
 ---
 
@@ -332,7 +332,7 @@ Bounded report:
 - **Shots:** `agent_run(model_id:"pair", detach:true)`, each calling `context_builder(response_type:"review")` on its zone+lens; `wait`.
 - **Aggregate/govern:** orchestrator inline.
 - **Verify:** `agent_run` skeptics.
-- **Tie-breaks / classification:** `ask_oracle`.
+- **Tie-breaks / classification:** `ask_oracle`, routed per `model-routing` (tie-breaks → Review & Refine; repeat-threshold classification → Escalation).
 - **Author intake/reconciliation:** `ask_user`.
 - **Follow-up implementation:** hand accepted findings to `Loop`.
 

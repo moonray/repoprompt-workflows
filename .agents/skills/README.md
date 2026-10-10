@@ -23,6 +23,7 @@ The workflows inline the discipline from these skills wherever an inline copy su
 | `rpce-tool-gotchas` | [`rpce-tool-gotchas/SKILL.md`](rpce-tool-gotchas/SKILL.md) | RPCE file/edit tools failing or blind on paths outside the loaded workspace roots (route through Bash from the start), or stacking more edits on freshly batch-edited files (re-read + syntax-check before building on the result). |
 | `live-dryrun` | [`live-dryrun/SKILL.md`](live-dryrun/SKILL.md) | Live verification of a backend/API/provider client against the real service, READ-ONLY — catches response-shape defects mocked tests can't (mocks assert the ASSUMED shape). Preflight classification, semantic-value and timing checks, pagination probing; never skip just because mocked tests pass. |
 | `chat-mining` | [`chat-mining/SKILL.md`](chat-mining/SKILL.md) | Mine or analyze past agent session chats/transcripts for defects, lessons, process improvements, or friction (correct outcome via wasteful path) — inventory, themed sweep, ground-truth verification, retention map; a transcript's narrative is a claim, not evidence. Not for resuming one specific session. |
+| `model-routing` | [`model-routing/SKILL.md`](model-routing/SKILL.md) | Choosing an oracle/planning model and effort for spec, plan, or review consultations, or re-evaluating the Recommended RepoPrompt Architecture after a model release, roster, or pricing change. |
 
 ## Discovery and install
 

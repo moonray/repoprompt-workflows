@@ -57,7 +57,7 @@ The initialized epoch must have readable Spec and Deep Plan paths. Optional hint
    - One or more tasks cannot be traced to Spec scenarios, or one or more scenarios lack a planned task or explicit non-implementation rationale.
    - Spec and Deep Plan contradict each other in behavior, scope, sequencing, surfaces, dependencies, validation, or outcomes.
    - Construct and persist the scenario-to-test map, task-to-scenario map, full bidirectional coverage result, and `first_safe_task` before oracle. If blocked, omit the first safe task and do not authorize implementation.
-5. Ask `ask_oracle` for an independent go/no-go readiness verdict, preserving the readiness result and any scenario-to-test map, task-to-scenario map, and first safe task already produced. If the oracle is unreachable: proceed with the inline deterministic gate authoritative **only when** the brief marks `oracle: down, degraded_ok: true` (orchestrated degraded mode) and record the degraded verdict per issue; otherwise (standalone, or not authorized) stop blocked — never proceed ungated.
+5. Ask `ask_oracle` for an independent go/no-go readiness verdict — routed per the `model-routing` skill (Review & Refine role) — preserving the readiness result and any scenario-to-test map, task-to-scenario map, and first safe task already produced. If the oracle is unreachable: proceed with the inline deterministic gate authoritative **only when** the brief marks `oracle: down, degraded_ok: true` (orchestrated degraded mode) and record the degraded verdict per issue; otherwise (standalone, or not authorized) stop blocked — never proceed ungated.
 6. If blocked by either the inline gate or oracle, stop and report the exact gaps. Do not create tests or code.
 
 Suggested oracle verdict:
@@ -191,7 +191,7 @@ Progress and conformance are mandatory operational artifacts at disclosed paths 
 - **Spec/plan missing or not ready:** initialize progress, then stop before tests. Record an external `Spec`/RPCE core `Deep Plan` handoff; never repair inputs inside Loop.
 - **No safe worktree:** stop or ask before developing on `main`.
 - **No meaningful red test:** stop and ask for Spec/Plan correction.
-- **Repeated P0/P1:** ask oracle to classify after the repeat threshold; document false positives, return core issues to implementation, or stop on futility.
+- **Repeated P0/P1:** ask oracle to classify after the repeat threshold, at Escalation-role routing per the `model-routing` skill; document false positives, return core issues to implementation, or stop on futility.
 - **Insufficient delegate evidence:** ask the same delegate for a focused follow-up or inspect the narrowest relevant context needed for the gate; do not absorb the whole task context.
 - **Delegation infrastructure dead (silent death ×2):** after one failed recovery attempt for the same delegated unit, apply the infrastructure-failure exception (see the delegation contract) — never a third dispatch into the dead path.
 - **Parallel risk:** serialize tasks when file overlap, dependency order, or validation lane conflict is unclear.

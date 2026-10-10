@@ -133,7 +133,13 @@ Look for anything an implementor could interpret more than one way:
 3. **Implicit ordering.** If the order of scenarios matters but isn't stated, make it explicit or restructure so order doesn't matter.
 4. **Missing defaults.** If a parameter is optional, what happens when it's omitted? Add a scenario or state the default in the parameter table.
 
-### Phase 6: Write and Confirm
+### Phase 6: Oracle cross-check (best-effort)
+
+1. If the oracle is reachable, send the final draft (with its Open Questions) to `ask_oracle` in review mode for an independent cross-check, routed per the `model-routing` skill (Review & Refine role — a review model from a different family than any drafting consultation; when the skill is absent, use the session's strongest non-drafting review model at medium effort).
+2. Fold confirmed gaps — missing edge scenarios, ambiguous Then steps, hidden decisions — back into the draft before writing.
+3. If the oracle is unreachable, proceed on the Phase 3–5 inline checks; this workflow never blocks on oracle availability.
+
+### Phase 7: Write and Confirm
 
 1. Write the final spec to `docs/spec/<feature-name>.md`.
 2. Update `docs/spec/README.md` — add a row to the Index table with the spec name, issue number, and `draft` status.
