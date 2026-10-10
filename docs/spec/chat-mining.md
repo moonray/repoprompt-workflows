@@ -71,7 +71,7 @@ Provenance: derived from three real runs (vyasa-puja 2026-08-20, mymp3pool 2026-
 ### Scenario S-008: findings map to durable homes per the scope ladder
 - **Given** a verified finding
 - **When** its home is chosen
-- **Then** cheapest-first: the affected repo's own memory/contributing docs → a workspace-wide skill or workflow → `global.md` last (per-request cost; corollary on an existing rule, never a new section when a corollary suffices); full-match artifacts (only-for-one-project) home in that project's repo; the mined workspace is provenance, never content
+- **Then** cheapest-first: the affected repo's own memory/contributing docs → an organization-wide skill or workflow in the shared machinery repo → `global.md` last (per-request cost; corollary on an existing rule, never a new section when a corollary suffices); full-match artifacts (only-for-one-project) home in that project's repo; the mined workspace is provenance, never content
 
 ### Scenario S-009: retention — nothing validated dies in the report
 - **Given** the run's findings

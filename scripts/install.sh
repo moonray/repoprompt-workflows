@@ -11,6 +11,7 @@ RPCE_WF="$HOME/Library/Application Support/RepoPrompt CE/Workflows"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 AGENTS_SKILLS="$HOME/.agents/skills"
 CLAUDE_CMD="$HOME/.claude/commands"
+AGENTS_SLASH="$HOME/.agents/slash"
 
 DRY=0; UNINSTALL=0
 for a in "$@"; do
@@ -157,10 +158,11 @@ for d in "$SRC/skills"/*/; do
   manage "${d%/}" "$AGENTS_SKILLS/$b"
 done
 
-echo "• commands → ~/.claude/commands  (scanning .agents/slash/*.md)"
+echo "• commands → ~/.claude/commands + ~/.agents/slash  (scanning .agents/slash/*.md)"
 for f in "$SRC/slash"/*.md; do
   b="$(basename "$f")"; [ "$b" = "README.md" ] && continue
   manage "$f" "$CLAUDE_CMD/$b"
+  manage "$f" "$AGENTS_SLASH/$b"
 done
 
 echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"

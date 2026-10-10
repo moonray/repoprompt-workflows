@@ -56,7 +56,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 
 - every `*.md` in `.agents/workflows/` (excl. README) → `~/Library/Application Support/RepoPrompt CE/Workflows/`
 - every directory in `.agents/skills/` → `~/.claude/skills/` and `~/.agents/skills/` (available in other repos too)
-- every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/`
+- every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` — the latter is RepoPrompt CE's cross-backend command source (Codex/opencode/cursor-driven agents discover commands there; Claude-driven agents use it as a global fallback), so both homes stay in sync
 - every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, and registered in `~/.claude/settings.json` (Claude Code)
 
 For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install.
