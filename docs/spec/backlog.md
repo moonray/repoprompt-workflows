@@ -208,7 +208,7 @@ Backlog needs a precise orchestration contract that preserves Loop's standalone 
 - **Then** it includes authorization revision, responsibility, contract identity, implementation base, progress path, oracle budgets, delegation capability, predecessor handoff, epoch, and repository constraints
 
 ### Scenario S-033: Documentation permission is not contract permission
-- **Given** documentation sync runs
+- **Given** the end-of-run code-mode document reconciliation runs
 - **When** Backlog interprets `doc_edits`
 - **Then** it applies only to general docs and neither authorizes contract maintenance nor controls mandatory progress/conformance output
 

@@ -140,7 +140,7 @@ A stable standalone-first contract is needed so Loop remains useful on its own w
 - **Then** repository-prescribed validation and required user testing run and are recorded before completion
 
 ### Scenario S-019: Documentation has three edit classes
-- **Given** Loop reaches contract maintenance, documentation sync, or operational-artifact work
+- **Given** Loop reaches contract maintenance, code-mode documentation reconciliation, or operational-artifact work
 - **When** it interprets authority
 - **Then** external Spec/Plan maintenance uses `contract_maintenance`, general docs use `doc_edits`, and exact progress/conformance outputs are mandatory operational artifacts covered by neither field
 

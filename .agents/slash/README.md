@@ -7,6 +7,7 @@ Manual slash commands. Each command is a markdown file with YAML frontmatter (`d
 | Command | Location | Use when |
 |---|---|---|
 | `document` | [`document.md`](document.md) | Manual shortcut for the `document` skill; syncs or audits docs against code, dry-run by default unless `apply` is explicit. |
+| `rp-bash-roots` | [`rp-bash-roots.md`](rp-bash-roots.md) | A shell task needs to `cd` into or reference a RepoPrompt workspace root's real filesystem path — resolve it from tool output or `workspace.json` `repoPaths` before `cd`; never construct `<cwd>/<root-name>`. (Community command in the `rp-*` namespace — distinct from RPCE's app-managed `rp-*` commands.) |
 
 ## Discovery and install
 
