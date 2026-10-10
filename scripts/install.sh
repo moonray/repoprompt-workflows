@@ -61,10 +61,12 @@ manage() {
 }
 
 # register_claude_settings — keep our Claude Code hook registrations in ~/.claude/settings.json in sync.
+# Matchers are anchored and include MCP-qualified names (bare `apply_edits` never matched
+# `mcp__RepoPromptCE__apply_edits`); commands use `python3 $HOME/...` so they resolve on any shell.
 # Safe: parses JSON via python3, backs up before writing, never duplicates an entry, honors --dry-run/--uninstall, non-fatal.
 register_claude_settings() {
   local settings="$HOME/.claude/settings.json"
-  local regs='[{"event":"PostToolUse","matcher":"Bash|Skill","command":"~/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"Edit|Write|MultiEdit|apply_edits|file_actions","command":"~/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"~/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"~/.claude/hooks/test-quality-reminder.py"}]'
+  local regs='[{"event":"PostToolUse","matcher":"Bash|Skill","command":"python3 $HOME/.claude/hooks/test-quality-reminder.py"},{"event":"PostToolUse","matcher":"^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$","command":"python3 $HOME/.claude/hooks/spec-quality-reminder.py"},{"event":"PostToolUse","matcher":"^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$","command":"python3 $HOME/.claude/hooks/spec-conformance-gate.py"},{"event":"PostToolUse","matcher":"^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run","command":"python3 $HOME/.claude/hooks/delegation-reminder.py"},{"event":"Stop","matcher":"*","command":"python3 $HOME/.claude/hooks/test-quality-reminder.py"}]'
   if ! command -v python3 >/dev/null 2>&1; then
     echo "  skip     $settings (python3 not found — register hooks manually; see .agents/hooks/README.md)" >&2
     SKIPPED=$((SKIPPED+1)); return
@@ -107,7 +109,7 @@ for ev in sorted({r["event"] for r in regs}):
     else:
         for r in regs:
             if r["event"] != ev: continue
-            matches = [e for e in lst if isinstance(e, dict) and e.get("matcher") == r["matcher"]]
+            matches = [e for e in lst if isinstance(e, dict) and e.get("matcher", "*") == r["matcher"]]
             # already present in ANY same-matcher entry? dedup across duplicates, not just the first
             if any(isinstance(h, dict) and h.get("command") == r["command"] for e in matches for h in _hook_cmds(e)):
                 continue
