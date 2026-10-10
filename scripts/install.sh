@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# install.sh — scan this repo's workflows/skills/commands and symlink each into the dirs your tools read.
+# install.sh — scan this repo's workflows/skills/commands/rules and symlink each into the dirs your tools read.
 # Idempotent: detects what's already linked (partial installs) and only fixes what's missing or wrong.
 # Adding a new workflow/skill/command? Just drop it in its dir — no edit to this script needed.
-# Flags: --dry-run (preview), --uninstall (remove our links), --help.
+# Flags: --dry-run (preview), --uninstall (remove our links), --org-repo=<path> (also link your
+#        organization repo's private rules overlay), --help. ORG_REPO env works too.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,18 +13,28 @@ CLAUDE_SKILLS="$HOME/.claude/skills"
 AGENTS_SKILLS="$HOME/.agents/skills"
 CLAUDE_CMD="$HOME/.claude/commands"
 AGENTS_SLASH="$HOME/.agents/slash"
+CLAUDE_RULES="$HOME/.claude/rules"
+AGENTS_RULES="$HOME/.agents/rules"
 
-DRY=0; UNINSTALL=0
+DRY=0; UNINSTALL=0; ORG_REPO="${ORG_REPO:-}"
 for a in "$@"; do
   case "$a" in
     --dry-run)   DRY=1 ;;
     --uninstall) UNINSTALL=1 ;;
-    -h|--help)   sed -n '2,5p' "$0"; exit 0 ;;
+    --org-repo=*) ORG_REPO="${a#--org-repo=}" ;;
+    -h|--help)   sed -n '2,6p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown flag '$a' (try --help)" >&2; exit 2 ;;
   esac
 done
 
 OK=0; FIXED=0; CONFLICT=0; REMOVED=0; SKIPPED=0
+
+# link_is_ours <target> — does this symlink target belong to this repo or the configured org repo?
+link_is_ours() {
+  case "$1" in *"$REPO"*) return 0 ;; esac
+  [ -n "$ORG_REPO" ] && case "$1" in *"$ORG_REPO"*) return 0 ;; esac
+  return 1
+}
 
 # manage <src> <link>  — classify the link, then link/relink/remove/leave per mode.
 manage() {
@@ -33,10 +44,12 @@ manage() {
   if [ "$UNINSTALL" = 1 ]; then
     if [ -L "$link" ]; then
       cur="$(readlink "$link" || true)"
-      case "$cur" in
-        *"$REPO"*) { [ "$DRY" = 1 ] && echo "    rm \"$link\"" || rm -f "$link"; }; echo "  removed  $link"; REMOVED=$((REMOVED+1)) ;;
-        *) echo "  skip     $link (points elsewhere)"; SKIPPED=$((SKIPPED+1)) ;;
-      esac
+      if link_is_ours "$cur"; then
+        { [ "$DRY" = 1 ] && echo "    rm \"$link\"" || rm -f "$link"; }
+        echo "  removed  $link"; REMOVED=$((REMOVED+1))
+      else
+        echo "  skip     $link (points elsewhere)"; SKIPPED=$((SKIPPED+1))
+      fi
     else
       echo "  skip     $link (not a link)"; SKIPPED=$((SKIPPED+1))
     fi
@@ -164,6 +177,29 @@ for f in "$SRC/slash"/*.md; do
   manage "$f" "$CLAUDE_CMD/$b"
   manage "$f" "$AGENTS_SLASH/$b"
 done
+
+echo "• rules → ~/.claude/rules + ~/.agents/rules  (scanning .agents/rules/*.md)"
+for f in "$SRC/rules"/*.md; do
+  b="$(basename "$f")"; [ "$b" = "README.md" ] && continue
+  manage "$f" "$CLAUDE_RULES/$b"
+  manage "$f" "$AGENTS_RULES/$b"
+done
+if [ -n "$ORG_REPO" ]; then
+  ORG_RULES="$ORG_REPO/.agents/rules"
+  if [ -d "$ORG_RULES" ]; then
+    echo "• org overlay rules → both rules homes  (from $ORG_RULES; global.md stays the public core)"
+    for f in "$ORG_RULES"/*.md; do
+      b="$(basename "$f")"; { [ "$b" = "README.md" ] || [ "$b" = "global.md" ]; } && continue
+      manage "$f" "$CLAUDE_RULES/$b"
+      manage "$f" "$AGENTS_RULES/$b"
+    done
+  else
+    echo "  note: $ORG_RULES not found — no org overlay linked" >&2
+    SKIPPED=$((SKIPPED+1))
+  fi
+else
+  echo "• org overlay: none — re-run with --org-repo=<path> (or ORG_REPO env) to link your organization repo's private rules overlay; that link is also what makes the org repo discoverable by symlink"
+fi
 
 echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
 for f in "$SRC/hooks"/*.py; do

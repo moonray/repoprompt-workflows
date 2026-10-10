@@ -58,6 +58,15 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 - every directory in `.agents/skills/` → `~/.claude/skills/` and `~/.agents/skills/` (available in other repos too)
 - every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` — the latter is RepoPrompt CE's cross-backend command source (Codex/opencode/cursor-driven agents discover commands there; Claude-driven agents use it as a global fallback), so both homes stay in sync
 - every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, and registered in `~/.claude/settings.json` (Claude Code)
+- every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core; `global.md`)
+
+**Your organization repo (optional, recommended):** if you keep org-specific (non-public) content in an org repo — private skills, org docs, a private rules overlay — pass it at install time to establish the link:
+
+```bash
+ORG_REPO=~/Sites/myorg bash scripts/install.sh        # or: bash scripts/install.sh --org-repo=~/Sites/myorg
+```
+
+The installer then links `<org>/.agents/rules/*.md` (except `README.md` and `global.md`, which stays the public core) into both rules homes. That overlay symlink is also what makes the org repo *discoverable at runtime* — an agent resolves your two shared homes by following symlink targets: the `global.md` link points at the public machinery repo, the overlay link points at your org repo. Org-private skills and commands follow your org repo's own install docs. Re-run with the flag any time — it's idempotent.
 
 For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install.
 
