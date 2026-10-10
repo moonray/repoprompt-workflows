@@ -91,7 +91,7 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 |---|---|
 | `.agents/workflows/` | Five RPCE workflows. See [`workflows/README.md`](.agents/workflows/README.md). |
 | `.agents/skills/` | Ten reusable skills the workflows invoke. See [`skills/README.md`](.agents/skills/README.md). |
-| `.agents/slash/` | Slash commands — `/document` and `/rp-bash-roots`. See [`slash/README.md`](.agents/slash/README.md). |
+| `.agents/slash/` | Slash commands — `/document`, `/rp-bash-roots`, `/commit`, `/pre-mortem`. See [`slash/README.md`](.agents/slash/README.md). |
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
 | `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |

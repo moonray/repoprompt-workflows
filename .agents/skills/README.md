@@ -20,6 +20,8 @@ The workflows inline the discipline from these skills so they run deterministica
 | `track-work` | [`track-work/SKILL.md`](track-work/SKILL.md) | Create/update one tracking item per unit of work (GitHub Issues, or a file-based `.agents/issues/` backlog when there is no GitHub). Used first when work is about to start. |
 | `bot-wall` | [`bot-wall/SKILL.md`](bot-wall/SKILL.md) | A fetch of a publicly served site is blocked by a bot wall (403/Access Denied, Cloudflare "Just a moment…" challenge, CAPTCHA interstitial) — retry with `curl_cffi` browser impersonation; verify content not just status, escalate bounded, stay polite. |
 | `rpce-tool-gotchas` | [`rpce-tool-gotchas/SKILL.md`](rpce-tool-gotchas/SKILL.md) | RPCE file/edit tools failing or blind on paths outside the loaded workspace roots (route through Bash from the start), or stacking more edits on freshly batch-edited files (re-read + syntax-check before building on the result). |
+| `live-dryrun` | [`live-dryrun/SKILL.md`](live-dryrun/SKILL.md) | Live verification of a backend/API/provider client against the real service, READ-ONLY — catches response-shape defects mocked tests can't (mocks assert the ASSUMED shape). Preflight classification, semantic-value and timing checks, pagination probing; never skip just because mocked tests pass. |
+| `chat-mining` | [`chat-mining/SKILL.md`](chat-mining/SKILL.md) | Mine or analyze past agent session chats/transcripts for defects, lessons, process improvements, or friction (correct outcome via wasteful path) — inventory, themed sweep, ground-truth verification, retention map; a transcript's narrative is a claim, not evidence. Not for resuming one specific session. |
 
 ## Discovery and install
 
