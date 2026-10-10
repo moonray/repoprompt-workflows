@@ -42,6 +42,8 @@ Paste into Claude Code (or any agent with shell access):
 Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt-workflows doesn't already exist, clone https://github.com/moonray/repoprompt-workflows there. Then run `bash scripts/install.sh`, paste me its full output, and tell me to restart RepoPrompt CE.
 ```
 
+> Have an [organization repo](#your-organization-repo-optional)? Append to the prompt: *“Run the installer with `--org-repo=$HOME/Sites/<myorg>`.”*
+
 #### Option B — run the installer yourself
 
 ```bash
@@ -60,13 +62,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 - every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, and registered in `~/.claude/settings.json` (Claude Code)
 - every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core; `global.md`)
 
-**Your organization repo (optional, recommended):** if you keep org-specific (non-public) content in an org repo — private skills, org docs, a private rules overlay — pass it at install time to establish the link:
-
-```bash
-ORG_REPO=~/Sites/myorg bash scripts/install.sh        # or: bash scripts/install.sh --org-repo=~/Sites/myorg
-```
-
-The installer then links `<org>/.agents/rules/*.md` (except `README.md` and `global.md`, which stays the public core) into both rules homes. That overlay symlink is also what makes the org repo *discoverable at runtime* — an agent resolves your two shared homes by following symlink targets: the `global.md` link points at the public machinery repo, the overlay link points at your org repo. Org-private skills and commands follow your org repo's own install docs. Re-run with the flag any time — it's idempotent.
+**Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — see [**Your organization repo**](#your-organization-repo-optional) below for the definition, when you need one, and all the ways to configure it.
 
 For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install.
 
@@ -75,6 +71,33 @@ Then restart RepoPrompt CE and open the workflows picker — Spec, Test, Loop, D
 > **Re-linking:** if you previously symlinked any of these from another checkout (e.g. an older monorepo), the installer re-points them here — that's the partial-install case it's built for.
 
 Hooks: the installer symlinks the `.py` scripts into `~/.claude/hooks/` **and** idempotently registers them in `~/.claude/settings.json` (Claude Code) — active after install + restart. Codex/opencode activate automatically in this repo. Manual install/undo in [`hooks/README.md`](.agents/hooks/README.md).
+
+### Your organization repo (optional)
+
+**Definition.** An *organization repo* is a repo you own that holds your org-specific — deliberately non-public — agent content: private skills (anything touching internal systems, client data, business workflows, or personal-machine scope), org documentation, and a **private rules overlay**: a small `.agents/rules/<org>-private.md` that extends this repo's generic `global.md` with your exceptions. This repo ships only generic, public-appropriate machinery by design; nothing non-public belongs in it, so that content needs its own home.
+
+**Do you need one?** Only if you have non-public content you want available across your repos. A plain install with no org repo is fully functional — every workflow, skill, command, hook, and the generic rules work as-is. Expect to add one when your first org-specific rule or skill shows up; wiring it later is a single re-run of the installer, so deciding later costs nothing.
+
+**What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`. Nothing else in the org repo is touched — org-private skills and commands follow your org repo's own install docs.
+
+**Configure it** (flag and env forms; both idempotent):
+
+```bash
+bash scripts/install.sh --org-repo="$HOME/Sites/myorg"   # flag form
+ORG_REPO="$HOME/Sites/myorg" bash scripts/install.sh     # env form
+```
+
+- **At install time** — pass the flag with Option B, or name the path in your Option A prompt.
+- **After install** — re-run the same command; adding or changing the org repo later is just another idempotent run.
+- **Fully manual** (what the flag automates):
+
+```bash
+for t in "$HOME/.claude/rules" "$HOME/.agents/rules"; do
+  ln -sfh "$HOME/Sites/myorg/.agents/rules/myorg-private.md" "$t/myorg-private.md"
+done
+```
+
+**Why the overlay link matters.** It is the runtime discovery contract: an agent resolves your two shared homes by following symlink targets — `readlink ~/.claude/rules/global.md` points at this public machinery repo, and the overlay link beside it points at your org repo. Wherever the links point *is* the active source, so re-pointing them (a fork, a moved checkout, a second machine) re-configures discovery with no static config to keep up to date.
 
 ### Run — a worked example
 
