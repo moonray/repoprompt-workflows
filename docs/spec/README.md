@@ -23,7 +23,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [RPCE Tool Gotchas Skill](rpce-tool-gotchas.md) | none | implemented |
 | [Live Dry-Run Skill](live-dryrun.md) | none | implemented |
 | [Chat-Mining Skill](chat-mining.md) | none | implemented |
-| [Chrometools Skill](chrometools.md) | [#5](https://github.com/moonray/repoprompt-workflows/issues/5) | implemented |
+| [Chrome Skill](chrome.md) | [#5](https://github.com/moonray/repoprompt-workflows/issues/5) | implemented |
 | [Model Routing Skill](model-routing.md) | 7 | implemented |
 | [Test Quality Reminder Hook](test-quality-reminder.md) | none | implemented |
 | [Spec Quality Reminder Hook](spec-quality-reminder.md) | none | implemented |
@@ -41,7 +41,7 @@ Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (
 Current coverage:
 
 - **Workflows** — ✅ all 5 specced (`Spec`, `Test`, `Loop`, `Backlog`, `Deep Review`).
-- **Skills** — ✅ all 15 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`, `bot-wall`, `rpce-tool-gotchas`, `live-dryrun`, `chat-mining`, `chrometools`).
+- **Skills** — ✅ all 16 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`, `bot-wall`, `rpce-tool-gotchas`, `live-dryrun`, `chat-mining`, `chrome`, `model-routing`) plus `skill-creator` — upstream Anthropic skill carried as a sparse submodule; no local spec by design (its own docs are the spec).
 - **Hooks** — ✅ all 4 specced with matrices (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`).
 
 Author missing specs with the `Spec` workflow, then add a row to the table above and a sibling `<spec>.conformance.md`.

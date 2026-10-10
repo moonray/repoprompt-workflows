@@ -47,7 +47,8 @@ Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt
 #### Option B — run the installer yourself
 
 ```bash
-git clone https://github.com/moonray/repoprompt-workflows ~/Sites/repoprompt-workflows
+git clone --recurse-submodules https://github.com/moonray/repoprompt-workflows ~/Sites/repoprompt-workflows
+# (already cloned without submodules? git submodule update --init -- .agents/skills/.anthropic-skills-skill-creator)
 cd ~/Sites/repoprompt-workflows
 bash scripts/install.sh              # link workflows + skills + commands + rules + hooks (safe to re-run)
 bash scripts/install.sh --dry-run    # preview: print every link without creating it
@@ -118,7 +119,7 @@ done
 | Path | What |
 |---|---|
 | `.agents/workflows/` | Five RPCE workflows. See [`workflows/README.md`](.agents/workflows/README.md). |
-| `.agents/skills/` | Fifteen reusable skills the workflows invoke. See [`skills/README.md`](.agents/skills/README.md). |
+| `.agents/skills/` | Seventeen reusable skills the workflows invoke (`skill-creator` is a tracked symlink into a sparse upstream submodule). See [`skills/README.md`](.agents/skills/README.md). |
 | `.agents/slash/` | Slash commands — `/document`, `/rp-bash-roots`, `/commit`, `/pre-mortem`. See [`slash/README.md`](.agents/slash/README.md). |
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
