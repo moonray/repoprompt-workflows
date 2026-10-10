@@ -95,7 +95,14 @@ def _edit_succeeded(payload):
     tr = payload.get("tool_response")
     if not isinstance(tr, dict):
         return True  # unknown shape -> assume success (reminders are cheap; misses are not)
-    if tr.get("is_error") is True or tr.get("error") is True or str(tr.get("status", "")).lower() == "error":
+    if tr.get("is_error") is True or tr.get("isError") is True:
+        return False
+    err = tr.get("error")
+    if err is True or (isinstance(err, (str, dict)) and err):
+        return False  # MCP/JSON-RPC errors arrive as strings or {code,message} objects
+    if str(tr.get("status", "")).lower() == "error":
+        return False
+    if tr.get("ok") is False or tr.get("success") is False:
         return False
     return True
 

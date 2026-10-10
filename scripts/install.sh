@@ -40,9 +40,17 @@ fi
 OK=0; FIXED=0; CONFLICT=0; REMOVED=0; SKIPPED=0
 
 # link_is_ours <target> — does this symlink target belong to this repo or the configured org repo?
+# Anchored on path boundaries: the target must BE the root or live strictly under it,
+# never merely contain it as a substring (a sibling like <repo>-backup must not match).
 link_is_ours() {
-  case "$1" in *"$REPO"*) return 0 ;; esac
-  [ -n "$ORG_REPO" ] && case "$1" in *"$ORG_REPO"*) return 0 ;; esac
+  case "$1" in
+    "$REPO"|"$REPO"/*) return 0 ;;
+  esac
+  if [ -n "$ORG_REPO" ]; then
+    case "$1" in
+      "$ORG_REPO"|"$ORG_REPO"/*) return 0 ;;
+    esac
+  fi
   return 1
 }
 
@@ -71,7 +79,13 @@ manage() {
     if [ "$cur" = "$src" ]; then
       echo "  ok       $link"; OK=$((OK+1)); return
     fi
-    # wrong target or broken symlink -> fix it
+    if ! link_is_ours "$cur"; then
+      # A symlink we cannot prove is ours (this repo or the org repo) is foreign:
+      # never silently replace it — report a CONFLICT and let the user decide.
+      # (Migrating from another checkout: remove its links or run its --uninstall first.)
+      echo "  CONFLICT $link -> $cur (foreign symlink, not owned by this repo or --org-repo) — resolve manually" >&2; CONFLICT=$((CONFLICT+1)); return
+    fi
+    # wrong/broken target that IS ours -> fix it
     if [ "$DRY" = 1 ]; then echo "    ln $flag \"$src\" \"$link\"   (was: $cur)"
     else mkdir -p "$(dirname "$link")"; ln "$flag" "$src" "$link"; fi
     echo "  relinked $link   (was: $cur)"; FIXED=$((FIXED+1))

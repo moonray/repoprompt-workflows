@@ -27,7 +27,7 @@ Provenance: derived from three real runs (vyasa-puja 2026-08-20, mymp3pool 2026-
 | Element | Contract |
 |---|---|
 | `.agents/skills/chat-mining/SKILL.md` | The procedure (trigger, sweep, verification, mapping, report). Model-invoked. |
-| `.agents/mining-ledger.md` | The per-workspace watermark ledger (mined-through marker + next-due), committed in this repo. Read at run start, written at run close. |
+| `.agents/mining-ledger.md` | The per-workspace watermark ledger (mined-through marker + next-due), living in each mined workspace's own repo and created on its first completed sweep. Read at run start, written at run close. |
 | Deterministic pre-pass | A ranking computed from `history list_sessions` metadata (turn counts, durations, files-touched) + themed-search hit counts — no LLM reads before it. |
 | Report | Chat-delivered: ranked findings with validation-status labels, an already-landed section, user-gated items separate, ledger update. |
 
@@ -91,7 +91,7 @@ Provenance: derived from three real runs (vyasa-puja 2026-08-20, mymp3pool 2026-
 ### Scenario S-012: cadence is ledger-driven
 - **Given** the ledger's next-due field for a workspace
 - **When** a mining request arrives, or an open tracking issue carries the cycle standing item
-- **Then** the run reports cadence status (current / overdue with sessions-accumulated count); the default cadence is quarterly or ~150 new sessions, whichever comes first; the cadence is a prompt, never an automatic run without user initiation. Surfacing today rides the existing machinery: any mining run reports status, and open cycle issues (#46/#48 class) appear in the daily briefing's Project-work sweep — no briefing-specific wiring exists (2026-10-07 amendment: the original wording implied dedicated briefing wiring; the implemented contract is this one).
+- **Then** the run reports cadence status (current / overdue with sessions-accumulated count); the default cadence is quarterly or ~150 new sessions, whichever comes first; the cadence is a prompt, never an automatic run without user initiation. Surfacing today rides the existing machinery: any mining run reports status, and standing follow-ups are ordinary open tracking items in the workspace's own ledger — no dedicated briefing wiring exists (2026-10-07 amendment: the original wording implied dedicated briefing wiring; the implemented contract is this one).
 
 ## Traceability
 

@@ -20,7 +20,7 @@ REPO="$(pwd)"   # run from the repo root
 ln -sfn "$REPO/.agents/slash/document.md" "$HOME/.claude/commands/document.md"
 ```
 
-> This extraction ships only `/document` (a shortcut to the `document` skill); other commands from the source repo were business-specific and excluded.
+> This repo ships four commands: `/document`, `/rp-bash-roots`, `/commit`, and `/pre-mortem`. Commands that were business-specific in the source workspace were excluded from the extraction and live in that workspace's own repo.
 
 ## Adding or updating commands
 

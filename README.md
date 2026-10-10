@@ -24,7 +24,7 @@ Workflows are macOS-only because RPCE is macOS-only today. Skills, slash command
 | `Test` | Read a spec's scenarios and write native tests for the repo's test framework. |
 | `Loop` | Verify readiness, then run red/green/review/refactor loops against a Spec + Deep Plan, with durable, resumable progress. |
 | `Deep Review` | Multi-lens review of a change set, producing governed, revalidatable findings. |
-| `Backlog` | Triage tracked issues and run the full Spec → Plan → Loop chain per issue, in isolated worktrees. |
+| `Backlog` | Triage tracked issues, ensure a current Spec + Deep Plan per issue (generating or reconciling when missing/stale), then dispatch `Loop` in isolated worktrees and own landing/close. |
 
 `Spec` → `Test` form a pair; `Loop` builds on both; `Deep Review` pairs with `Loop`; `Backlog` sits above `Loop`.
 
@@ -64,7 +64,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 
 **Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — definition, when you need one, and every way to configure it in [**Your organization repo**](#your-organization-repo-optional), after the worked example below.
 
-For each link it prints `ok` (already points here), `relinked` (was missing/broken/pointing elsewhere), or `CONFLICT` (a real file is in the way — it won't clobber that). Re-run any time to repair a partial install, or to re-point links from an older checkout.
+For each link it prints `linked` (was missing), `ok` (already points here), `relinked` (an owned link with a wrong or broken target — repaired), or `CONFLICT` (a real file — or a symlink the installer cannot prove belongs to this repo or the `--org-repo` checkout — is in the way; it is never silently clobbered). Re-run any time to repair a partial install. Migrating from another checkout of this system? Remove that checkout's links (or run its `--uninstall`) first — the installer only re-points links it owns.
 
 Then restart RepoPrompt CE and open the workflows picker — Spec, Test, Loop, Deep Review, Backlog should all appear.
 
@@ -80,7 +80,7 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 3. **`Test`** — point it at the spec; it discovers the repo's test framework and writes native tests for each scenario (they fail — red).
 4. **`Loop`** — point it at **both** the spec and the deep plan. It verifies readiness, then runs red/green/review/refactor until green, committing one revertible commit per work item.
 
-`Deep Review` runs against any change set to produce governed, revalidatable findings; `Backlog` triages tracked issues and runs the whole Spec → Plan → Loop chain per issue in isolated worktrees (max 3 concurrent).
+`Deep Review` runs against any change set to produce governed, revalidatable findings; `Backlog` triages tracked issues, ensures a current Spec + Deep Plan per issue (generating when missing/stale), and runs `Loop` per issue in isolated worktrees (max 3 concurrent).
 
 ### Your organization repo (optional)
 

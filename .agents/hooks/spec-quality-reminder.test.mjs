@@ -74,10 +74,17 @@ test("negative: unrelated markdown and spec README are silent", () => {
 
 test("negative: failed tool call makes no reminder (every failure shape)", () => {
   // Defect this guards: nagging on edits that did not change anything — across
-  // EVERY failure shape the suppressor recognizes; the positive control guards
+  // EVERY failure shape the suppressor recognizes, including MCP/JSON-RPC errors
+  // that arrive as strings or {code,message} objects; the positive control guards
   // the opposite regression (a success-dict wrongly treated as failure would
   // silently suppress all reminders).
-  for (const tr of [{ is_error: true }, { error: true }, { status: "error" }, { status: "ERROR" }]) {
+  const failed = [
+    { is_error: true }, { isError: true },
+    { error: true }, { error: "Error: [-32602] Invalid params" }, { error: { code: -32602, message: "bad params" } },
+    { status: "error" }, { status: "ERROR" },
+    { ok: false }, { success: false },
+  ];
+  for (const tr of failed) {
     assert.equal(run(edit({ path: "docs/spec/failed.md" }, tr)), "", JSON.stringify(tr));
   }
   assert.match(run(edit({ path: "docs/spec/ok.md" }, { status: 200 })), /SPEC QUALITY/);
@@ -89,6 +96,25 @@ test("negative: valid-but-non-object JSON exits 0 with no output", () => {
   for (const raw of ["[]", "null", '"x"', "42"]) {
     assert.equal(runRaw(raw), "", raw);
   }
+});
+
+test("same-class dedup: two docs/spec paths in one batch emit the rule exactly once", () => {
+  // Defect this guards: removing the `text not in reminders` dedup would duplicate
+  // the nag text in every multi-file spec batch while match-based assertions still pass.
+  const c = run(edit({ edits: [{ path: "docs/spec/a.md" }, { path: "docs/spec/b.md" }] }));
+  assert.equal((c.match(/SPEC QUALITY/g) || []).length, 1);
+});
+
+test("output envelope: hookSpecificOutput carries hookEventName PostToolUse", () => {
+  // Defect this guards: a renamed/wrong envelope field would make Claude Code drop
+  // the context while property-access assertions stay green.
+  const r = spawnSync("python3", [SCRIPT], {
+    input: JSON.stringify(edit({ path: "docs/spec/env.md" })), encoding: "utf8",
+  });
+  assert.equal(r.status, 0);
+  const parsed = JSON.parse(r.stdout.trim());
+  assert.equal(parsed.hookSpecificOutput.hookEventName, "PostToolUse");
+  assert.match(parsed.hookSpecificOutput.additionalContext, /SPEC QUALITY/);
 });
 
 test("negative: non-PostToolUse events are ignored", () => {

@@ -42,19 +42,19 @@ for s in test-quality-reminder spec-quality-reminder spec-conformance-gate deleg
 done
 ```
 
-Then ensure `~/.claude/settings.json` contains these registrations (merge into any existing `hooks` object — don't duplicate matchers you already have). The file-edit matcher covers both Claude Code's native tools and RepoPrompt CE's `apply_edits` / `file_actions` MCP tools:
+Then ensure `~/.claude/settings.json` contains these registrations (merge into any existing `hooks` object — don't duplicate matchers you already have). The file-edit matcher is anchored and MCP-qualified so bare names never substring-match other tools; `scripts/install.sh` is the canonical source — this example mirrors it exactly:
 
 ```json
 {
   "hooks": {
     "PostToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "~/.claude/hooks/test-quality-reminder.py" }] },
-      { "matcher": "Edit|Write|MultiEdit|apply_edits|file_actions", "hooks": [{ "type": "command", "command": "~/.claude/hooks/spec-quality-reminder.py" }] },
-      { "matcher": "Edit|Write|MultiEdit|apply_edits|file_actions", "hooks": [{ "type": "command", "command": "~/.claude/hooks/spec-conformance-gate.py" }] },
-      { "matcher": "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run", "hooks": [{ "type": "command", "command": "~/.claude/hooks/delegation-reminder.py" }] }
+      { "matcher": "Bash|Skill", "hooks": [{ "type": "command", "command": "python3 $HOME/.claude/hooks/test-quality-reminder.py" }] },
+      { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 $HOME/.claude/hooks/spec-quality-reminder.py" }] },
+      { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 $HOME/.claude/hooks/spec-conformance-gate.py" }] },
+      { "matcher": "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run", "hooks": [{ "type": "command", "command": "python3 $HOME/.claude/hooks/delegation-reminder.py" }] }
     ],
     "Stop": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "~/.claude/hooks/test-quality-reminder.py" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "python3 $HOME/.claude/hooks/test-quality-reminder.py" }] }
     ]
   }
 }

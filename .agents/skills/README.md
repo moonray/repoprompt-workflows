@@ -89,7 +89,7 @@ Skills are invoked from any workspace and may operate on a different target repo
 
 ## Every skill ships with a spec
 
-Each skill's behavioral contract lives at `docs/spec/<skill-name>.md` (spec-quality vetted: contract-level, scenario-driven, traceable). Canonical skills' specs live in THIS repo; the FOSS mirror carries the generic copies per the divergence contract. Conventions:
+Each skill's behavioral contract lives at `docs/spec/<skill-name>.md` (spec-quality vetted: contract-level, scenario-driven, traceable). This repo is the canonical home for the skills' specs; consuming workspaces keep no copies (private overlay exceptions live in the org repo, never here). Conventions:
 
 - Creating a skill includes creating its spec (part of the skill-creator pass); the SKILL STANDARDS hook reminder checks for it.
 - Material changes to a skill amend its spec in the same change, and the conformance matrix (`docs/spec/<name>.conformance.md`) is refreshed at closeout — the spec-conformance gate enforces this for closeout flows.
