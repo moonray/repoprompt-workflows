@@ -20,7 +20,7 @@ The `.py` scripts are invoked two ways, and that decides their scope:
 
 - **Codex / opencode — repo-scoped.** Bundled adapters call the scripts relative to the repo root, so they are active **only when working in this repo** (or any repo that ships `.agents/hooks/`):
   - `.codex/hooks.json` — Codex loads it from the project when trusted; it runs the scripts via `$(git rev-parse --show-toplevel)/.agents/hooks/`.
-  - `.opencode/plugins/repoprompt-hooks.mjs` — opencode auto-loads it from the project plugin dir; it `execFileSync`-es the scripts.
+  - `.opencode/plugins/repoprompt-hooks.mjs` — declared in the repo's `opencode.json` `plugin` array (opencode ≥1.18 does not auto-scan the plugin dir — verified live 2026-10-11, #9); it `execFileSync`-es the scripts.
 - **Claude Code — global (cross-repo).** `scripts/install.sh` symlinks the scripts into `~/.claude/hooks/` and registers them in `~/.claude/settings.json`. Because that config is global, the hooks then apply in every repo.
 
 ## Install

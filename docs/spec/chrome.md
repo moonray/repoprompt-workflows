@@ -28,7 +28,7 @@ Browser automation (chrome-devtools MCP / dev chrometools, Playwright, headed br
 - Verifying the agent's own app UI end-to-end (user-testing skill).
 - Puppeteer-stealth-class CDP-evasion patching beyond `navigator.webdriver`.
 - Policing beyond the one-shot nudge: the gate reminds once per session; it does not monitor or block thereafter.
-- Pre-call gating on opencode (the plugin gates post-call; current opencode documents `tool.execute.before`, re-verified 2026-10-11 — the pre-call upgrade is a recorded follow-up, #9) and on pi until that runtime exposes pre-tool events (documented gap).
+- Pre-call gating on pi until that runtime exposes pre-tool events (documented gap).
 
 ## Constraints
 - Applies to browser-automation sessions against sites the agent does not control; an agent's own app is out of scope.
@@ -108,7 +108,7 @@ Browser automation (chrome-devtools MCP / dev chrometools, Playwright, headed br
 ### S-014: Cross-runtime registration with honest gaps
 - **Given** the shared gate script ships in this repo's hook infrastructure
 - **When** a runtime is wired
-- **Then** Claude Code and Codex register the gate (installer settings registration and `.codex/hooks.json` respectively), and any backend without pre-tool-event delivery carries a documented gap rather than a claimed parity
+- **Then** Claude Code and Codex register the gate (installer settings registration and `.codex/hooks.json` respectively), opencode registers it pre-call via the plugin's `tool.execute.before` (declared in the repo's `opencode.json`; validated live on opencode 1.18.35, 2026-10-11, #9), and any backend without pre-tool-event delivery (pi) carries a documented gap rather than a claimed parity
 
 ## Proposed Surface
 
