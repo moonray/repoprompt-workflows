@@ -6,9 +6,15 @@
 //   spec-quality-reminder  -> tool.execute.after (write/edit): log only.       [best-effort]
 //   test-quality-reminder  -> tool.execute.after (bash)        : log only.       [best-effort]
 //                             event(session.idle) ≈ Stop       : log only.       [reactive]
-// opencode tool hooks have no model-visible "additionalContext" injection, so the two
-// reminder hooks surface as structured warn logs; the nudges also ride global rules + the
-// skills, which opencode reads. The hard guarantee (conformance gate) IS enforced.
+// Model-visible injection: re-verified 2026-10-11 against live opencode docs (#9) —
+// tool hooks still have none: `hookSpecificOutput.additionalContext` is a Claude-Code
+// shape opencode lacks, after-hook output mutations are ignored (opencode issue, Feb 2026),
+// and the one documented channel (`experimental.session.compacting` → output.context.push)
+// fires at compaction time, not tool time. So the reminder hooks surface as structured
+// warn logs; the nudges also ride global rules + the skills, which opencode reads.
+// The hard guarantee (conformance gate) IS enforced. Note: `tool.execute.before` exists
+// and can throw pre-call — a pre-call chrome gate is a recorded follow-up (#9), not yet
+// wired here.
 //
 // Repo-scoped: this plugin calls .agents/hooks/*.py relative to the project root, so it
 // is active when working IN this repo (or any repo that ships .agents/hooks/).

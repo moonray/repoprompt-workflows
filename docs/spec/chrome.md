@@ -28,7 +28,7 @@ Browser automation (chrome-devtools MCP / dev chrometools, Playwright, headed br
 - Verifying the agent's own app UI end-to-end (user-testing skill).
 - Puppeteer-stealth-class CDP-evasion patching beyond `navigator.webdriver`.
 - Policing beyond the one-shot nudge: the gate reminds once per session; it does not monitor or block thereafter.
-- Pre-call gating on opencode/pi until those runtimes expose pre-tool events (documented gap).
+- Pre-call gating on opencode (the plugin gates post-call; current opencode documents `tool.execute.before`, re-verified 2026-10-11 — the pre-call upgrade is a recorded follow-up, #9) and on pi until that runtime exposes pre-tool events (documented gap).
 
 ## Constraints
 - Applies to browser-automation sessions against sites the agent does not control; an agent's own app is out of scope.
