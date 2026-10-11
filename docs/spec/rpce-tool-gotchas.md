@@ -17,6 +17,7 @@ RepoPrompt CE's workspace file tools (`apply_edits`, `file_actions`, MCP read/wr
 3. Interpret an out-of-root tool error as a boundary fact, not a missing file — nothing recreated that was never lost, nothing assumed written that never was. (S-002)
 4. Make the read-back, not the edit tool's success message, the state of record after a batch edit: re-read changed regions, run the cheapest syntax check, then build. (S-003)
 5. Repair from observed file state when partial or contradictory outcomes surface, with the change's full verification re-run following — self-caused defects do not ship. (S-004)
+6. Commit in shared checkouts from a verified staged set — concurrent sessions stage silently, pathspec commits cannot carry untracked files, and cited SHAs are observed in git output, never assumed. (S-005)
 
 ## Non-Goals
 
@@ -27,7 +28,7 @@ RepoPrompt CE's workspace file tools (`apply_edits`, `file_actions`, MCP read/wr
 ## Constraints
 
 - Runtime-generic (MCP and CLI variants alike) and provenance-free: no workspace names, session IDs, or incident specifics in the skill text — generalized facts only.
-- Two facts only; a new tool gotcha joins by the same standard that admitted these: verified across more than one incident before encoding.
+- Three facts only; a new tool gotcha joins by the same standard that admitted these: verified across more than one incident before encoding.
 
 ## Scenarios
 
@@ -35,8 +36,9 @@ RepoPrompt CE's workspace file tools (`apply_edits`, `file_actions`, MCP read/wr
 - **S-002 — boundary error is not data loss.** Given an RPCE file-tool error naming a path outside the workspace roots, when the agent interprets it, then it treats the error as the root-scoping boundary (by design), not as a missing file — nothing is recreated that was never lost, and nothing is assumed written that never was.
 - **S-003 — read-back is the state of record.** Given a completed multi-edit batch on a file, when further edits or conclusions build on it, then the agent first re-reads the changed regions (the whole file when small) and runs the cheapest syntax check (`node --check`, `py_compile`, …) — the read-back, not the success message, is authoritative.
 - **S-004 — partial outcomes repaired from observed state.** Given a read-back that contradicts the edit result (duplicate definition, partial write, premature reference), when repairing, then repairs target the observed file state and the change's full verification suite re-runs afterward.
+- **S-005 — shared-checkout commits come from a verified staged set.** Given a checkout another agent session may be using, when a commit is made, then the staged set was listed and confirmed immediately before, untracked files were staged explicitly rather than trusted to a pathspec, and any SHA cited in prose or comments was first observed in git output.
 
 ## Proposed Surface
 
-- Skill description triggers (out-of-root tool failure or plan; chained edits over freshly edited files).
-- Two operational rules in `SKILL.md`: §1 root-scoped file tools → Bash; §2 read-back + syntax check before building on a batch edit.
+- Skill description triggers (out-of-root tool failure or plan; chained edits over freshly edited files; commits in a checkout another session may share).
+- Three operational rules in `SKILL.md`: §1 root-scoped file tools → Bash; §2 read-back + syntax check before building on a batch edit; §3 verified staged set before every shared-checkout commit.

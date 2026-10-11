@@ -1,11 +1,11 @@
 ---
 name: rpce-tool-gotchas
-description: RepoPrompt CE workspace-tool boundaries that agents keep re-learning by failure. Use when an RPCE file/edit tool (apply_edits, file_actions, read_file, MCP file writes) fails or cannot see a path outside the loaded workspace roots — /tmp one-off scripts, a sibling repo, ~/ dotfiles: those tools are root-scoped by design, so route out-of-root reads/writes through Bash (heredoc/python) from the start. Also use when stacking more edits onto files just changed by a batch of edits, especially multi-file refactors: re-read the edited file and syntax-check it (node --check, py_compile, …) before building on the result — batch edits can land partially or contradict the editor's expectation (duplicates surviving a "successful" edit, partial writes under file locks), and the next edit compounds the defect. Trigger proactively for out-of-root file plans and chained edits over fresh files, not only after errors.
+description: RepoPrompt CE workspace-tool boundaries that agents keep re-learning by failure. Use when an RPCE file/edit tool (apply_edits, file_actions, read_file, MCP file writes) fails or cannot see a path outside the loaded workspace roots — /tmp one-off scripts, a sibling repo, ~/ dotfiles: those tools are root-scoped by design, so route out-of-root reads/writes through Bash (heredoc/python) from the start. Also use when stacking more edits onto files just changed by a batch of edits, especially multi-file refactors: re-read the edited file and syntax-check it (node --check, py_compile, …) before building on the result — batch edits can land partially or contradict the editor's expectation (duplicates surviving a "successful" edit, partial writes under file locks), and the next edit compounds the defect. Also use when committing in a checkout another agent session may share — verify the staged set first: concurrent sessions stage silently, and pathspec commits cannot carry untracked files. Trigger proactively for out-of-root file plans, chained edits over fresh files, and shared-checkout commits, not only after errors.
 ---
 
 # RPCE tool gotchas
 
-Two verified facts about RepoPrompt CE's workspace tools. Both cost real rework before they were encoded here (provenance: cross-workspace session mining, 2026-10 — general facts, no single repo).
+Three verified facts about RepoPrompt CE's workspace tools, each costing real rework before it was encoded here (provenance: cross-workspace session mining, 2026-10 for §1–§2; single-session mining 2026-10-11 with three incidents for §3 — general facts, no single repo).
 
 ## 1. Workspace file tools are root-scoped
 
@@ -18,3 +18,9 @@ Two verified facts about RepoPrompt CE's workspace tools. Both cost real rework 
 A multi-edit batch (especially across several files in a refactor) can report success while the file state contradicts the editor's expectation: a duplicate definition survives, a reference precedes its definition, a partial write lands under a file lock. Stacking the next edit onto that assumed state compounds one defect into several, each needing separate repair.
 
 **Do:** after each file's edit batch — before editing the next file or reasoning about the result — re-read the changed regions (the whole file when small) and run the cheapest syntax check (`node --check`, `python -m py_compile`, `ruby -c`, …). Treat the read-back, not the edit tool's success message, as the state of record. One read per file costs seconds; repairing three stacked defects costs a full verification re-run.
+
+## 3. Concurrent sessions share the checkout — commit only a verified staged set
+
+RepoPrompt CE can run several agent sessions against one repository checkout. Another session's staging (`git mv`, `git add`) lands in the shared index silently: a plain `git commit` sweeps whatever is staged into yours (observed: unrelated renames riding along), while `git commit <pathspec>` cannot carry untracked files at all — it aborts, or worse, omits them while the tracked paths commit.
+
+**Do:** immediately before every commit in a checkout you may share, run `git diff --cached --stat` and commit only the confirmed staged set — `git add` the exact paths, re-check the staged list, commit plain. Use pathspec commits only for tracked files. And cite a SHA only after seeing it in git output: a comment referencing a commit that should exist is a claim, not an observation.
