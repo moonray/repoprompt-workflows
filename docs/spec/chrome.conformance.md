@@ -22,7 +22,7 @@ Implementation audited: `.agents/skills/chrome/SKILL.md` + `references/` + `.age
 | Goals | G1–G7 (protocol, challenge handling, webdriver patch, cheap moves, diagnose, ladder, overrides) | Conformed | S-001–S-010 below | unchanged from #5 closeout, re-cited |
 | Goals | G8 per-site tested method layer | Conformed | S-011/S-012 below; `chrome/SKILL.md:50–51`, `references/sites/crunchyroll.md` | |
 | Goals | G9 one-shot gate at moment of use | Conformed | S-013 below; live probe this session | |
-| Goals | G10 per-backend registration with honest gaps | Conformed with waived divergence | S-014 below | Codex delivery unverified — see waiver in coverage proof |
+| Goals | G10 per-backend registration with honest gaps | Conformed | S-014 below | Codex verified file-based after user trust approval; opencode/pi documented gaps per spec Non-Goals |
 | Scenarios | S-001 Warm-up default entry | Conformed | `chrome/SKILL.md:14` (root first), `:15` (warm once, reuse tab), `:18` (settle criteria) | |
 | Scenarios | S-002 Managed challenge discipline | Conformed | `chrome/SKILL.md:16` (wait for auto-clear), `:18` (verify real content) | |
 | Scenarios | S-003 Rolling clearance routine | Conformed | `chrome/SKILL.md:17`; `references/sites/crunchyroll.md` (~30-min `__cf_bm` concrete) | |
@@ -36,7 +36,7 @@ Implementation audited: `.agents/skills/chrome/SKILL.md` + `references/` + `.age
 | Scenarios | S-011 Site method via progressive disclosure | Conformed | `chrome/SKILL.md:50–51` (routing to `sites/<domain>.md`), `site-overrides.md` Crunchyroll `Tested method:` line, `sites/crunchyroll.md` (full tested sequence) | |
 | Scenarios | S-012 Method-not-code boundary | Conformed | `sites/crunchyroll.md` (sequence/waits/signals/failure handling + source citation; no implementation code; canonical code stays with owner) | |
 | Scenarios | S-013 One-shot PreToolUse gate | Conformed | Live probe (this session): first `mcp__chrome-devtools__list_pages` denied with reason; after loading the `chrome` skill, retry passed with no interference. Registration: `~/.claude/settings.json` PreToolUse `^mcp__chrome-devtools__` via installer (+1, backup taken); `chrome-gate.py` script-level probe deny-once/allow-after | Claude Code end-to-end verified |
-| Scenarios | S-014 Cross-runtime registration with honest gaps | Diverged (waived, see below) | Conformed: Claude Code registration verified live; installer `regs` entry (`scripts/install.sh` `register_claude_settings`), `.codex/hooks.json` PreToolUse block, `.agents/hooks/README.md` row + manual block; opencode/pi documented gaps in spec Non-Goals. Codex: deny **verified live** 2026-10-10 via inline config (matcher `^mcp__chrome[-_]devtools__` + fixed gate: `hook: PreToolUse Blocked`, reason model-visible, tool `mcp__chrome_devtools__list_pages` — codex normalizes the server hyphen to underscore); file-based activation additionally requires one-time user `/hooks` trust approval | Waiver reason in coverage proof |
+| Scenarios | S-014 Cross-runtime registration with honest gaps | Conformed | Claude Code: registration verified live (deny → skill load → clean retry). Codex: deny verified live twice — via inline config (root-cause probe) and via the deployed file-based wiring under normal trust (no bypass): `Tool call blocked by PreToolUse hook: chrome skill gate…` on `mcp__chrome_devtools__list_pages` in keryx, 2026-10-10, after the user's `/hooks` approvals (trusted_hash entries present for both repos' `pre_tool_use:0:0`). opencode/pi: documented gaps in spec Non-Goals. Root-cause trail on #6 | Hyphen→underscore naming fix in `583a24b`; earlier silence was naming + trust, not event delivery |
 | Proposed Surface | Input: Target site (required) | Conformed | `chrome/SKILL.md:3`, `:12–13` | |
 | Proposed Surface | Input: Site override profile / method file (optional) | Conformed | `chrome/SKILL.md:50–51`, `site-overrides.md`, `sites/crunchyroll.md` | |
 | Proposed Surface | Output: verified-real page / characterized outcome / appended profile facts | Conformed | `chrome/SKILL.md:18`, `:35–38`, `:48`, `:51` | |
@@ -56,22 +56,7 @@ audited:
   - Surface: Target site
   - Surface: Site override profile / method file
   - Surface: Output
-unreconciled:
-  - item: S-014 (Codex delivery half)
-    status: Diverged — waived
-    reason: ROOT-CAUSED and FIXED 2026-10-10. Codex normalizes the MCP server
-      name's hyphen to an underscore in hook tool_name (mcp__chrome_devtools__*),
-      so the original matcher and the gate's internal check never matched;
-      additionally, untrusted hooks (new/changed, or whole untrusted project
-      layers like rpw) are skipped by design — which is why early probes were
-      silent. With the corrected matcher (^mcp__chrome[-_]devtools__) and the
-      gate accepting both namings, deny was verified LIVE on codex exec
-      (0.162.1 app-server) via inline config: PreToolUse blocked the call and
-      the model received the reason. Remaining step is deployment, not
-      mechanism: one-time /hooks trust approval per repo (or a user-level
-      ~/.codex/hooks.json with a single approval) activates the file-based
-      wiring. Waived-open until that approval lands and a file-based probe
-      denies; tracked on issue #6.
+unreconciled: []
 ```
 
-Every scenario, Proposed Surface element, stated constraint, and goal was checked; the single divergence is the waived, tracked Codex-delivery item above.
+Every scenario, Proposed Surface element, stated constraint, and goal was checked; the former Codex-delivery divergence (root-caused as hyphen→underscore tool naming plus hook trust, fixed in `583a24b`, deployed and trusted 2026-10-10 — see #6 for the trail) is resolved.
