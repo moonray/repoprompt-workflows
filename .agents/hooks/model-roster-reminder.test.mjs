@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -104,3 +104,33 @@ function env(f) {
     MODEL_ROSTER_CC_CACHE: f.cc,
   };
 }
+
+test("directory-resolved cc cache: newest -cc.json is authoritative (current picks → silent)", () => {
+  const f = fixtures({ codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"], ccIds: [] });
+  const dir = mkdtempSync(path.join(tmpdir(), "roster-dir-"));
+  const older = path.join(dir, "aaa-catalog-cc.json");
+  const newer = path.join(dir, "zzz-catalog-cc.json");
+  // Older holds only opus — if the hook read the OLDEST, fable would flag.
+  writeFileSync(older, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }] } } }));
+  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-1" }] } } }));
+  const t = new Date();
+  utimesSync(older, new Date(t.getTime() - 60000), new Date(t.getTime() - 60000));
+  utimesSync(newer, t, t);
+  assert.equal(runHook(PAYLOAD(), { ...env(f), MODEL_ROSTER_CC_CACHE: dir }), null);
+});
+
+test("directory-resolved cc cache: newest file's missing pick flags (proves newest-wins)", () => {
+  const f = fixtures({ codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"], ccIds: [] });
+  const dir = mkdtempSync(path.join(tmpdir(), "roster-dir-"));
+  const older = path.join(dir, "aaa-catalog-cc.json");
+  const newer = path.join(dir, "zzz-catalog-cc.json");
+  // Older holds both picks — only reading the NEWEST (fable-only) can flag opus.
+  writeFileSync(older, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-1" }] } } }));
+  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-fable-5-1" }] } } }));
+  const t = new Date();
+  utimesSync(older, new Date(t.getTime() - 60000), new Date(t.getTime() - 60000));
+  utimesSync(newer, t, t);
+  const r = runHook(PAYLOAD(), { ...env(f), MODEL_ROSTER_CC_CACHE: dir });
+  const ctx = r?.hookSpecificOutput?.additionalContext ?? "";
+  assert.match(ctx, /claude-opus-5-5.*not found/);
+});
