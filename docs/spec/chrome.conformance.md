@@ -36,7 +36,7 @@ Implementation audited: `.agents/skills/chrome/SKILL.md` + `references/` + `.age
 | Scenarios | S-011 Site method via progressive disclosure | Conformed | `chrome/SKILL.md:50–51` (routing to `sites/<domain>.md`), `site-overrides.md` Crunchyroll `Tested method:` line, `sites/crunchyroll.md` (full tested sequence) | |
 | Scenarios | S-012 Method-not-code boundary | Conformed | `sites/crunchyroll.md` (sequence/waits/signals/failure handling + source citation; no implementation code; canonical code stays with owner) | |
 | Scenarios | S-013 One-shot PreToolUse gate | Conformed | Live probe (this session): first `mcp__chrome-devtools__list_pages` denied with reason; after loading the `chrome` skill, retry passed with no interference. Registration: `~/.claude/settings.json` PreToolUse `^mcp__chrome-devtools__` via installer (+1, backup taken); `chrome-gate.py` script-level probe deny-once/allow-after | Claude Code end-to-end verified |
-| Scenarios | S-014 Cross-runtime registration with honest gaps | Diverged (waived, see below) | Conformed: Claude Code registration verified live; installer `regs` entry (`scripts/install.sh` `register_claude_settings`), `.codex/hooks.json` PreToolUse block (dual-form matcher), `.agents/hooks/README.md` row + manual block; opencode/pi documented gaps in spec Non-Goals. Diverged: Codex — wiring shipped in the sanctioned shape but no gate denial observed in `codex exec` 0.148 across two matcher forms (`^mcp__chrome-devtools__`, `+|^chrome-devtools/`); a wildcard-logger diagnostic hung >240s and was aborted inconclusive | Waiver reason in coverage proof |
+| Scenarios | S-014 Cross-runtime registration with honest gaps | Diverged (waived, see below) | Conformed: Claude Code registration verified live; installer `regs` entry (`scripts/install.sh` `register_claude_settings`), `.codex/hooks.json` PreToolUse block, `.agents/hooks/README.md` row + manual block; opencode/pi documented gaps in spec Non-Goals. Codex: deny **verified live** 2026-10-10 via inline config (matcher `^mcp__chrome[-_]devtools__` + fixed gate: `hook: PreToolUse Blocked`, reason model-visible, tool `mcp__chrome_devtools__list_pages` — codex normalizes the server hyphen to underscore); file-based activation additionally requires one-time user `/hooks` trust approval | Waiver reason in coverage proof |
 | Proposed Surface | Input: Target site (required) | Conformed | `chrome/SKILL.md:3`, `:12–13` | |
 | Proposed Surface | Input: Site override profile / method file (optional) | Conformed | `chrome/SKILL.md:50–51`, `site-overrides.md`, `sites/crunchyroll.md` | |
 | Proposed Surface | Output: verified-real page / characterized outcome / appended profile facts | Conformed | `chrome/SKILL.md:18`, `:35–38`, `:48`, `:51` | |
@@ -59,15 +59,19 @@ audited:
 unreconciled:
   - item: S-014 (Codex delivery half)
     status: Diverged — waived
-    reason: Codex 0.148 exec showed no gate denial across two matcher variants
-      (2026-10-10, rpw repo, --dangerously-bypass-hook-trust, chrome-devtools
-      list_pages passed through); the decisive wildcard-logger diagnostic hung
-      past its 240s bound and was aborted, so MCP-tool PreToolUse delivery
-      (and payload/tool naming) in codex is UNVERIFIED, not disproven. The
-      fail-open wiring ships harmlessly in .codex/hooks.json; enforcement on
-      Codex is blocked-on-verification, tracked on issue #6. Accepted because
-      Claude Code (the primary runtime) is verified end-to-end and the spec's
-      own S-014 requires documenting rather than papering over the gap.
+    reason: ROOT-CAUSED and FIXED 2026-10-10. Codex normalizes the MCP server
+      name's hyphen to an underscore in hook tool_name (mcp__chrome_devtools__*),
+      so the original matcher and the gate's internal check never matched;
+      additionally, untrusted hooks (new/changed, or whole untrusted project
+      layers like rpw) are skipped by design — which is why early probes were
+      silent. With the corrected matcher (^mcp__chrome[-_]devtools__) and the
+      gate accepting both namings, deny was verified LIVE on codex exec
+      (0.162.1 app-server) via inline config: PreToolUse blocked the call and
+      the model received the reason. Remaining step is deployment, not
+      mechanism: one-time /hooks trust approval per repo (or a user-level
+      ~/.codex/hooks.json with a single approval) activates the file-based
+      wiring. Waived-open until that approval lands and a file-based probe
+      denies; tracked on issue #6.
 ```
 
 Every scenario, Proposed Surface element, stated constraint, and goal was checked; the single divergence is the waived, tracked Codex-delivery item above.

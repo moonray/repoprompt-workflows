@@ -11,7 +11,10 @@ import os
 import sys
 import tempfile
 
-MATCH = "mcp__chrome-devtools__"
+# Both runtime namings: Claude Code keeps the server's hyphen
+# (mcp__chrome-devtools__), Codex normalizes it to an underscore
+# (mcp__chrome_devtools__) — observed in a live payload 2026-10-10.
+MATCH = ("mcp__chrome-devtools__", "mcp__chrome_devtools__")
 REASON = (
     "chrome skill gate (one-time): before driving an external site with "
     "chrome-devtools, load the chrome skill (root-first warm-up, challenge "
