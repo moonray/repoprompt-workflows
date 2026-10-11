@@ -29,10 +29,11 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Spec Quality Reminder Hook](spec-quality-reminder.md) | none | implemented |
 | [Spec Conformance Gate Hook](spec-conformance-gate.md) | none | implemented |
 | [Delegation Reminder Hook](delegation-reminder.md) | none | implemented |
+| [Model Roster Reminder Hook](model-roster-reminder.md) | 10 | implemented |
 
 ## Conformance matrices
 
-Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 15 skills, and 4 hooks.
+Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 16 skills, and 5 hooks.
 
 ## Coverage policy
 
@@ -42,6 +43,6 @@ Current coverage:
 
 - **Workflows** — ✅ all 5 specced (`Spec`, `Test`, `Loop`, `Backlog`, `Deep Review`).
 - **Skills** — ✅ all 16 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`, `bot-wall`, `rpce-tool-gotchas`, `live-dryrun`, `chat-mining`, `chrome`, `model-routing`) plus `skill-creator` — upstream Anthropic skill carried as a sparse submodule; no local spec by design (its own docs are the spec).
-- **Hooks** — ✅ all 4 specced with matrices (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`).
+- **Hooks** — ✅ all 5 specced with matrices (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`, `model-roster-reminder`).
 
 Author missing specs with the `Spec` workflow, then add a row to the table above and a sibling `<spec>.conformance.md`.

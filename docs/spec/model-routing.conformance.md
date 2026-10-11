@@ -23,6 +23,7 @@ Implementation audited: `.agents/skills/model-routing/SKILL.md` (canonical guida
 | Scenarios | S-005 Re-evaluation refreshes in place, proposes settings | Conformed | `model-routing/SKILL.md:37–50` | triggers `:37–42`; fresh-evidence + cite-or-label rule `:45–47`; same-change propagation `:49`; propose-only `:50` |
 | Scenarios | S-006 Unavailable model reported as defect | Conformed | `model-routing/SKILL.md:26`, `:45` | routing never silently skips a roster mismatch; the invariant fired live on 2026-10-10 — the ratified generation's absence was reported and drove the refresh plan (OQ-1) instead of a silent guess-set |
 | Scenarios | S-007 Canonical report block | Conformed | `model-routing/SKILL.md:51–58` | verbatim block template |
+| Scenarios | S-008 Detection surfaced, not silent | Conformed | `model-routing/SKILL.md` "Detect and suggest" section | the `model-roster-reminder` hook (#10) automates the comparison on roster-surfacing tool calls; the section covers agents that never trip the hook |
 | Proposed Surface | Recommendation table fields | Conformed | `model-routing/SKILL.md:16–20` | Role/Model/Effort/Rationale columns; as-of date `:14` |
 | Proposed Surface | Re-evaluation triggers | Conformed | `model-routing/SKILL.md:37–42` | all four trigger classes from the spec |
 | Proposed Surface | Report block | Conformed | `model-routing/SKILL.md:54–58` | |

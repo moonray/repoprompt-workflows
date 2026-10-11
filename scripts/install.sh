@@ -120,11 +120,13 @@ register_claude_settings() {
 import json, os, shutil, sys, tempfile
 _ANCHORED_EDIT = "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$"
 _TASKS = "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run"
+_ROSTER = "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$"
 regs = [
     {"event": "PostToolUse", "matcher": "Bash|Skill", "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-quality-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-conformance-gate.py"'},
     {"event": "PostToolUse", "matcher": _TASKS,           "command": 'python3 "$HOME/.claude/hooks/delegation-reminder.py"'},
+    {"event": "PostToolUse", "matcher": _ROSTER,           "command": 'python3 "$HOME/.claude/hooks/model-roster-reminder.py"'},
     {"event": "Stop",        "matcher": "*",             "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
     {"event": "PreToolUse", "matcher": "^mcp__chrome-devtools__", "command": 'python3 "$HOME/.claude/hooks/chrome-gate.py"'},
 ]

@@ -37,6 +37,16 @@
             "statusMessage": "Spec-conformance gate"
           }
         ]
+      },
+      {
+        "matcher": "^mcp__RepoPromptCE__(app_settings|agent_manage|ask_oracle)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/model-roster-reminder.py\"",
+            "statusMessage": "Model-roster drift check"
+          }
+        ]
       }
     ],
     "Stop": [

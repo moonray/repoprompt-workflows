@@ -62,6 +62,11 @@ Oracle consultations during spec, plan, and review work choose models ad hoc: ca
 - **When** the result is reported
 - **Then** the report contains the three-role Recommended RepoPrompt Architecture block with model, effort, and a one-line rationale per role
 
+### S-008: Detection is surfaced, not silently absorbed
+- **Given** an agent observes a roster, a provider model list, a release note, or benchmark news showing a generation newer than the table's as-of picks (or a pick gone missing)
+- **When** the observation is made
+- **Then** the agent surfaces the drift to the user and suggests re-evaluation — it does not silently route stale picks or silently re-point settings
+
 ## Proposed Surface
 
 ### Recommendation table

@@ -32,6 +32,10 @@ Route by consultation type, not by mode name:
 
 RPCE wiring: `models.planning_model` mirrors Context & Discovery; `models.additional_oracle_models` carries the Review & Escalation picks; `ask_oracle`'s model override takes the specific model id. Workflows and skills reference roles, not model names, so a re-evaluation rewrites this one table and no call sites.
 
+## Detect and suggest
+
+Whenever you observe the runtime model roster (`app_settings` `models.*` options, `agent_manage`), a provider's model list or release note, or benchmark news showing a generation newer than this table's as-of picks — surface it to the user and suggest this skill's re-evaluation. Never silently route stale picks, and never silently re-point settings. On Claude Code, Codex, and opencode, the `model-roster-reminder` hook performs this comparison automatically on roster-surfacing tool calls and stays silent unless it detects drift; treat its nudge as a trigger for the re-evaluation procedure below.
+
 ## Re-evaluation
 
 Re-evaluate when any trigger fires:

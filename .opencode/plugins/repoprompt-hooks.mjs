@@ -6,7 +6,8 @@
 //   chrome-gate            -> tool.execute.before (chrome-devtools MCP): BLOCK via throw. [enforced, pre-call]
 //   spec-quality-reminder  -> tool.execute.after (write/edit): log only.       [best-effort]
 //   test-quality-reminder  -> tool.execute.after (bash)        : log only.       [best-effort]
-//                             event(session.idle) ≈ Stop       : log only.       [reactive]
+//   model-roster-reminder  -> tool.execute.after (RPCE roster/oracle tools): log only.  [best-effort, detection-gated]
+//                             event(session.idle) ≈ Stop       : log only.        [reactive]
 // Model-visible injection: re-verified 2026-10-11 against live opencode docs (#9) —
 // tool hooks still have none: `hookSpecificOutput.additionalContext` is a Claude-Code
 // shape opencode lacks, after-hook output mutations are ignored (opencode issue, Feb 2026),
@@ -108,6 +109,15 @@ export const RepromptHooks = async ({ worktree, directory, client }) => {
           cwd: rootDir,
         }, rootDir);
         await note(client, r);
+      } else if (/RepoPromptCE/i.test(tool) && /(app_settings|agent_manage|ask_oracle)/.test(tool)) {
+        const name = (tool.match(/(app_settings|agent_manage|ask_oracle)/) || [])[1] || "app_settings";
+        // Detection-gated: silent unless the model-routing picks drift from the caches.
+        await note(client, runHook("model-roster-reminder.py", {
+          hook_event_name: "PostToolUse",
+          tool_name: `mcp__RepoPromptCE__${name}`,
+          tool_input: args,
+          cwd: rootDir,
+        }, rootDir));
       } else if (tool === "write" || tool === "edit") {
         const fp = extractPath(args);
         const payload = {
