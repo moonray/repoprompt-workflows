@@ -17,6 +17,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 3. Act as the entry gate: no implementation, spec edit, or test starts before a tracking item exists (or updates an existing one).
 4. Link the detail layer (spec/plan/loop/research) from the item — never duplicate long-form narrative in the item body.
 5. Drive a status lifecycle where close means the change landed on the default branch.
+6. Answer workspace-level status questions across every repo in the workspace — never just the primary — aggregating each repo's ledger into one repo-labeled result.
 
 ## Non-Goals
 
@@ -148,6 +149,11 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **Given** a finding that is personal-only, untracked, not shared into team/client systems, shows no active compromise, and violates no repository/organization policy
 - **When** tracking is requested
 - **Then** an interactive caller confirms with the user before creating a standalone item; a noninteractive caller returns blocked/pending-confirmation with no item created; if the user declines an already-created item it is closed wontfix with the decision recorded, never deleted; shared credentials, repository exposure, client systems, or policy-governed secrets remain eligible for normal tracking
+
+### Scenario S-024: Workspace-level questions fan out to every repo
+- **Given** a workspace holding multiple repos (RPCE multi-root, or multiple checkouts elsewhere)
+- **When** a workspace-level status question is asked ("what's open", "list open issues by priority")
+- **Then** the repo set is enumerated before any ledger query (every loaded root that is a git repo, plus any repo the question names), backend selection and config discovery run per repo, each query is bound to its own repo, the aggregate labels every item with its repo, and an unreachable ledger appears as a reported gap rather than being omitted; only an explicit user narrowing reduces the set
 
 ## Proposed Surface
 

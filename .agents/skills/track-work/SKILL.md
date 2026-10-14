@@ -1,6 +1,6 @@
 ---
 name: track-work
-description: Use FIRST when work is about to start on any repo — a bug is reported, a feature/enhancement is requested, an open question or design decision is raised, someone asks to "track"/"log"/"add a ticket for" something, asks what is open / in-progress / done, or an agent is about to implement a change that has no tracking item. Creates or updates one tracking item in GitHub Issues when origin is GitHub, or a committed file backlog under .agents/issues/ otherwise; temporary GitHub access failures stop with diagnostics instead of silently creating a second ledger. Applies repo taxonomy and links detail files.
+description: Use FIRST when work is about to start on any repo — a bug is reported, a feature/enhancement is requested, an open question or design decision is raised, someone asks to "track"/"log"/"add a ticket for" something, asks what is open / in-progress / done, or an agent is about to implement a change that has no tracking item. Creates or updates one tracking item in GitHub Issues when origin is GitHub, or a committed file backlog under .agents/issues/ otherwise; temporary GitHub access failures stop with diagnostics instead of silently creating a second ledger. In a multi-repo workspace, a workspace-level question ("what's open", priorities) spans every repo's ledger, never just the primary. Applies repo taxonomy and links detail files.
 ---
 
 # Track Work — one live status ledger per repo
@@ -10,6 +10,15 @@ description: Use FIRST when work is about to start on any repo — a bug is repo
 Every bug, feature, enhancement, or decision a repo works on is tracked as **one work item** in **one place**: **GitHub Issues** when the repo has a GitHub remote, else a committed file-based backlog under `.agents/issues/`. That item is the **status** source of truth (draft / backlog / in-progress / review / done). The repo's long-form files — specs, plans, loops, research — stay as the **detail** layer and are *linked* from the item, never duplicated.
 
 This is the entry gate: **no implementation, no spec edit, no test starts before the work has a tracking item** (or is confirmed to update an existing one).
+
+## Workspace scope — multi-repo fan-out
+
+The ledger is per-repo, but questions often aren't. A workspace-level question — "what's open?", "list open issues by priority", "what should I work on next?" — spans **every repo in the workspace**: in RPCE, every loaded root that is a git repo (plus any repo the question names); elsewhere, every checkout the workspace covers. Answering it from the primary repo alone presents a partial list as complete, which is the one failure this section exists to prevent.
+
+- **Enumerate the repo set before querying any ledger.** The primary root or cwd is a routing default for repo-scoped commands, never the scope of a workspace-level question; only an explicit user narrowing ("just the website repo") reduces the set.
+- **Run backend selection (Step 0) and config discovery (Step 1) per repo** — one workspace can mix GitHub and file backends, each with its own labels and config.
+- **Bind every query to its repo** (`gh … -R owner/repo`; `issue.sh` inside that repo's tree) and aggregate into a single answer with each item labeled by repo (`owner/repo#123`, `<repo> #ID` for file backends) so a merged priority order stays unambiguous.
+- **Report unreachable ledgers as gaps**, never silently omit them — a repo whose `gh` probes fail still appears in the answer as "unqueried (reason)".
 
 ## Step 0 — select the backend, then probe capability
 
