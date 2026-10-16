@@ -109,6 +109,18 @@ Bound each shell/tool invocation below the runtime's timeout with a safety margi
 
 Destructive cleanup outside git — pruning containers or caches, deleting build artifacts, compacting storage — follows the same confirmation discipline as Git Safety. A cleanup request authorizes exactly the object class it names; the requester's motivation (e.g., disk pressure) explains the request, it does not broaden it. Acting on a broader resource class requires its own confirmation unless the user explicitly delegated broad reclamation. Ranking blast radius and disclosing afterward makes the action safer but does not expand authorization. Report meaningful exclusions and protected categories relevant to the decision, not an exhaustive untouched inventory.
 
+## External Service Write Safety (hard rule)
+
+Writes to external hosted services — Google Ads, GA4/Analytics, Search Console, or any live third-party API — mutate state that git cannot restore. Assume every write can land in the wrong place or carry fields you did not intend, and be defensive by default:
+
+- **Read before write.** Fetch the target's current state (by exact name/ID) and make operations idempotent — check-exists before create, skip-or-abort on match, never blind-duplicate.
+- **Pin every target explicitly** (customer ID, property, site) from verified config — never a default, a guess, or a loop leftover. A write to the wrong account or scope is the primary failure mode; the pinned identifier is the guard.
+- **One write (or one coherent batch) at a time.** Read back what actually changed and compare against intent — including fields you did not mean to set — before issuing the next.
+- **Development runs against test accounts or non-production properties** where the distinction exists; created entities are named so their origin and purpose are obvious; the work record notes what was created (resource names/IDs) so rollback is possible.
+- **No error is not success.** Consequential writes are confirmed by querying the entity back and matching intent, never by the absence of a fault.
+
+This is the outbound-mutation sibling of Git Safety and Destructive Non-Git Cleanup: those gate local and filesystem mutations; this gates mutations of systems owned by others.
+
 ## Externally Managed Files (hard rule)
 
 Never hand-edit a file another system owns and regenerates — identified by a management marker (e.g. `repoprompt_managed: true`, "generated — do not edit" headers, tool-regenerated lockfile/config paths). Such edits survive only until the manager's next write, then vanish silently. Customizations belong in user-owned, version-controlled files, linked in where the consumer supports it; when a lesson's natural home is a managed file, re-home it and leave the managed file pristine.
