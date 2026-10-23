@@ -225,3 +225,10 @@ Validation commands discovered (task 7 will record final): existing hook tests a
 
 ### Documentation drift audit (document skill, inline dry-run)
 - Grep across CLAUDE.md/AGENTS.md/README.md/docs/.agents for stale hook-semantics references: none (progress doc matches are historical record; conformance rewritten). All behavior docs updated in-change (README row + runtime section, plugin mapping, spec + conformance). No unsupported claims added; no contract conflicts.
+
+## Closeout — final state (2026-10-22)
+
+- **Final validation on committed state:** full hook suite `node --test <3 files>` → 44/44 pass; `python3 -m py_compile` → OK; tree clean.
+- **Commit range (this epoch):** c7ab53a (spec amendment, contract) → 6f12e82 (fix: hook + wiring + tests) → 4cdbe51 (conformance + progress) + this closeout append. Range f144a7d..HEAD, all local (not pushed; landing is Backlog's).
+- **lifecycle state: merge_ready reached** (orchestrated boundary: no push/PR/issue-status/close/cleanup performed — Backlog owns publication, landing, status_close, replacement, cleanup per responsibility map).
+- **Resume/handoff note:** if re-opened, validate HEAD/blobs vs this doc, re-read the ledgers; outstanding items for Backlog: (1) landing + its independent review (in-session independent review pending — oracle budget 2/2 exhausted, no delegate); (2) optional live-fire probe of the Codex wiring under a real codex session (hook trust for the landed repo path — deferred, disclosed in conformance Notes); (3) optional Backlog verdict on the verdict-#2 lane divergence (primary implementable vs secondary's plan-file-amendment preference — declined in-loop per "never repair inputs inside Loop"; disclosed above).
