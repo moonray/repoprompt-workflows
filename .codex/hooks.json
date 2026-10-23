@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py\"",
+            "command": "TQ_HOOK_RUNTIME=codex python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py\"",
             "statusMessage": "Checking test run + vetting"
           }
         ]
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py\"",
+            "command": "TQ_HOOK_RUNTIME=codex python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py\"",
             "timeout": 30
           }
         ]

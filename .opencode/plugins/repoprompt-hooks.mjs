@@ -5,9 +5,14 @@
 //   spec-conformance-gate  -> tool.execute.after (write/edit): BLOCK via throw.  [enforced]
 //   chrome-gate            -> tool.execute.before (chrome-devtools MCP): BLOCK via throw. [enforced, pre-call]
 //   spec-quality-reminder  -> tool.execute.after (write/edit): log only.       [best-effort]
-//   test-quality-reminder  -> tool.execute.after (bash)        : log only.       [best-effort]
+//   test-quality-reminder  -> tool.execute.after (bash)        : run marker + log-only nudge. [best-effort]
 //   model-roster-reminder  -> tool.execute.after (RPCE roster/oracle tools): log only.  [best-effort, detection-gated]
-//                             event(session.idle) ≈ Stop       : log only.        [reactive]
+//                             event(session.idle) ≈ Stop       : DOCUMENTED-UNSUPPORTED for the
+//                             Stop gate (#2, rung 3): opencode has no blocking session-end
+//                             channel — session.idle fires after the turn ends, so this can
+//                             only log a reactive warn, never block. Not a silent pass: the
+//                             gap is documented here, in .agents/hooks/README.md, and in
+//                             docs/spec/test-quality-reminder.md (runtime support matrix).
 // Model-visible injection: re-verified 2026-10-11 against live opencode docs (#9) —
 // tool hooks still have none: `hookSpecificOutput.additionalContext` is a Claude-Code
 // shape opencode lacks, after-hook output mutations are ignored (opencode issue, Feb 2026),

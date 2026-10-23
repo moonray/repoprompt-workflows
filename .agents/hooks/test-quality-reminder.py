@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
-"""Claude Code hook: keep test work run AND vetted with the test-quality skill.
+"""Keep test work run AND vetted with the test-quality skill, per runtime.
 
-Wired to two events in ~/.claude/settings.json. IMPORTANT: the PostToolUse matcher
-must be "Bash|Skill" (not just "Bash") — Skill invocations stamp the skill marker that
-the Stop gate needs. On a machine where the matcher lacks "Skill", the skill half can
-never clear and test edits require commit/clean to stop (the always-available escape).
+Wired per runtime (see .agents/hooks/README.md):
+  Claude Code — ~/.claude/settings.json PostToolUse matcher "Bash|Skill" + Stop.
+    A real Skill-tool invocation of test-quality stamps the vet marker (the
+    matcher MUST keep "Skill" — without it the vet half can never clear).
+  Codex — repo .codex/hooks.json PostToolUse(Bash) + Stop, both invoked with
+    TQ_HOOK_RUNTIME=codex in the environment. Codex routes Stop but emits no
+    event for skill invocations, so the deliberate vetting act there is the
+    attestation command (this script invoked with --attest-vetted over Bash),
+    honored ONLY when that env is set — on runtimes that can observe skills
+    (Claude Code, no env) attestation is inert and only a real Skill-tool
+    invocation stamps the vet marker.
+  opencode — repo plugin: session.idle ≈ Stop is post-turn and log-only; the
+    gate is documented-unsupported there (it warns, it cannot block).
 
-  PostToolUse (Bash test-run, or Skill "test-quality"): record a last-run marker
-    (a test run) or a skill marker (an actual Skill-tool invocation) for the repo.
-    A test run also emits a reminder to vet added/modified tests with the skill.
-  Stop: block if any uncommitted test file was edited since the LATER of {last test
-    run, last test-quality skill invocation}. edit->run->invoke-skill->stop is allowed;
-    edit->run->stop (skill skipped or "applied from context") is NOT. This closes the
-    loophole where an agent runs the suite and rationales the checklist from memory.
+  PostToolUse (Bash test-run, Skill "test-quality", or runtime-gated
+    attestation): record a last-run marker (a test run) or a vet marker (an
+    actual Skill-tool invocation or attestation) for the repo. A test run also
+    emits a reminder to vet added/modified tests with the skill.
+  Stop: block if any uncommitted test file was edited since the LATER of {last
+    test run, last vetting}. edit->run->vet->stop is allowed; edit->run->stop
+    (vetting skipped or "applied from context") is NOT. This closes the loophole
+    where an agent runs the suite and rationales the checklist from memory.
     Committing/cleaning the tests is always an escape, so it never traps.
 
 Source of truth: `.agents/hooks/test-quality-reminder.py` in this repo; symlink it into your runtime's hooks directory (e.g. `~/.claude/hooks/`).
@@ -40,6 +50,21 @@ STOP_REASON = (
     "suite AND (2) invoke the test-quality skill (Skill tool) to vet the changes — each after "
     "the last edit. Applying the checklist 'from context' does not count; the skill must be "
     "actually invoked. (Committing/cleaning test changes also clears this gate.)"
+)
+
+# Stop reason for runtimes whose wiring cannot observe skill invocations (Codex):
+# the vetting act there is the explicit attestation command below, so the reason
+# must name an act that runtime can actually perform.
+ATTEST_COMMAND = (
+    'python3 "$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py"'
+    " --attest-vetted"
+)
+STOP_REASON_ATTEST = (
+    "TEST QUALITY GATE: uncommitted test files changed since the last test run AND the last "
+    "test-quality vetting attestation. After editing tests you must BOTH (1) run the affected "
+    "suite AND (2) apply the test-quality checklist (.agents/skills/test-quality/SKILL.md), then "
+    f"attest with: {ATTEST_COMMAND} — each after the last edit. (Committing/cleaning test "
+    "changes also clears this gate.)"
 )
 
 # The skill name whose actual Skill-tool invocation clears the second half of the Stop gate.
@@ -145,6 +170,36 @@ def is_test_run_command(cmd):
             return True
     return False
 
+def runtime_attest_enabled():
+    """True when the runtime's wiring declared skill invocations unobservable.
+
+    Codex's hooks.json sets TQ_HOOK_RUNTIME=codex on both invocations of this
+    script. Claude Code's wiring sets nothing, so attestation stays inert there
+    and a real Skill-tool invocation remains the only vetting act (pinned).
+    """
+    return bool(os.environ.get("TQ_HOOK_RUNTIME"))
+
+
+def is_attestation_command(cmd):
+    """True if a simple command in `cmd` deliberately attests test-quality vetting.
+
+    The attestation is a Bash command invoking this script with a standalone
+    ``--attest-vetted`` token — e.g.
+    ``python3 "$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py" --attest-vetted``.
+    Token-level matching keeps it a real argv act: the unexpanded ``$(...)`` path
+    still matches by substring, while the flag appearing only inside a quoted
+    string, comment, or heredoc body does not count.
+    """
+    if not isinstance(cmd, str) or not cmd.strip():
+        return False
+    for toks in _segment_tokens(_strip_heredocs(cmd)):
+        if any(t == "--attest-vetted" for t in toks) and any(
+            "test-quality-reminder.py" in t for t in toks
+        ):
+            return True
+    return False
+
+
 # Multi-language test-file path detection (directories + filename conventions).
 TEST_FILE_RE = re.compile(
     r"(/(tests?|__tests__|specs?)/)"
@@ -235,6 +290,8 @@ def main():
         payload = json.load(sys.stdin)
     except Exception:
         sys.exit(0)
+    if not isinstance(payload, dict):  # valid-but-non-object JSON (e.g. `[]`) never raises
+        sys.exit(0)
     event = payload.get("hook_event_name", "")
     cwd = payload.get("cwd") or os.getcwd()
     root = repo_root(cwd)
@@ -243,7 +300,16 @@ def main():
     if event == "PostToolUse":
         tool_name = payload.get("tool_name", "")
         ti = payload.get("tool_input") or {}
-        if is_test_run_command(ti.get("command", "") or ""):
+        cmd = ti.get("command", "") or ""
+        if runtime_attest_enabled() and is_attestation_command(cmd):
+            # Rung 2 (Codex): the runtime cannot observe skill invocations, so the
+            # deliberate vetting act is the attestation command itself. Inert on
+            # runtimes without TQ_HOOK_RUNTIME (Claude Code) — see docstring.
+            try:
+                open(skill_path(root), "w").close()
+            except Exception:
+                pass
+        elif is_test_run_command(cmd):
             # Touch the last-run marker (its mtime = last run time for this repo).
             try:
                 open(lastrun_path(root), "w").close()
@@ -278,7 +344,8 @@ def main():
         # test-quality skill was invoked. newest_edit newer than either marker means that
         # step is still owed (closes the 'applied from context' loophole).
         if newest_edit > lastrun_ts or newest_edit > skill_ts:
-            print(json.dumps({"decision": "block", "reason": STOP_REASON}))
+            reason = STOP_REASON_ATTEST if runtime_attest_enabled() else STOP_REASON
+            print(json.dumps({"decision": "block", "reason": reason}))
 
     sys.exit(0)
 

@@ -6,12 +6,18 @@ Canonical hook scripts that enforce the rules in [`../rules/global.md`](../rules
 
 | Script | Kind | Event(s) | Guarantee |
 |---|---|---|---|
-| `test-quality-reminder.py` | reminder + Stop gate | PostToolUse:Bash\|Skill, Stop | Records a run when a test command fires and a marker when the `test-quality` Skill is actually invoked; at Stop, blocks if a test file was edited since the later of {last run, last skill invocation} — edit→run→invoke-skill→stop is allowed, edit→run→stop (skill skipped or "applied from context") is not. |
+| `test-quality-reminder.py` | reminder + Stop gate | PostToolUse:Bash\|Skill, Stop | Records a run when a test command fires and a vet marker when the `test-quality` Skill is actually invoked (Claude Code) or explicitly attested via `--attest-vetted` (Codex — see runtime support below); at Stop, blocks if a test file was edited since the later of {last run, last vetting} — edit→run→vet→stop is allowed, edit→run→stop (vetting skipped or "applied from context") is not. |
 | `spec-quality-reminder.py` | reminder | PostToolUse:edit | Nudges the matching quality skill when a spec (`docs/spec/`), a plan (`docs/plans/`), or a skill definition (`.agents/skills/**/SKILL.md`, recursive) is edited — one aggregated reminder per edit event; suppressed when the runtime reports the edit failed. |
 | `spec-conformance-gate.py` | gate (block) | PostToolUse:edit | Blocks closing a spec (frontmatter `status` set to a terminal value) that has no conformance matrix; directs to the `spec-conformance` skill. |
 | `delegation-reminder.py` | reminder | PostToolUse:delegation tools | Nudges independent verification when a delegated agent (`Task` / `TaskOutput` / `agent_run`) returns a report. |
 | `chrome-gate.py` | gate (one-shot deny) | PreToolUse:mcp__chrome-devtools__* | Denies the session's **first** chrome-devtools MCP tool call with a reason directing to the `chrome` skill (own-app UI excepted — proceed under user-testing); every later call in the session passes silently. Fails open — a broken gate never disables browsing. |
 | `model-roster-reminder.py` | reminder (detection-gated) | PostToolUse:mcp__RepoPromptCE__(app_settings\|agent_manage\|ask_oracle) | On roster/oracle tool calls, compares the `model-routing` skill's picks against the runtimes' available-model caches (`~/.codex/models_cache.json`, `~/.claude/cache/model-catalog/`); nudges ONLY when a pick is missing or a strictly newer provider generation exists — silent (zero model-context tokens) otherwise. Fails open. |
+
+### Runtime support for the test-quality Stop gate (#2)
+
+- **Claude Code — enforced, skill marker.** PostToolUse matcher `Bash|Skill`: a real Skill-tool invocation of `test-quality` stamps the vet marker.
+- **Codex — enforced, explicit attestation.** Codex routes `Stop` but emits no hook event for skill invocations, so its wiring (`.codex/hooks.json`) invokes the hook with `TQ_HOOK_RUNTIME=codex`. The vetting act is the deliberate attestation: `python3 "$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py" --attest-vetted` (honored only under that env; the Stop reason names it). On runtimes without the env, attestation is inert — a real Skill invocation stays the only path.
+- **opencode — documented-unsupported.** Its Stop equivalent (`session.idle`) fires after the turn ends and cannot block; the plugin logs a reactive warn only. The absence of the gate is documented here, in the plugin mapping, and in the spec — never a silent run-only clear.
 
 Two are reminders rather than hard gates because the matching discipline is a Skill with no shell command a hook can observe run; the downstream closeout gates (review-quality revalidation, the conformance matrix) remain the backstops.
 
