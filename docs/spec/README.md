@@ -4,6 +4,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 
 | Spec | Issue | Status |
 |------|-------|--------|
+| [Ported-Matrix Provenance](port-matrix-provenance.md) | [#8](https://github.com/moonray/repoprompt-workflows/issues/8) | active (slice) |
 | [Spec Generation Workflow](spec.md) | none | implemented |
 | [Test Generation Workflow](test.md) | none | implemented |
 | [Loop Workflow](loop.md) | none | implemented |
