@@ -1,10 +1,10 @@
 # Spec: chat-mining — retrospective session analysis and continuous improvement cycle
 
-**Status:** Active · **Created:** 2026-10-07 · **Tracking:** #46 (cycle updates), #42 (original landing) · **Skill:** `.agents/skills/chat-mining/SKILL.md`
+**Status:** Active · **Created:** 2026-10-07 · **Tracking:** keryxsolutions#46 (cycle updates), keryxsolutions#42 (original landing) · **Skill:** `.agents/skills/chat-mining/SKILL.md`
 
 ## Context
 
-Session transcripts accumulate defects, lessons, friction, and pending decisions that die with the transcript. The `chat-mining` skill recovers them retrospectively: inventory a workspace's session history, sweep it with themed searches, verify every candidate claim against ground truth, and map each surviving finding to its durable home. This spec contracts that behavior plus the continuous-improvement cycle (#46): a mined-through watermark so runs are incremental, a deterministic pre-pass so LLM reading is spent only on flagged candidates, and a cadence so the loop runs standing instead of ad hoc.
+Session transcripts accumulate defects, lessons, friction, and pending decisions that die with the transcript. The `chat-mining` skill recovers them retrospectively: inventory a workspace's session history, sweep it with themed searches, verify every candidate claim against ground truth, and map each surviving finding to its durable home. This spec contracts that behavior plus the continuous-improvement cycle (keryxsolutions#46): a mined-through watermark so runs are incremental, a deterministic pre-pass so LLM reading is spent only on flagged candidates, and a cadence so the loop runs standing instead of ad hoc.
 
 Provenance: derived from three real runs (vyasa-puja 2026-08-20, mymp3pool 2026-08-20, keryxsolutions 2026-10-07) and the fleet repo's session-analysis architecture (deterministic-first detection, normalized findings) — portable principles only.
 

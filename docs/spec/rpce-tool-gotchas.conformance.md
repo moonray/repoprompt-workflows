@@ -19,7 +19,7 @@ Implementation audited: `.agents/skills/rpce-tool-gotchas/SKILL.md` (guidance ar
 | Goals | G5 repair from observed state + full re-verify | Conformed | `SKILL.md:18, 20` | compounding-defects rationale; "repairing three stacked defects costs a full verification re-run" |
 | Goals | G6 shared-checkout staged-set commits | Conformed | `SKILL.md` §3 | staged-set check, explicit staging of untracked files, SHAs observed before citing |
 | Non-Goals | No editing of app-managed files | Conformed | `SKILL.md` (whole body) | no instruction anywhere to edit managed files; the skill itself was created by re-homing per the Externally Managed Files rule |
-| Constraints | Runtime-generic, provenance-free | Conformed | `SKILL.md:9` | provenance line cites cross-workspace mining generically; no workspace names, session IDs, or incident specifics in the body |
+| Constraints | Runtime-generic, provenance-free | Conformed | `SKILL.md:8` | provenance line cites cross-workspace mining generically; no workspace names, session IDs, or incident specifics in the body |
 | Constraints | Three facts only | Conformed | `SKILL.md` §1–§3 | three numbered sections; §3 admitted on three incidents (single-session mining, 2026-10-11) — meets the more-than-one-incident bar recorded in the spec |
 | Scenarios | S-001 out-of-root plan routes through Bash | Conformed | `SKILL.md:14` | Bash-first, read-back verified, "no workspace-tool attempt precedes" implied by "Don't first try the workspace tool" |
 | Scenarios | S-002 boundary error is not data loss | Conformed | `SKILL.md:14` | both failure-misreadings named (recreate-what-wasn't-lost; assume-what-wasn't-written) |

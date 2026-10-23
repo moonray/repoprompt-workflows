@@ -55,4 +55,4 @@ audited:
 unreconciled: []
 ```
 
-Spec-governance constraint (stable `S-NNN` IDs) is satisfied by construction: IDs assigned at authoring (`2506c45`), unchanged since. Every scenario, Proposed Surface element, and behavioral constraint was checked against the skill body; none Diverged or Not-built.
+Spec-governance constraint (stable `S-NNN` IDs) is satisfied by construction: IDs assigned at authoring (`keryxsolutions@2506c45`), unchanged since. Every scenario, Proposed Surface element, and behavioral constraint was checked against the skill body; none Diverged or Not-built.
