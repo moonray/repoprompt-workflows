@@ -18,6 +18,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 4. Link the detail layer (spec/plan/loop/research) from the item — never duplicate long-form narrative in the item body.
 5. Drive a status lifecycle where close means the change landed on the default branch.
 6. Answer workspace-level status questions across every repo in the workspace — never just the primary — aggregating each repo's ledger into one repo-labeled result.
+7. Triage items at creation — entry state, priority defaults, decision routing, signature dedup — so every item is born deterministic and consumption triage starts from a known baseline.
 
 ## Non-Goals
 
@@ -32,6 +33,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - Labels come from `gh label list` (GitHub) and always beat a config list; the config carries only what GitHub cannot expose. Creating a missing label taxonomy requires confirmation.
 - IDs are immutable — never renumbered or reused; referenced from commits, specs, and other items.
 - The file-backend issues dir is the shared team backlog and is committed; warn if gitignored.
+- Creation-time triage is contracted in the skill's Triage section: the shared atoms (Stable Identifiers, Review Quality signatures, Verifying Delegated Work, Git Safety) are named by reference to `.agents/rules/global.md`, never restated; consumption-time triage (Backlog Phase 1, triage-work) is untouched.
 
 ## Scenarios
 
@@ -154,6 +156,46 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **Given** a workspace holding multiple repos (RPCE multi-root, or multiple checkouts elsewhere)
 - **When** a workspace-level status question is asked ("what's open", "list open issues by priority")
 - **Then** the repo set is enumerated before any ledger query (every loaded root that is a git repo, plus any repo the question names), backend selection and config discovery run per repo, each query is bound to its own repo, the aggregate labels every item with its repo, and an unreachable ledger appears as a reported gap rather than being omitted; only an explicit user narrowing reduces the set
+
+### Scenario S-025: Decisions route to humans at creation
+- **Given** a decision-type finding at intake
+- **When** the tracking item is created
+- **Then** it is created for human triage — never auto-queued or auto-resolved by an agent at creation time; the Backlog/rollup consumption convention is named, not duplicated
+
+### Scenario S-026: Birth states are draft or backlog only
+- **Given** a newly created tracking item
+- **When** its initial status is assigned
+- **Then** it enters `status:draft` (needs repro/decision) or `status:backlog` (triaged, acceptance clear) — never born `in-progress`, `review`, or `blocked`; `in-progress` is claimed only by the actor that starts work
+
+### Scenario S-027: Batch/summary items carry a parent link
+- **Given** an item filed from a batch or summary artifact
+- **When** it is created
+- **Then** its Source/Detail section carries a parent/reference link identifying the originating batch item or run — never a free-floating duplicate
+
+### Scenario S-028: Priority defaults by finding kind
+- **Given** a finding filed with no per-repo `triage:` override
+- **When** its priority is assigned at creation
+- **Then** the deterministic defaults table applies (live-failure bug → p1; process/doc gap → p2/p3; parked idea → p3); the table is creation-time defaults and consumption triage may re-rank
+
+### Scenario S-029: Signature-based dedup before create
+- **Given** an item about to be created
+- **When** the ledger is searched first
+- **Then** the search runs against the item's review signature (the Review Quality atom, named not restated); a match updates the existing item (comment/relabel) instead of creating
+
+### Scenario S-030: Triage atoms are named, not restated
+- **Given** the skill's Triage section
+- **When** it touches Stable Identifiers, Review Quality signatures, Verifying Delegated Work, or Git Safety
+- **Then** those atoms are named with a pointer to `.agents/rules/global.md` and no definition text is copied
+
+### Scenario S-031: Per-repo triage config override
+- **Given** a repo whose creation-time defaults differ
+- **When** the config carries a `triage:` block (`priority_defaults`, `entry_state`)
+- **Then** it overrides the built-in defaults — `entry_state` constrained to `draft`|`backlog` — and an absent block means built-in defaults
+
+### Scenario S-032: Consumption triage unchanged
+- **Given** Backlog's Phase-1 consumption triage and the triage-work skill
+- **When** creation-time triage rules apply
+- **Then** they govern creation only — no re-ranking rules or flight-set language appear, and consumption surfaces keep their own logic
 
 ## Proposed Surface
 

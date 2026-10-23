@@ -2,7 +2,7 @@
 
 - **Spec:** `docs/spec/track-work.md` (Track Work Skill)
 - **Implementation:** `.agents/skills/track-work/SKILL.md`, `scripts/issue.sh`, and `scripts/place_on_board.sh`
-- **Audited:** 2026-07-14
+- **Audited:** 2026-10-22
 - **Method:** each goal, stable scenario, and Proposed Surface element mapped to the skill; evidence names the implementing section.
 
 ## Matrix
@@ -33,19 +33,30 @@
 | S-017 full lifecycle on both backends | Conformed | `issue.sh status/block/unblock/close/reopen`; open means every non-closed state; Closing requires landed evidence and read-back |
 | S-018 private isolated body staging | Conformed | GitHub step 3 uses `umask 077`, `mktemp`, cleanup trap, redaction-before-write, and repository-bound read-back |
 | S-019 unattended callers never prompt | Conformed | Caller mode section; Backlog invokes noninteractive and collects predictable taxonomy approval in its sole wizard |
-| S-020 Tracked means explicitly owned | Conformed | `.agents/skills/track-work/SKILL.md:272` |
-| S-021 Ledger rereads at commitment boundaries | Conformed | `.agents/skills/track-work/SKILL.md:277` |
-| S-022 Mitigated is not fixed | Conformed | `.agents/skills/track-work/SKILL.md:278` |
-| S-023 Local personal exposure requires confirmation | Conformed | `.agents/skills/track-work/SKILL.md:279` |
+| S-020 Tracked means explicitly owned | Conformed | `.agents/skills/track-work/SKILL.md:305` |
+| S-021 Ledger rereads at commitment boundaries | Conformed | `.agents/skills/track-work/SKILL.md:310` |
+| S-022 Mitigated is not fixed | Conformed | `.agents/skills/track-work/SKILL.md:311` |
+| S-023 Local personal exposure requires confirmation | Conformed | `.agents/skills/track-work/SKILL.md:312` |
+| G7 creation-time triage baseline | Conformed | Triage (creation-time rules) section: entry states, priority defaults, decision routing, signature dedup (added 2026-10-22) |
+| S-025 decisions route to humans at creation | Conformed | Triage — "Decisions route to humans" bullet (added 2026-10-22) |
+| S-026 birth states draft/backlog only | Conformed | Triage — "Birth states" bullet: other states appear only as negations; in-progress claimed by the starting actor (added 2026-10-22) |
+| S-027 batch items carry parent link | Conformed | Triage — "Batch/summary items carry a parent link" bullet: Source/Detail link (added 2026-10-22) |
+| S-028 priority defaults by finding kind | Conformed | Triage — priority defaults table + `triage.priority_defaults` config override (added 2026-10-22) |
+| S-029 signature dedup before create | Conformed | Triage — "Dedup by signature before create" bullet; GitHub step 2 search upgraded to the review signature (added 2026-10-22) |
+| S-030 atoms named not restated | Conformed | Triage intro names the four atoms with the `.agents/rules/global.md` pointer; no definition text copied (added 2026-10-22) |
+| S-031 per-repo triage config override | Conformed | Config schema `triage:` block (`priority_defaults`, `entry_state` constrained to draft|backlog); "When to add a config" `triage` row (added 2026-10-22) |
+| S-032 consumption triage unchanged | Conformed | Triage boundary sentence names Backlog Phase 1 + triage-work; section contains no consumption-time logic (added 2026-10-22) |
 | Surface inputs | Conformed | Step 1 request and repo conventions |
 | Surface outputs item, links, status, backend | Conformed | Body template; lifecycle; Step 0 diagnostic |
 
 ## Coverage proof
 
-- **audited:** Goals 1–5; S-001–S-023; Proposed Surface inputs and outputs; both helper scripts
-(S-020–S-023 added 2026-08-19/20 together with the scenarios and their skill implementation; earlier scope unchanged from the prior re-audit)
+- **audited:** Goals 1–5, 7; S-001–S-023; S-025–S-032; Proposed Surface inputs and outputs; both helper scripts
+(G7 and S-025–S-032 added 2026-10-22 together with the skill's Triage section; earlier scope unchanged from the prior re-audit. Pre-existing gap, disclosed not audited: the spec carries G6 and S-024 but the matrix has no rows for them — they predate this change and sit outside its surface, per plan scope)
 - **unreconciled:** []
 
 ## Notes
 
 The 2026-07-14 re-audit includes executable helpers after adversarial review. Repository identity is explicit, capability failures block without fallback, file mutations are confined/serialized/atomic, the lifecycle is implemented, issue bodies use private staging, and migration is journaled. Label seeding, persistent overrides, migration, and source retirement require authorization; unattended callers block instead of prompting.
+
+The 2026-10-22 re-audit adds the creation-time Triage contract (G7; S-025–S-032), implemented as the skill's "Triage (creation-time rules)" section, the Config schema `triage:` block, and the upgraded search-before-create step; the shared atoms are named per `.agents/rules/global.md`, never restated. The G6/S-024 matrix gap predates this change and is disclosed above, not silently repaired.

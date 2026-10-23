@@ -85,6 +85,9 @@ close_gate:
   require_pushed: true   # done requires the change landed on the default branch (PR merged / trunk push), not just local
   locking_test_dir: tests
   exempt_labels: [wontfix, duplicate, invalid, type:decision, type:question]
+triage:                      # optional — per-repo overrides of creation-time defaults; absent = built-in defaults
+  priority_defaults: { live_failure_bug: p1, blocking_gap: p2, cosmetic_gap: p3, parked_idea: p3 }  # keys = the defaults-table rows
+  entry_state: backlog       # birth state when acceptance is clear (draft when it isn't) — draft|backlog only
 redaction:
   repo_visibility: private   # private | public — tightens redaction when public
   secrets: [EXAMPLE_API_KEY]
@@ -114,6 +117,7 @@ Defaults cover most repos — **no config is written unless a signal below is pr
 | `docs/{spec,plans,progress,…}` exist | link the right detail dirs from each issue body | `detail_dirs` |
 | a personas/roles doc exists (e.g. `docs/product/*personas*`) | persona-weighted prioritization + the body's Personas line | `personas` |
 | labels use a custom prefix beyond type/priority/status/area | enforce custom cardinality (e.g. exactly-one trace across two prefixes) | `labels.dimensions` |
+| repo's creation-time triage defaults differ (priorities, birth state) | items born with the right priority/state without editing the skill | `triage` |
 
 First-run detection (run when no config exists):
 ```bash
@@ -126,6 +130,24 @@ ls docs/ 2>/dev/null                                                            
 find docs -iname '*persona*' 2>/dev/null | head                                    # personas?
 gh label list -R "$REPO" --json name --jq '.[].name' 2>/dev/null | sed -E 's/:.*//' | sort -u   # custom prefixes?
 ```
+
+## Triage (creation-time rules)
+
+These rules govern the moment an item is **born** — entry state, default priority, and routing. They are creation-time only: consumption-time triage (re-ranking, flight-sets, sequencing) stays with Backlog's Phase 1 and the `triage-work` skill. The shared atoms — **Stable Identifiers**, **Review Quality** signatures, **Verifying Delegated Work**, **Git Safety** — are named, not restated; they live in `.agents/rules/global.md`.
+
+- **Decisions route to humans.** A `type:decision` finding is created for human triage, never auto-queued or auto-resolved at creation (Backlog's rollup consumes it later).
+- **Birth states: `status:draft` or `status:backlog` only.** `draft` = needs repro/decision; `backlog` = triaged, acceptance clear. Nothing is born `in-progress`, `review`, or `blocked`; `in-progress` is claimed only by the actor that starts work.
+- **Batch/summary items carry a parent link.** An item filed from a batch or summary artifact enters with its Source/Detail section linking the originating batch item or run — never a free-floating duplicate.
+- **Priority defaults** (creation-time; consumption triage may re-rank; per-repo override via the `triage:` config block):
+
+  | finding kind / work state | default priority |
+  |---|---|
+  | live-failure bug | `priority:p1` |
+  | process or doc gap blocking active work | `priority:p2` |
+  | process or doc gap, cosmetic | `priority:p3` |
+  | parked idea or future enhancement | `priority:p3` |
+
+- **Dedup by signature before create.** Before creating, search the ledger for the item's **review signature** (the Review Quality atom); on a match, update the existing item (comment/relabel) instead of creating — the signature, not loose keywords, is the dedup key (GitHub step 2 below runs on it).
 
 ## Caller mode
 
@@ -158,7 +180,7 @@ gh label create -R "$REPO" status:blocked     --color B60205
 ```bash
 gh issue list -R "$REPO" --state all --search "<keywords>" --json number,title,state,labels
 ```
-If a match exists → update it (comment / relabel / reopen) instead of duplicating. Cross-link with `#<n>`.
+Search by the item's **review signature** (see *Triage — creation-time rules*), not loose keywords; if a match exists → update it (comment / relabel / reopen) instead of duplicating. Cross-link with `#<n>`.
 
 ### 3. Create the issue
 Apply labels from the repo's actual set (`gh label list -R "$REPO"`), honoring configured cardinality. Run deterministic redaction before writing. Use a private unique temp file, bind creation to `$REPO`, clean up on every exit, then read back the canonical URL (and confirm it is at `$REPO`).
