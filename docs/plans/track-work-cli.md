@@ -75,6 +75,28 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
 - Verification loop per task: targeted unittest → full tw suite → `test_issue.sh` → node hook
   suites (unchanged paths must stay green).
 
+## Progress ledger (updated 2026-10-23)
+
+- **T1 done** — spec S-033–S-040 + CLI surface + this plan: `8e99f3b`
+- **T2 done** — skeleton, envelope/exit contract, 10 tests: `7108ca7`
+- **T3 done** — resolve (identity ladder, capability probes, 22 adversarial tests,
+  32/32 total): `2ee9b64`
+- **T4 next** — file backend over `issue.sh` + redaction + close landed-evidence.
+- All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
+  batched push later (ask before pushing).
+
+Operational notes for the implementing session (lessons already paid for):
+
+- Commit immediately after a slice goes green — never hold uncommitted work while
+  experimenting on the same files.
+- Never mutation-test via `git checkout --` restore on uncommitted files (a prior
+  session wiped T3 that way); mutate a COPY, or commit first.
+- Write large new file content via Bash heredocs; two `apply_edits` calls with big
+  payloads corrupted mid-flight earlier in this work.
+- Verification loop: `python3 -m unittest discover -s .agents/skills/track-work/scripts
+  -p 'test_tw.py'` → `sh .agents/skills/track-work/scripts/test_issue.sh` →
+  `node --test .agents/hooks/*.test.mjs` (all green before commit).
+
 ## First safe task
 
-T2 (skeleton, no consumer, no mutation paths wired).
+T2 (skeleton, no consumer, no mutation paths wired) — DONE; see ledger.

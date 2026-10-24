@@ -55,6 +55,8 @@
 (G7 and S-025–S-032 added 2026-10-22 together with the skill's Triage section; earlier scope unchanged from the prior re-audit. Pre-existing gap, disclosed not audited: the spec carries G6 and S-024 but the matrix has no rows for them — they predate this change and sit outside its surface, per plan scope)
 - **unreconciled:** []
 
+Scope disclosure (2026-10-23): the spec gained G8 and S-033–S-040 (CLI adapter, #1) after this audit; implementation is in progress (`scripts/tw.py`, T2–T3 landed locally) and the CLI rows land here at T7 closeout per `docs/plans/track-work-cli.md`. Until then this matrix covers the skill surface only, as audited 2026-10-22.
+
 ## Notes
 
 The 2026-07-14 re-audit includes executable helpers after adversarial review. Repository identity is explicit, capability failures block without fallback, file mutations are confined/serialized/atomic, the lifecycle is implemented, issue bodies use private staging, and migration is journaled. Label seeding, persistent overrides, migration, and source retirement require authorization; unattended callers block instead of prompting.

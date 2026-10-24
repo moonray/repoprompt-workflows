@@ -20,7 +20,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Review Depth Skill](review-depth.md) | none | implemented |
 | [Maintainability Review Skill](maintainability-review.md) | none | implemented |
 | [User Testing Skill](user-testing.md) | none | implemented |
-| [Track Work Skill](track-work.md) | none | implemented |
+| [Track Work Skill](track-work.md) | [#1](https://github.com/moonray/repoprompt-workflows/issues/1) | in-progress (CLI adapter S-033–S-040; skill surface implemented) |
 | [Bot Wall Skill](bot-wall.md) | none | implemented |
 | [RPCE Tool Gotchas Skill](rpce-tool-gotchas.md) | none | implemented |
 | [Live Dry-Run Skill](live-dryrun.md) | none | implemented |
