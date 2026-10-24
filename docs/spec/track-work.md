@@ -19,12 +19,14 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 5. Drive a status lifecycle where close means the change landed on the default branch.
 6. Answer workspace-level status questions across every repo in the workspace — never just the primary — aggregating each repo's ledger into one repo-labeled result.
 7. Triage items at creation — entry state, priority defaults, decision routing, signature dedup — so every item is born deterministic and consumption triage starts from a known baseline.
+8. Deliver the tracked behavior through a deterministic CLI (`resolve`/`list`/`create`/`status`/`close`/`migrate`) so backend resolution, repository binding, redaction, lifecycle transitions, close evidence, and migrations execute identically across RPCE backend runtimes instead of depending on each agent interpreting the skill text and assembling shell commands.
 
 ## Non-Goals
 
 - Hold long-form narrative in the item body (link it instead).
 - Auto-create a config or run an up-front setup wizard; detect conventions and use defaults. Ask only for explicit approval before repository mutations such as overrides, label seeding, or ledger retirement.
 - Invent labels outside the repo's set; ask the user if a new one is genuinely needed.
+- MCP-server behavior in the CLI core: the core is runtime-agnostic; an MCP wrapper, if built, wraps the CLI without core changes. Deferred with #1 — revisit only when a workflow demonstrably needs MCP dispatch.
 
 ## Constraints
 
@@ -34,6 +36,7 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - IDs are immutable — never renumbered or reused; referenced from commits, specs, and other items.
 - The file-backend issues dir is the shared team backlog and is committed; warn if gitignored.
 - Creation-time triage is contracted in the skill's Triage section: the shared atoms (Stable Identifiers, Review Quality signatures, Verifying Delegated Work, Git Safety) are named by reference to `.agents/rules/global.md`, never restated; consumption-time triage (Backlog Phase 1, triage-work) is untouched.
+- The CLI is the mechanical executor of this spec: every command emits one machine-readable JSON envelope and an exit status (0 success, 2 usage, 1 other failures with a typed `error.code`); every mutation verifies itself by read-back before reporting success; noninteractive invocations return `blocked` instead of prompting. The CLI core requires no runtime-specific behavior — skills and workflows consume the envelope.
 
 ## Scenarios
 
@@ -197,6 +200,46 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 - **When** creation-time triage rules apply
 - **Then** they govern creation only — no re-ranking rules or flight-set language appear, and consumption surfaces keep their own logic
 
+### Scenario S-033: CLI commands emit one machine-readable envelope
+- **Given** the CLI invoked with any supported command (`resolve`/`list`/`create`/`status`/`close`/`migrate`)
+- **When** the command completes, successfully or not
+- **Then** stdout carries exactly one JSON envelope with `ok`, `command`, `backend`, and the operation's result or a typed `error` (`code` + `message`); the process exits 0 on success, 2 on usage errors, and 1 on every other failure
+
+### Scenario S-034: resolve reports identity and capability separately
+- **Given** `resolve` invoked in a repository
+- **When** identity inputs are read (validated environment override, trusted-base config, exact origin parse)
+- **Then** the envelope reports `backend`, `selected_by`, and the normalized target (`owner/repo` or the repo-relative issues dir) — or fails `origin-rejected` with the remediation; capability probes appear as a separate `capability` field and never change the selected identity; identical inputs yield identical output on every invocation
+
+### Scenario S-035: Mutations are bound and read back from one repository
+- **Given** a mutating CLI command running against the GitHub backend
+- **When** the mutation executes
+- **Then** every underlying call is bound to the resolved `owner/repo` explicitly, ambient `GH_REPO` and working directory cannot redirect it, and the envelope names the repository the mutation was read back from; a read-back that resolves elsewhere fails `wrong-repository`
+
+### Scenario S-036: Redaction is mechanical on the write path
+- **Given** `create` receiving an item body
+- **When** the body is staged for filing
+- **Then** configured secret values and absolute local paths are replaced deterministically before the item exists on any backend, the envelope reports which redaction classes applied, and no unredacted copy persists after the command exits
+
+### Scenario S-037: Label changes are cardinality-safe and verified
+- **Given** `create` or `status` applying labels
+- **When** labels are set
+- **Then** they are validated against the repo's discovered label set — a label outside it fails `unknown-label` with the proposal shown, no label is created implicitly; on a status transition, conflicting labels in the same prefix are removed and the target added in one operation, and the resulting label set is read back into the envelope
+
+### Scenario S-038: close refuses without landed evidence
+- **Given** `close` invoked on an item whose implementing change is not verified as landed on the default branch
+- **When** close runs
+- **Then** no close mutation occurs and the envelope fails `landed-evidence`, naming the check that did not pass (commit ancestry on the default branch, merged PR, or the file backend's landed commit) — unless the item carries a configured exempt label, per S-010's semantics
+
+### Scenario S-039: Noninteractive invocations block instead of prompting
+- **Given** the CLI invoked in noninteractive mode
+- **When** an operation would require a confirmation, or a capability probe fails (auth, network, permissions, disabled Issues)
+- **Then** the process exits non-zero with `error.code` `blocked` and a reason, performs no mutation, and never prompts or hangs waiting for input
+
+### Scenario S-040: Migration resumes from its journal without duplicates
+- **Given** a migration journal whose rows sit in `pending`/`created`/`verified` states
+- **When** `migrate` runs again (or `migrate --status` is queried)
+- **Then** it resumes from the journal — already-verified rows are skipped, `created` rows are only re-checked (never re-created) via their idempotency marker, rows advance to `verified` only after destination read-back, a mid-run failure leaves sources intact and the journal resumable, and source retirement runs only as a separate confirmed step
+
 ## Proposed Surface
 
 ### Inputs
@@ -214,6 +257,19 @@ Work gets tracked ad-hoc across `issues_N.md` reports and hand-maintained lists,
 | `links` | Detail files (spec/plan/loop/research) linked from the item. |
 | `status` | Lifecycle status (draft / backlog / in-progress / review / closed; blocked toggle). |
 | `backend` | Selected backend, identity evidence or confirmed override, and capability result or exact blocking probe. |
+
+### CLI (deterministic executor)
+
+Invoked by the skill and workflows as the mechanical execution path; `<ref>` is a GitHub issue URL, `owner/repo#N`, or a file-backend `ISSUE-NNN`.
+
+| Command | Arguments | Success envelope (beyond `ok`/`backend`) | Typed failures |
+|---|---|---|---|
+| `resolve` | — | `selected_by`, `repo` or `issues_dir`, `capability` | `origin-rejected`, `blocked` |
+| `list` | `[--status ..] [--label ..]` | `items[]` (id, title, status, labels, repo) | `blocked`, `not-found` (bad scope) |
+| `create` | `--title --type --priority [--label ..] [--body-file ..] [--noninteractive]` | `item` (number/ID + url/path), applied labels, redaction summary | `unknown-label`, `cardinality`, `blocked` |
+| `status` | `<ref> <state> [--noninteractive]` | `item`, `from`→`to`, labels read back | `invalid-transition`, `not-found`, `blocked` |
+| `close` | `<ref> [--reason ..] [--noninteractive]` | `item` closed + the landed-evidence check that passed | `landed-evidence`, `not-found`, `blocked` |
+| `migrate` | `--to github\|file [--status] [--retire-source]` | journal path + row states | `blocked`, journal write failure |
 
 ## Open Questions
 
