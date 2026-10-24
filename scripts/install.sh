@@ -61,8 +61,11 @@ link_is_ours() {
 }
 
 # manage <src> <link>  — classify the link, then link/relink/remove/leave per mode.
+# Classify first (early-return ok/CONFLICT); one shared apply step below then covers
+# both wrong-target (relink) and missing-target (link) — the mkdir+ln mutation is
+# written exactly once instead of once per branch.
 manage() {
-  local src="$1" link="$2" flag cur
+  local src="$1" link="$2" flag cur was
   flag="-sfh"; [ -d "$src" ] && flag="-sfn"   # dirs need -n so ln won't follow an existing link
 
   if [ "$UNINSTALL" = 1 ]; then
@@ -80,6 +83,7 @@ manage() {
     return
   fi
 
+  was=""
   if [ -L "$link" ]; then
     cur="$(readlink "$link" || true)"
     if [ "$cur" = "$src" ]; then
@@ -91,17 +95,25 @@ manage() {
       # (Migrating from another checkout: remove its links or run its --uninstall first.)
       echo "  CONFLICT $link -> $cur (foreign symlink, not owned by this repo or --org-repo) — resolve manually" >&2; CONFLICT=$((CONFLICT+1)); return
     fi
-    # wrong/broken target that IS ours -> fix it
-    if [ "$DRY" = 1 ]; then echo "    ln $flag \"$src\" \"$link\"   (was: $cur)"
-    else mkdir -p "$(dirname "$link")"; ln "$flag" "$src" "$link"; fi
-    echo "  relinked $link   (was: $cur)"; FIXED=$((FIXED+1))
+    was="$cur"   # wrong/broken target that IS ours -> fix it below
   elif [ -e "$link" ]; then
-    echo "  CONFLICT $link exists and is not a symlink — skipping; resolve manually" >&2; CONFLICT=$((CONFLICT+1))
-  else
-    if [ "$DRY" = 1 ]; then echo "    mkdir -p \"$(dirname "$link")\"; ln $flag \"$src\" \"$link\""
-    else mkdir -p "$(dirname "$link")"; ln "$flag" "$src" "$link"; fi
-    echo "  linked   $link"; FIXED=$((FIXED+1))
+    echo "  CONFLICT $link exists and is not a symlink — skipping; resolve manually" >&2; CONFLICT=$((CONFLICT+1)); return
   fi
+
+  # apply — dry-run mirrors the mutation; the mkdir prefix appears only for a fresh
+  # link (an existing link's parent dir already exists).
+  if [ "$DRY" = 1 ]; then
+    if [ -n "$was" ]; then
+      echo "    ln $flag \"$src\" \"$link\"   (was: $was)"
+    else
+      echo "    mkdir -p \"$(dirname "$link")\"; ln $flag \"$src\" \"$link\""
+    fi
+  else
+    mkdir -p "$(dirname "$link")"; ln "$flag" "$src" "$link"
+  fi
+  if [ -n "$was" ]; then echo "  relinked $link   (was: $was)"
+  else echo "  linked   $link"; fi
+  FIXED=$((FIXED+1))
 }
 
 # register_claude_settings — keep our Claude Code hook registrations in ~/.claude/settings.json in sync.
