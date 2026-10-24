@@ -93,8 +93,14 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
   resume, retirement gating, readonly --status, open-only source set, S-026
   birth states; 93/93, guards mutation-verified incl. re-targeting M1 at the
   dedup test; envelope catch-all for internal errors): `105c9ed`
-- **T7 next** — integration flip (SKILL.md, Backlog.md, READMEs, conformance
-  matrix S-033–S-040 + G6/S-024 repair).
+- **T7 done** — integration flip: SKILL.md drives `tw.py` (judgment stays in
+  the prompt), Backlog.md Phase-1 reads via `tw list`, README toolchain line,
+  spec index row back to implemented, conformance matrix regenerated full-scope
+  with the G6/S-024 gap repaired: `8c4c846`. Deviation: the plan named
+  "hooks README" toolchain lines — `.agents/hooks/README.md` carries no
+  toolchain/requirements section (hooks are python3 like the CLI, already
+  covered by the main README line), so nothing was invented there.
+- **All tasks T1–T7 complete.** Closeout remaining: push (user-gated) + close #1.
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
