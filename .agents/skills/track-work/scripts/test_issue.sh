@@ -37,8 +37,20 @@ create_with_retry "Parallel A" & p1=$!
 create_with_retry "Parallel B" & p2=$!
 wait "$p1"
 wait "$p2"
-[ "$("$ISSUE" list | wc -l | tr -d ' ')" = 3 ]
-[ "$(grep -c '^| \[ISSUE-' .agents/issues/README.md)" = 3 ]
+
+printf 'custom body content\n' > "$TMP/body.md"
+"$ISSUE" new "With body" --type feature --priority p3 --body-file "$TMP/body.md" >/dev/null
+grep -q "custom body content" .agents/issues/ISSUE-004.md
+ln -s "$TMP/body.md" "$TMP/body-link.md"
+if "$ISSUE" new "Bad body" --body-file "$TMP/body-link.md" >/dev/null 2>&1; then
+  echo "symlink body accepted" >&2; exit 1
+fi
+if "$ISSUE" new "Bad body" --body-file "$TMP/nope.md" >/dev/null 2>&1; then
+  echo "missing body accepted" >&2; exit 1
+fi
+
+[ "$("$ISSUE" list | wc -l | tr -d ' ')" = 4 ]
+[ "$(grep -c '^| \[ISSUE-' .agents/issues/README.md)" = 4 ]
 
 sh -n "$ISSUE"
 echo "issue.sh tests passed"

@@ -3,7 +3,7 @@
 # POSIX sh + awk/sed. Mutations are serialized and atomically replace files.
 #
 # Usage:
-#   issue.sh new     "<title>" [--type bug|feature|enhancement|decision] [--priority p0|p1|p2|p3] [--label a,b]
+#   issue.sh new     "<title>" [--type bug|feature|enhancement|decision] [--priority p0|p1|p2|p3] [--label a,b] [--body-file <path>]
 #   issue.sh list    [--status open|closed|draft|backlog|in-progress|review|blocked]
 #   issue.sh show    <ID>
 #   issue.sh status  <ID> <draft|backlog|in-progress|review|blocked|closed>
@@ -61,7 +61,7 @@ ensure_dir() {
     current="$current/$part"
     if [ -L "$current" ]; then fail "issues path must not contain symlinks: $current"; fi
     if [ -e "$current" ] && [ ! -d "$current" ]; then fail "issues path component is not a directory: $current"; fi
-    [ -d "$current" ] || mkdir "$current"
+    [ -d "$current" ] || mkdir -p "$current"
   done
   [ ! -L "$DIR/README.md" ] || fail "refusing symlink index: $DIR/README.md"
 }
@@ -117,23 +117,47 @@ next_id() {
 }
 
 cmd_new() {
-  [ $# -ge 1 ] || fail "usage: issue.sh new <title> [--type ..] [--priority ..] [--label ..]"
-  title=$1; shift; type=bug; priority=p2; labels=""
+  [ $# -ge 1 ] || fail "usage: issue.sh new <title> [--type ..] [--priority ..] [--label ..] [--body-file ..]"
+  title=$1; shift; type=bug; priority=p2; labels=""; body=""
   validate_scalar "$title" title
   while [ $# -gt 0 ]; do
     case "$1" in
-      --type|--priority|--label) [ $# -ge 2 ] || fail "missing value for $1";;
+      --type|--priority|--label|--body-file) [ $# -ge 2 ] || fail "missing value for $1";;
       *) fail "unknown argument: $1";;
     esac
-    case "$1" in --type) type=$2;; --priority) priority=$2;; --label) labels=$2;; esac
+    case "$1" in --type) type=$2;; --priority) priority=$2;; --label) labels=$2;; --body-file) body=$2;; esac
     shift 2
   done
   validate_type "$type"; validate_priority "$priority"; validate_labels "$labels"
+  if [ -n "$body" ]; then
+    [ -f "$body" ] || fail "body file not found: $body"
+    [ ! -L "$body" ] || fail "refusing symlink body: $body"
+  fi
   acquire_lock
   id=$(next_id); f=$(issue_path "$id")
   [ ! -e "$f" ] || fail "issue already exists: $f"
   tmp=$(mktemp "$DIR/.$id.XXXXXX") || fail "could not create issue temp file"
-  cat > "$tmp" <<EOF
+  if [ -n "$body" ]; then
+    # Caller-supplied body replaces the template wholesale (redaction is the
+    # caller's duty — the engine only writes, locks, and swaps atomically).
+    {
+      cat <<EOF
+---
+id: $id
+title: "$title"
+status: draft
+previous_status: draft
+type: $type
+priority: $priority
+labels: [$labels]
+created: $(date +%Y-%m-%d)
+---
+
+EOF
+      cat "$body"
+    } > "$tmp" || { rm -f "$tmp"; fail "could not write issue"; }
+  else
+    cat > "$tmp" <<EOF
 ---
 id: $id
 title: "$title"
@@ -157,6 +181,7 @@ $title
 ## Detail / links
 <!-- spec / plan / loop / test paths (repo-relative) -->
 EOF
+  fi
   mv "$tmp" "$f"; write_index
   printf '%s  (%s)\n' "$f" "$id"
 }
