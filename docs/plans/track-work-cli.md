@@ -84,8 +84,12 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
 - **T4 done** — file backend over `issue.sh` (create/list/status/close, redaction,
   S-037 file half, S-038 file half; engine gained `new --body-file` + `mkdir -p`
   race fix; 63/63, all four new guards mutation-verified): `fbe64f2`
-- **T5 next** — GitHub backend commands (bound `-R`, cardinality transitions,
-  wrong-repository, close ancestry).
+- **T5 done** — GitHub backend commands (bound `-R` + argv-log-proven binding,
+  URL read-back wrong-repository, one-operation cardinality transitions, close
+  evidence via default-branch commit / merged PR; stateful gh double; 84/84,
+  four guards mutation-verified, live read-only `tw list` against the real
+  repo): `b82903e`
+- **T6 next** — migrate (journal, resume, retirement gating).
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
@@ -109,6 +113,11 @@ Operational notes for the implementing session (lessons already paid for):
 - macOS fixtures: the canonical repo root is `/private/var/...` while
   `tempfile` hands back `/var/...` — derive fixture repo-root paths via
   `git rev-parse --show-toplevel` when testing repo-root stripping.
+- Tests must never reach ambient gh: once dispatch stopped blocking (T5), the
+  T2-era stub tests silently started probing the real `gh` — any test that
+  runs a ledger command needs a fixture cwd plus a dead `--gh`, and per-command
+  parsing happens BEFORE the probe, so stub tests must pass minimal valid args
+  to reach the blocked path.
 
 ## First safe task
 
