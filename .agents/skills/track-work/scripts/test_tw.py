@@ -80,17 +80,32 @@ class TestEnvelopeContract(unittest.TestCase):
 
 
 class TestSkeletonStubs(unittest.TestCase):
-    """T2/T3: the not-yet-implemented commands dispatch and report blocked."""
+    """Post-T5: migrate reports blocked until T6; the four ledger commands on a
+    GitHub identity without a reachable gh report blocked (noninteractive)."""
 
     def test_unimplemented_commands_blocked_exit_1(self):
-        # resolve landed in T3; the remaining commands report blocked until T4-T6.
-        for command in ("list", "create", "status", "close", "migrate"):
-            with self.subTest(command=command):
-                code, env, _, _ = run_tw(command)
-                self.assertEqual(code, 1)
-                self.assertFalse(env["ok"])
-                self.assertEqual(env["command"], command)
-                self.assertEqual(env["error"]["code"], "blocked")
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True, capture_output=True)
+            subprocess.run(["git", "-C", d, "remote", "add", "origin",
+                            "https://github.com/acme/widgets"],
+                           check=True, capture_output=True)
+            minimal = {"list": [], "create": ["--title", "X", "--type", "bug",
+                                              "--priority", "p1"],
+                       "status": ["acme/widgets#1", "backlog"],
+                       "close": ["acme/widgets#1"]}
+            for command, extra in minimal.items():
+                with self.subTest(command=command):
+                    code, env, _, _ = run_tw("--gh", "/nonexistent/gh",
+                                             "--noninteractive", command,
+                                             *extra, cwd=d)
+                    self.assertEqual(code, 1)
+                    self.assertFalse(env["ok"])
+                    self.assertEqual(env["command"], command)
+                    self.assertEqual(env["error"]["code"], "blocked")
+        code, env, _, _ = run_tw("migrate")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
 
     def test_global_flags_accepted_without_changing_stub_contract(self):
         code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "--noninteractive", "list")
@@ -100,7 +115,14 @@ class TestSkeletonStubs(unittest.TestCase):
 
     def test_flags_accepted_after_command_too(self):
         # The surface lists --noninteractive among per-command args; it is global.
-        code, env, _, _ = run_tw("close", "--noninteractive")
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True, capture_output=True)
+            subprocess.run(["git", "-C", d, "remote", "add", "origin",
+                            "https://github.com/acme/widgets"],
+                           check=True, capture_output=True)
+            code, env, _, _ = run_tw("close", "acme/widgets#1", "--noninteractive",
+                                     "--gh", "/nonexistent/gh", cwd=d)
         self.assertEqual(code, 1)
         self.assertTrue(env["noninteractive"])
 
@@ -109,14 +131,29 @@ class TestNoninteractiveMode(unittest.TestCase):
     """S-039 (skeleton half): flag and env both engage; no invocation waits on stdin."""
 
     def test_env_var_engages_noninteractive(self):
-        code, env, _, _ = run_tw("list", env_extra={"TW_NONINTERACTIVE": "1"})
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True, capture_output=True)
+            subprocess.run(["git", "-C", d, "remote", "add", "origin",
+                            "https://github.com/acme/widgets"],
+                           check=True, capture_output=True)
+            code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "list", cwd=d,
+                                     env_extra={"TW_NONINTERACTIVE": "1"})
         self.assertEqual(code, 1)
         self.assertTrue(env["noninteractive"])
 
     def test_no_invocation_hangs_without_a_tty(self):
-        # stdin closed: a prompt would either hang (timeout) or die on EOF; the
-        # stub contract must return blocked immediately.
-        code, env, _, _ = run_tw("create", stdin="")
+        # stdin closed: a prompt would either hang (timeout) or die on EOF; with a
+        # dead gh the invocation returns blocked immediately.
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True, capture_output=True)
+            subprocess.run(["git", "-C", d, "remote", "add", "origin",
+                            "https://github.com/acme/widgets"],
+                           check=True, capture_output=True)
+            code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "--noninteractive",
+                                     "create", "--title", "X", "--type", "bug",
+                                     "--priority", "p1", stdin="", cwd=d)
         self.assertEqual(code, 1)
         self.assertEqual(env["error"]["code"], "blocked")
 
@@ -539,7 +576,9 @@ class TestFileCreate(FileBackendFixture):
         subprocess.run(["git", "-C", root, "remote", "add", "origin",
                         "https://github.com/acme/widgets"],
                        check=True, capture_output=True)
-        code, env, _, _ = self.create(root)
+        code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "--noninteractive",
+                                 "create", "--title", "X", "--type", "bug",
+                                 "--priority", "p1", cwd=root)
         self.assertEqual(code, 1)
         self.assertEqual(env["error"]["code"], "blocked")
         code, env, _, _ = self.create(root, env_extra={"TRACK_WORK_BACKEND": "file"})
@@ -795,3 +834,488 @@ class TestFileConcurrency(FileBackendFixture):
             for other in range(4):
                 if other != n:
                     self.assertNotIn("MARKER-%d" % other, text)
+
+
+# ---------------------------------------------------------------- T5: GitHub backend
+
+_GH_STATE_SHIM = r'''#!/usr/bin/env python3
+"""Stateful gh double: serves labels/issues/prs/commits from STATE (JSON),
+records every argv line to LOG, and locks read-modify-write cycles so
+parallel CLI processes behave like a serialized server."""
+import fcntl
+import json
+import os
+import sys
+
+STATE_PATH = "__STATE_PATH__"
+LOG_PATH = "__LOG_PATH__"
+
+
+def load():
+    with open(STATE_PATH) as f:
+        return json.load(f)
+
+
+def save(state):
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp, STATE_PATH)
+
+
+def locked():
+    lf = open(STATE_PATH + ".lock", "w")
+    fcntl.flock(lf, fcntl.LOCK_EX)
+    return lf
+
+
+args = sys.argv[1:]
+with open(LOG_PATH, "a") as log:
+    log.write(json.dumps(args) + "\n")
+
+if args[:1] == ["--version"]:
+    sys.exit(0)
+if args[:2] == ["auth", "status"]:
+    sys.exit(load().get("auth_rc", 0))
+
+
+def repo_arg(a):
+    if "-R" in a:
+        return a[a.index("-R") + 1]
+    for x in a[2:]:
+        if "/" in x and not x.startswith("-") and "=" not in x:
+            return x
+    return ""
+
+
+state = load()
+repo = repo_arg(args)
+issue_repo = "evil/other-repo" if state.get("wrong_issue_repo") else repo
+
+cmd = args[:2]
+if cmd == ["repo", "view"]:
+    name = "evil/other-repo" if state.get("wrong_repo") else repo
+    print(json.dumps({"nameWithOwner": name,
+                      "hasIssuesEnabled": state.get("issues_enabled", True),
+                      "defaultBranchRef": {"name": state.get("default_branch", "main")}}))
+    sys.exit(0)
+if cmd == ["label", "list"]:
+    print(json.dumps([{"name": n} for n in state.get("labels", [])]))
+    sys.exit(0)
+if cmd == ["issue", "list"]:
+    print(json.dumps(state.get("issues", [])))
+    sys.exit(0)
+if cmd == ["issue", "create"]:
+    title = ""
+    body = ""
+    labels = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--title":
+            title = args[i + 1]
+        elif args[i] == "--body-file":
+            with open(args[i + 1]) as f:
+                body = f.read()
+        elif args[i] == "--label":
+            labels.append(args[i + 1])
+        i += 1
+    lf = locked()
+    try:
+        state = load()
+        number = state.get("next_number", 1)
+        state["next_number"] = number + 1
+        state.setdefault("issues", []).append(
+            {"number": number, "title": title, "state": "OPEN",
+             "labels": [{"name": l} for l in labels], "body": body,
+             "url": "https://github.com/%s/issues/%d" % (issue_repo, number)})
+        save(state)
+    finally:
+        lf.close()
+    print("https://github.com/%s/issues/%d" % (issue_repo, number))
+    sys.exit(0)
+if cmd[0] == "issue" and cmd[1] in ("view", "edit", "close"):
+    number = None
+    for x in args[2:]:
+        if x.isdigit():
+            number = int(x)
+            break
+    lf = locked()
+    try:
+        state = load()
+        issue = next((i for i in state.get("issues", []) if i["number"] == number), None)
+        if issue is None:
+            print("not found: issue %s" % number, file=sys.stderr)
+            sys.exit(1)
+        if cmd[1] == "view":
+            out = dict(issue)
+            if state.get("wrong_repo"):
+                out["url"] = "https://github.com/evil/other-repo/issues/%d" % number
+            print(json.dumps(out))
+        elif cmd[1] == "edit":
+            if "--remove-label" in args:
+                removals = args[args.index("--remove-label") + 1].split(",")
+                issue["labels"] = [l for l in issue["labels"] if l["name"] not in removals]
+            if "--add-label" in args:
+                add = args[args.index("--add-label") + 1]
+                if not any(l["name"] == add for l in issue["labels"]):
+                    issue["labels"].append({"name": add})
+            save(state)
+        elif cmd[1] == "close":
+            issue["state"] = "CLOSED"
+            if "--comment" in args:
+                issue.setdefault("comments", []).append(args[args.index("--comment") + 1])
+            save(state)
+    finally:
+        lf.close()
+    sys.exit(0)
+if cmd == ["pr", "list"]:
+    print(json.dumps(state.get("prs", [])))
+    sys.exit(0)
+if cmd[:1] == ["api"]:
+    print(json.dumps(state.get("commits", [])))
+    sys.exit(0)
+print("unsupported: %s" % " ".join(args), file=sys.stderr)
+sys.exit(1)
+'''
+
+
+def write_gh_state_shim(directory, **state):
+    """Write the stateful gh double; returns (shim, state_path, log_path)."""
+    state_path = os.path.join(directory, "gh-state.json")
+    log_path = os.path.join(directory, "gh-argv.log")
+    shim = os.path.join(directory, "gh-state-shim")
+    base = {"labels": [], "issues": [], "next_number": 1, "prs": [], "commits": [],
+            "auth_rc": 0, "issues_enabled": True, "default_branch": "main",
+            "wrong_repo": False}
+    base.update(state)
+    with open(state_path, "w") as f:
+        json.dump(base, f)
+    with open(shim, "w") as f:
+        f.write(_GH_STATE_SHIM.replace("__STATE_PATH__", state_path)
+                .replace("__LOG_PATH__", log_path))
+    os.chmod(shim, 0o755)
+    return shim, state_path, log_path
+
+
+def argv_lines(log_path):
+    with open(log_path) as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+class GithubBackendFixture(FileBackendFixture):
+
+    DEFAULT_LABELS = ["type:bug", "type:feature", "priority:p1", "priority:p2",
+                      "status:draft", "status:backlog", "status:in-progress",
+                      "status:review", "status:blocked"]
+
+    def make_gh_repo(self, config_yaml=None, labels=None, **state):
+        root = self.make_repo(config_yaml=config_yaml)
+        subprocess.run(["git", "-C", root, "remote", "add", "origin",
+                        "https://github.com/acme/widgets"],
+                       check=True, capture_output=True)
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="tw-t5-shim-")
+        self.addCleanup(shutil.rmtree, d, True)
+        shim = write_gh_state_shim(d, labels=list(labels or self.DEFAULT_LABELS), **state)
+        return (root,) + shim
+
+    def gh_run(self, shim, cwd, *args, env_extra=None):
+        return run_tw("--gh", shim, *args, cwd=cwd, env_extra=env_extra)
+
+    def state(self, state_path):
+        with open(state_path) as f:
+            return json.load(f)
+
+
+class TestGithubBinding(GithubBackendFixture):
+    """S-035: mutations bound to the resolved repository, read back from it."""
+
+    def test_create_binds_every_call_under_hostile_gh_repo(self):
+        # Defect this guards: an ambient GH_REPO redirecting issue creation into
+        # another repository (wrong-ledger mutation).
+        root, shim, state_path, log = self.make_gh_repo()
+        code, env, out, _ = self.gh_run(
+            shim, root, "create", "--title", "Fix flux", "--type", "bug",
+            "--priority", "p1", env_extra={"GH_REPO": "evil/hijack"})
+        self.assertEqual(code, 0, out)
+        self.assertEqual(env["repo"], "acme/widgets")
+        self.assertEqual(env["item"]["number"], 1)
+        for line in argv_lines(log):
+            self.assertNotIn("evil/hijack", line)
+            if line[0] in ("issue", "label", "pr") or "-R" in line:
+                self.assertIn("acme/widgets", line)
+                if "-R" in line:
+                    self.assertEqual(line[line.index("-R") + 1], "acme/widgets")
+        created = self.state(state_path)["issues"][0]
+        self.assertEqual(created["title"], "Fix flux")
+        self.assertEqual([l["name"] for l in created["labels"]],
+                         ["type:bug", "priority:p1"])
+
+    def test_wrong_repo_readback_fails(self):
+        # The shim ignores -R and reports an evil/other-repo url — the read-back
+        # must fail wrong-repository instead of reporting success.
+        root, shim, state_path, _ = self.make_gh_repo(wrong_issue_repo=True)
+        code, env, _, _ = self.gh_run(shim, root, "create", "--title", "X",
+                                      "--type", "bug", "--priority", "p1")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "wrong-repository")
+
+    def test_cross_repo_ref_rejected_before_mutation(self):
+        root, shim, state_path, log = self.make_gh_repo()
+        code, env, _, _ = self.gh_run(shim, root, "status", "evil/other#1", "backlog")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "wrong-repository")
+        edits = [l for l in argv_lines(log) if l[:2] == ["issue", "edit"]]
+        self.assertEqual(edits, [])  # no mutation was attempted
+
+    def test_list_binds_under_hostile_gh_repo(self):
+        root, shim, _, _ = self.make_gh_repo(
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "list",
+                                        env_extra={"GH_REPO": "evil/hijack"})
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(env["items"]), 1)
+        self.assertEqual(env["items"][0]["repo"], "acme/widgets")
+
+
+class TestGithubLabels(GithubBackendFixture):
+    """S-037 GitHub half: repo label set governs; transitions are one operation."""
+
+    def test_unknown_label_proposes_the_repo_set(self):
+        root, shim, state_path, _ = self.make_gh_repo()
+        code, env, _, _ = self.gh_run(shim, root, "create", "--title", "X",
+                                      "--type", "bug", "--priority", "p1",
+                                      "--label", "priority:p9")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "unknown-label")
+        self.assertIn("priority:p1", env["error"]["message"])
+        self.assertEqual(self.state(state_path)["issues"], [])  # nothing created
+
+    def test_cardinality_violation_rejected(self):
+        root, shim, state_path, _ = self.make_gh_repo()
+        code, env, _, _ = self.gh_run(shim, root, "create", "--title", "X",
+                                      "--type", "bug", "--priority", "p1",
+                                      "--label", "type:feature")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "cardinality")
+        self.assertEqual(self.state(state_path)["issues"], [])
+
+    def test_status_transition_is_one_operation_and_read_back(self):
+        # Defect this guards: removing the old status label and adding the new one
+        # in separate calls (a torn transition), or never verifying the result.
+        root, shim, state_path, log = self.make_gh_repo(
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}, {"name": "status:backlog"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "status", "acme/widgets#1",
+                                        "in-progress")
+        self.assertEqual(code, 0, out)
+        edits = [l for l in argv_lines(log) if l[:2] == ["issue", "edit"]]
+        self.assertEqual(len(edits), 1)  # exactly one operation
+        self.assertEqual(edits[0][edits[0].index("--remove-label") + 1], "status:backlog")
+        self.assertEqual(edits[0][edits[0].index("--add-label") + 1], "status:in-progress")
+        issue = self.state(state_path)["issues"][0]
+        self.assertEqual(sorted(l["name"] for l in issue["labels"]),
+                         ["status:in-progress", "type:bug"])
+        self.assertEqual((env["from"], env["to"]), ("backlog", "in-progress"))
+        self.assertEqual(env["labels"], ["type:bug", "status:in-progress"])
+
+    def test_status_target_label_missing_fails_unknown_label(self):
+        # The repo's label set lacks status:review — the transition must refuse
+        # with the repo's own status labels proposed, not invent the label.
+        root, shim, _, _ = self.make_gh_repo(
+            labels=[l for l in GithubBackendFixture.DEFAULT_LABELS if l != "status:review"],
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, _, _ = self.gh_run(shim, root, "status", "acme/widgets#1", "review")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "unknown-label")
+        self.assertIn("status:backlog", env["error"]["message"])
+
+    def test_status_cannot_set_closed_or_transition_closed_item(self):
+        root, shim, _, log = self.make_gh_repo(
+            issues=[{"number": 1, "title": "Closed one", "state": "CLOSED",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, _, _ = self.gh_run(shim, root, "status", "acme/widgets#1", "closed")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "invalid-transition")
+        code, env, _, _ = self.gh_run(shim, root, "status", "acme/widgets#1", "backlog")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "invalid-transition")
+        self.assertEqual([l for l in argv_lines(log) if l[:2] == ["issue", "edit"]], [])
+
+
+class TestGithubClose(GithubBackendFixture):
+    """S-038 GitHub half: close only with landed evidence or an exempt label."""
+
+    def open_issue(self):
+        return self.make_gh_repo(
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}, {"name": "priority:p1"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+
+    def test_close_without_evidence_refuses(self):
+        root, shim, state_path, _ = self.open_issue()
+        code, env, _, _ = self.gh_run(shim, root, "close", "acme/widgets#1")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "landed-evidence")
+        self.assertIn("#1", env["error"]["message"])
+        issue = self.state(state_path)["issues"][0]
+        self.assertEqual(issue["state"], "OPEN")  # no mutation
+
+    def test_close_with_default_branch_commit(self):
+        root, shim, state_path, _ = self.make_gh_repo(
+            commits=[{"sha": "a" * 40, "commit": {"message": "Fixes #1: the flux fix"}}],
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "close", "acme/widgets#1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(env["evidence"], {"check": "commit", "commit": "a" * 40})
+        self.assertEqual(self.state(state_path)["issues"][0]["state"], "CLOSED")
+
+    def test_close_digit_boundary_not_fooled_by_longer_refs(self):
+        # A "#12" commit/PR reference must never close issue #1.
+        root, shim, _, _ = self.make_gh_repo(
+            commits=[{"sha": "b" * 40, "commit": {"message": "Fixes #12: other"}}],
+            prs=[{"number": 9, "title": "elsewhere", "body": "closes #12"}],
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, _, _ = self.gh_run(shim, root, "close", "acme/widgets#1")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "landed-evidence")
+
+    def test_close_via_merged_pr(self):
+        root, shim, state_path, _ = self.make_gh_repo(
+            prs=[{"number": 7, "title": "Widget fix", "body": "Fixes #1"}],
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "close", "acme/widgets#1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(env["evidence"], {"check": "merged-pr", "pr": 7})
+
+    def test_close_exempt_label_and_redacted_comment(self):
+        root, shim, state_path, _ = self.make_gh_repo(
+            config_yaml="redaction:\n  secrets: [EXAMPLE_API_KEY]\n",
+            issues=[{"number": 1, "title": "One", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}, {"name": "wontfix"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "close", "acme/widgets#1",
+                                        "--reason", "declined; key hunter2 dropped",
+                                        env_extra={"EXAMPLE_API_KEY": "hunter2"})
+        self.assertEqual(code, 0, out)
+        self.assertEqual(env["evidence"], {"check": "exempt-label", "label": "wontfix"})
+        self.assertNotIn("hunter2", out)
+        issue = self.state(state_path)["issues"][0]
+        self.assertEqual(issue["comments"],
+                         ["declined; key [redacted:EXAMPLE_API_KEY] dropped"])
+
+    def test_close_already_closed_is_idempotent_no_mutation(self):
+        root, shim, _, log = self.make_gh_repo(
+            issues=[{"number": 1, "title": "Done", "state": "CLOSED",
+                     "labels": [{"name": "type:bug"}],
+                     "url": "https://github.com/acme/widgets/issues/1"}])
+        code, env, out, _ = self.gh_run(shim, root, "close", "acme/widgets#1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(env["evidence"], {"check": "already-closed"})
+        self.assertEqual([l for l in argv_lines(log)
+                          if l[:2] == ["issue", "close"]], [])
+
+    def test_close_missing_issue_is_not_found(self):
+        root, shim, _, _ = self.make_gh_repo()
+        code, env, _, _ = self.gh_run(shim, root, "close", "acme/widgets#99")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "not-found")
+
+
+class TestGithubCapability(GithubBackendFixture):
+    """S-002/S-039: failed probes stop the operation; no second ledger."""
+
+    def test_auth_failure_noninteractive_blocks_without_mutation(self):
+        root, shim, state_path, _ = self.make_gh_repo(auth_rc=1)
+        code, env, _, _ = self.gh_run(shim, root, "--noninteractive", "create",
+                                      "--title", "X", "--type", "bug",
+                                      "--priority", "p1")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
+        self.assertIn("gh-auth", env["error"]["message"])
+        self.assertEqual(self.state(state_path)["issues"], [])
+
+    def test_auth_failure_interactive_names_the_probe(self):
+        root, shim, _, _ = self.make_gh_repo(auth_rc=1)
+        code, env, _, _ = self.gh_run(shim, root, "list")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "capability")
+        self.assertIn("gh-auth", env["error"]["message"])
+
+    def test_issues_disabled_stops_without_fallback(self):
+        root, shim, state_path, _ = self.make_gh_repo(issues_enabled=False)
+        code, env, _, _ = self.gh_run(shim, root, "--noninteractive", "create",
+                                      "--title", "X", "--type", "bug",
+                                      "--priority", "p1")
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
+        self.assertIn("issues-disabled", env["error"]["message"])
+        self.assertEqual(self.state(state_path)["issues"], [])
+        self.assertFalse(os.path.exists(os.path.join(root, ".agents")))  # no file ledger
+
+    def test_gh_missing_never_creates_a_file_ledger(self):
+        # S-002: the second-ledger failure — a missing gh must not mean "file".
+        root = self.make_repo()
+        subprocess.run(["git", "-C", root, "remote", "add", "origin",
+                        "https://github.com/acme/widgets"],
+                       check=True, capture_output=True)
+        code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "--noninteractive",
+                                 "create", "--title", "X", "--type", "bug",
+                                 "--priority", "p1", cwd=root)
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
+        self.assertFalse(os.path.exists(os.path.join(root, ".agents")))
+
+
+class TestGithubBodies(GithubBackendFixture):
+    """S-018 GitHub half: private isolated staging under concurrency."""
+
+    def test_parallel_creates_stage_isolated_bodies(self):
+        # Defect this guards: two concurrent creates exchanging staged bodies
+        # (shared temp names) — each issue must carry its own body only.
+        root, shim, state_path, log = self.make_gh_repo()
+        import shutil
+        import tempfile
+        marker_dir = tempfile.mkdtemp(prefix="tw-t5-par-")
+        self.addCleanup(shutil.rmtree, marker_dir, True)
+        procs = []
+        for n in range(2):
+            body = os.path.join(marker_dir, "body-%d.md" % n)
+            with open(body, "w") as f:
+                f.write("github body MARKER-%d\n" % n)
+            env = dict(os.environ)
+            for ambient in ("TW_NONINTERACTIVE", "TRACK_WORK_BACKEND", "GH_REPO"):
+                env.pop(ambient, None)
+            procs.append((n, subprocess.Popen(
+                [sys.executable, SCRIPT, "--gh", shim, "create",
+                 "--title", "Par %d" % n, "--type", "bug", "--priority", "p2",
+                 "--body-file", body],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=env, cwd=root)))
+        numbers = {}
+        for n, proc in procs:
+            stdout, _ = proc.communicate(timeout=60)
+            self.assertEqual(proc.returncode, 0, stdout)
+            numbers[n] = json.loads(stdout)["item"]["number"]
+        self.assertEqual(len(set(numbers.values())), 2)
+        issues = {i["number"]: i for i in self.state(state_path)["issues"]}
+        for n in range(2):
+            self.assertIn("MARKER-%d" % n, issues[numbers[n]]["body"])
+            self.assertNotIn("MARKER-%d" % (1 - n), issues[numbers[n]]["body"])
+        staged = [l[l.index("--body-file") + 1] for l in argv_lines(log)
+                  if "--body-file" in l]
+        for path in staged:  # every staged temp file was cleaned up
+            self.assertFalse(os.path.exists(path))

@@ -13,10 +13,10 @@ would require a confirmation or hits a failed capability probe returns error.cod
 Test seam: --gh <path> overrides the gh executable (used by the adversarial suite;
 identity never derives from probe outcomes, S-034).
 
-Status: T4 — file backend commands (create/list/status/close) over issue.sh,
-deterministic redaction (S-036), file-half label validation (S-037), close
-landed-evidence (S-038 file half). GitHub commands land in T5, migrate in T6
-(docs/plans/track-work-cli.md).
+Status: T5 — GitHub backend commands (create/list/status/close) with bound -R
+per call, URL-read-back wrong-repository checks, label discovery + cardinality
+transitions (S-037 GitHub half), close evidence via default-branch commit or
+merged PR (S-038 GitHub half). migrate lands in T6 (docs/plans/track-work-cli.md).
 """
 import json
 import os
@@ -351,13 +351,11 @@ def dispatch(ctx):
     if ctx.command == "migrate":
         raise TwError("blocked", "migrate is not implemented yet (lands in T6)")
     ident = _resolve_identity(ctx)
-    if ident["backend"] != "file":
-        raise TwError("blocked", "%s on the GitHub backend lands in T5 (resolved: %s); file "
-                      "commands need a file backend — TRACK_WORK_BACKEND=file override or "
-                      "migrate first" % (ctx.command, ident["repo"] or "github"))
-    handler = {"list": cmd_list_file, "create": cmd_create_file,
-               "status": cmd_status_file, "close": cmd_close_file}[ctx.command]
-    return handler(ctx, ident)
+    handlers = {"file": {"list": cmd_list_file, "create": cmd_create_file,
+                         "status": cmd_status_file, "close": cmd_close_file},
+                "github": {"list": cmd_list_github, "create": cmd_create_github,
+                           "status": cmd_status_github, "close": cmd_close_github}}
+    return handlers[ident["backend"]][ctx.command](ctx, ident)
 
 
 def main(argv):
@@ -647,24 +645,30 @@ def cmd_create_file(ctx, ident):
                 pass
 
 
-def cmd_list_file(ctx, ident):
+def _parse_list_args(args):
+    """Shared --status/--label parsing for list on both backends."""
     status_filter = None
     label_filters = []
     i = 0
-    while i < len(ctx.args):
-        a = ctx.args[i]
+    while i < len(args):
+        a = args[i]
         if a == "--status":
-            if i + 1 >= len(ctx.args):
+            if i + 1 >= len(args):
                 raise UsageError("--status requires a value")
-            status_filter = ctx.args[i + 1]
+            status_filter = args[i + 1]
             i += 2
         elif a == "--label":
-            if i + 1 >= len(ctx.args):
+            if i + 1 >= len(args):
                 raise UsageError("--label requires a value")
-            label_filters.append(ctx.args[i + 1])
+            label_filters.append(args[i + 1])
             i += 2
         else:
             raise UsageError("unknown argument for list: %s" % a)
+    return status_filter, label_filters
+
+
+def cmd_list_file(ctx, ident):
+    status_filter, label_filters = _parse_list_args(ctx.args)
     valid = ("open",) + _FILE_STATES
     if status_filter is not None and status_filter not in valid:
         raise UsageError("--status must be one of %s, got: %s" % ("|".join(valid), status_filter))
@@ -729,24 +733,30 @@ def _referencing_commit(root, item_id):
     return None
 
 
-def cmd_close_file(ctx, ident):
+def _parse_close_args(args):
+    """Shared <ref> [--reason ..] parsing for close on both backends."""
     ref = None
     reason = None
     i = 0
-    while i < len(ctx.args):
-        a = ctx.args[i]
+    while i < len(args):
+        a = args[i]
         if a == "--reason":
-            if i + 1 >= len(ctx.args):
+            if i + 1 >= len(args):
                 raise UsageError("--reason requires a value")
-            reason = ctx.args[i + 1]
+            reason = args[i + 1]
             i += 2
         elif ref is None and not a.startswith("--"):
             ref = a
             i += 1
         else:
-            raise UsageError("close takes one <ISSUE-NNN> and optional --reason; got: %s" % a)
+            raise UsageError("close takes one item ref and optional --reason; got: %s" % a)
     if ref is None:
-        raise UsageError("close requires an item ref (ISSUE-NNN)")
+        raise UsageError("close requires an item ref")
+    return ref, reason
+
+
+def cmd_close_file(ctx, ident):
+    ref, reason = _parse_close_args(ctx.args)
     if not _ITEM_REF.match(ref):
         raise UsageError("malformed file item ref: %s (expected ISSUE-NNN)" % ref)
     cfg = _read_config(ident["root"])
@@ -772,6 +782,342 @@ def cmd_close_file(ctx, ident):
     if reason is not None:
         result["reason"], _ = _redact(reason, cfg.get("redaction") or {}, ident["root"])
     return result
+
+# ---------------------------------------------------------------- T5: GitHub backend
+# Every repo-scoped call carries an explicit -R <owner/repo> (S-015/S-035);
+# mutations are read back and the read-back URL's owner/repo must equal the
+# resolved repository or the operation fails wrong-repository. Ambient GH_REPO
+# cannot redirect anything: -R wins wherever gh applies it.
+
+_GH_REF_URL = re.compile(
+    r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/issues/([0-9]+)$")
+_GH_REF_SHORT = re.compile(r"^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)#([0-9]+)$")
+
+
+def _gh(ctx, argv):
+    """Run gh; a missing/unexecutable binary is rc 127, never a crash."""
+    try:
+        r = subprocess.run([ctx.gh, *argv], capture_output=True, text=True)
+        return r.returncode, r.stdout, r.stderr
+    except (FileNotFoundError, OSError):
+        return 127, "", ""
+
+
+def _capability_stop(ctx, cap):
+    """S-002/S-039: a failed probe stops the operation — probe named, error class
+    preserved, remediation offered, and never a file-ledger fallback. In
+    noninteractive mode the code is blocked (S-039); otherwise capability."""
+    code = "blocked" if ctx.noninteractive else "capability"
+    raise TwError(code,
+                  "capability probe failed: %s (%s) — no file fallback; retry/authenticate/"
+                  "repair permissions, or explicitly confirm a file-backend override"
+                  % (cap["failed"], cap["error_class"]))
+
+
+def _require_github(ctx, ident):
+    cap = _probe_capability(ctx, ident["repo"])
+    if not cap["ok"]:
+        _capability_stop(ctx, cap)
+
+
+def _gh_fail(ctx, what, rc, output):
+    lines = [l for l in (output or "").strip().splitlines() if l.strip()]
+    message = lines[-1] if lines else "rc=%d" % rc
+    lowered = message.lower()
+    if "not found" in lowered or "could not resolve" in lowered:
+        raise TwError("not-found", "%s: %s" % (what, message))
+    code = "blocked" if ctx.noninteractive else "capability"
+    raise TwError(code, "%s failed: %s" % (what, message))
+
+
+def _gh_json(ctx, what, argv):
+    rc, out, err = _gh(ctx, argv)
+    if rc != 0:
+        _gh_fail(ctx, what, rc, out + err)
+    try:
+        return json.loads(out)
+    except ValueError:
+        raise TwError("conflict", "%s: unparseable gh output" % what)
+
+
+def _gh_url_repo(url):
+    m = re.match(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/", url or "")
+    return "%s/%s" % (m.group(1), m.group(2)) if m else None
+
+
+def _gh_labels(ctx, repo):
+    data = _gh_json(ctx, "label list",
+                    ["label", "list", "-R", repo, "--limit", "200", "--json", "name"])
+    return [x.get("name", "") for x in data if x.get("name")]
+
+
+def _check_cardinality(labels, cfg):
+    dimensions = cfg.get("dimensions") or list(_DEFAULT_DIMENSIONS)
+    for prefix, count in dimensions:
+        have = [l for l in labels if l.partition(":")[0] == prefix]
+        if count == "exactly1" and len(have) != 1:
+            raise TwError("cardinality", "prefix '%s' requires exactly1 label, got %d (%s)"
+                          % (prefix, len(have), ", ".join(have) or "none"))
+        if count == "at_least1" and len(have) < 1:
+            raise TwError("cardinality", "prefix '%s' requires at_least1 label, got none" % prefix)
+
+
+def _validate_gh_labels(labels, repo_labels, cfg):
+    """S-037 GitHub half: the repo's actual labels (gh label list) are the only
+    valid set — anything else fails unknown-label with the proposal shown."""
+    known = set(repo_labels)
+    for label in labels:
+        if label not in known:
+            prefix = label.partition(":")[0]
+            proposal = sorted(l for l in repo_labels if l.partition(":")[0] == prefix)
+            if not proposal:
+                proposal = sorted(repo_labels)
+            raise TwError("unknown-label",
+                          "label '%s' is not in the repo's label set; candidates: %s"
+                          % (label, ", ".join(proposal) if proposal else "(repo has no labels)"))
+    _check_cardinality(labels, cfg)
+
+
+def _derive_gh_status(state, label_names):
+    if (state or "").upper() == "CLOSED":
+        return "closed"
+    values = [l.partition(":")[2] for l in label_names if l.startswith("status:")]
+    return values[0] if len(values) == 1 else "open"
+
+
+def _parse_gh_ref(ref, repo):
+    """Accept a full issue URL or OWNER/REPO#N; the named repository must equal
+    the resolved one or the ref is a redirect attempt (wrong-repository)."""
+    for pattern in (_GH_REF_URL, _GH_REF_SHORT):
+        m = pattern.match(ref)
+        if m:
+            found = "%s/%s" % (m.group(1), m.group(2))
+            if found != repo:
+                raise TwError("wrong-repository",
+                              "ref %s targets %s, but this repository resolves to %s"
+                              % (ref, found, repo))
+            return int(m.group(3))
+    raise UsageError("malformed GitHub ref: %s (expected https://github.com/OWNER/REPO/issues/N "
+                     "or OWNER/REPO#N)" % ref)
+
+
+def _gh_view_issue(ctx, repo, number):
+    item = _gh_json(ctx, "issue view",
+                    ["issue", "view", str(number), "-R", repo,
+                     "--json", "number,url,title,state,labels"])
+    read_repo = _gh_url_repo(item.get("url"))
+    if read_repo != repo:
+        raise TwError("wrong-repository",
+                      "read-back resolved to %r, expected %r" % (read_repo, repo))
+    return item
+
+
+def _gh_label_names(item):
+    return [l.get("name", "") for l in item.get("labels", []) if l.get("name")]
+
+
+def cmd_list_github(ctx, ident):
+    status_filter, label_filters = _parse_list_args(ctx.args)
+    valid = ("open",) + _FILE_STATES
+    if status_filter is not None and status_filter not in valid:
+        raise UsageError("--status must be one of %s, got: %s" % ("|".join(valid), status_filter))
+    _require_github(ctx, ident)
+    repo = ident["repo"]
+    data = _gh_json(ctx, "issue list",
+                    ["issue", "list", "-R", repo, "--state", "all", "--limit", "200",
+                     "--json", "number,title,state,labels"])
+    items = []
+    for issue in data:
+        labels = _gh_label_names(issue)
+        status = _derive_gh_status(issue.get("state"), labels)
+        if status_filter is not None:
+            if status_filter == "open":
+                if status == "closed":
+                    continue
+            elif status != status_filter:
+                continue
+        if label_filters and not all(l in labels for l in label_filters):
+            continue
+        items.append({"id": issue.get("number"), "title": issue.get("title", ""),
+                      "status": status, "labels": labels, "repo": repo})
+    return {"backend": "github", "repo": repo, "items": items}
+
+
+def cmd_create_github(ctx, ident):
+    title, type_, priority, extra, body_file = _parse_create_args(ctx.args)
+    cfg = _read_config(ident["root"])
+    repo = ident["repo"]
+    _require_github(ctx, ident)
+    labels = ["type:%s" % type_, "priority:%s" % priority] + extra
+    _validate_gh_labels(labels, _gh_labels(ctx, repo), cfg)
+    red = cfg.get("redaction") or {}
+    body_path = None
+    try:
+        r_title, summary = _redact(title, red, ident["root"])
+        argv = ["issue", "create", "-R", repo, "--title", r_title]
+        if body_file is not None:
+            try:
+                with open(body_file, encoding="utf-8") as f:
+                    content = f.read()
+            except OSError as e:
+                raise UsageError("cannot read --body-file: %s" % e)
+            content, body_summary = _redact(content, red, ident["root"])
+            summary = _merge_redaction(summary, body_summary)
+            body_path = _stage_body(content)
+            argv += ["--body-file", body_path]
+        for label in labels:
+            argv += ["--label", label]
+        rc, out, err = _gh(ctx, argv)
+        if rc != 0:
+            _gh_fail(ctx, "issue create", rc, out + err)
+        url_lines = [l.strip() for l in out.strip().splitlines() if l.strip()]
+        m = re.search(r"/issues/([0-9]+)$", url_lines[-1]) if url_lines else None
+        if not m:
+            raise TwError("conflict", "gh issue create did not return an issue url: %r" % out.strip())
+        number = int(m.group(1))
+        item = _gh_view_issue(ctx, repo, number)  # read-back before reporting success
+        if item.get("title") != r_title:
+            raise TwError("conflict", "read-back mismatch on title: expected %r, got %r"
+                          % (r_title, item.get("title")))
+        read_labels = sorted(_gh_label_names(item))
+        if read_labels != sorted(labels):
+            raise TwError("conflict", "read-back mismatch on labels: expected %r, got %r"
+                          % (sorted(labels), read_labels))
+        return {"backend": "github", "repo": repo,
+                "item": {"number": number, "url": item.get("url")},
+                "labels": labels, "redaction": summary}
+    finally:
+        if body_path is not None:
+            try:
+                os.unlink(body_path)
+            except OSError:
+                pass
+
+
+def cmd_status_github(ctx, ident):
+    if len(ctx.args) != 2:
+        raise UsageError("usage: tw status <OWNER/REPO#N|issue-url> "
+                         "<draft|backlog|in-progress|review|blocked>")
+    ref, state = ctx.args
+    if state not in _FILE_STATES:
+        raise UsageError("invalid state: %s (one of %s)" % (state, "|".join(_FILE_STATES)))
+    if state == "closed":
+        raise TwError("invalid-transition",
+                      "status cannot set closed — use close, which verifies landed evidence first")
+    repo = ident["repo"]
+    _require_github(ctx, ident)
+    number = _parse_gh_ref(ref, repo)  # wrong-repository before any mutation
+    item = _gh_view_issue(ctx, repo, number)
+    labels = _gh_label_names(item)
+    if (item.get("state") or "").upper() == "CLOSED":
+        raise TwError("invalid-transition",
+                      "issue %d is closed — reopen lives outside the CLI surface "
+                      "(gh issue reopen is skill-owned)" % number)
+    target = "status:%s" % state
+    repo_labels = _gh_labels(ctx, repo)
+    if target not in repo_labels:
+        candidates = sorted(l for l in repo_labels if l.startswith("status:"))
+        raise TwError("unknown-label",
+                      "label '%s' is not in the repo's label set; candidates: %s"
+                      % (target, ", ".join(candidates) or "none"))
+    from_status = _derive_gh_status(item.get("state"), labels)
+    removals = [l for l in labels if l.startswith("status:") and l != target]
+    argv = ["issue", "edit", str(number), "-R", repo]
+    if removals:
+        argv += ["--remove-label", ",".join(removals)]
+    argv += ["--add-label", target]
+    rc, out, err = _gh(ctx, argv)  # conflicting labels out + target in, one operation
+    if rc != 0:
+        _gh_fail(ctx, "issue edit", rc, out + err)
+    after = _gh_view_issue(ctx, repo, number)
+    after_labels = _gh_label_names(after)
+    status_labels = [l for l in after_labels if l.startswith("status:")]
+    if status_labels != [target]:
+        raise TwError("conflict", "read-back mismatch: status labels %r, expected [%r]"
+                      % (status_labels, target))
+    return {"backend": "github", "repo": repo,
+            "item": {"number": number, "url": after.get("url")},
+            "from": from_status, "to": state, "labels": after_labels}
+
+
+def _referencing_default_branch_commit(ctx, repo, number):
+    """A commit on the default branch whose message references #N (digit-bounded,
+    so #1 never matches a #12 reference). Bounded walk: 10 pages x 100 commits."""
+    rc, out, err = _gh(ctx, ["repo", "view", "-R", repo, "--json", "defaultBranchRef"])
+    if rc != 0:
+        _gh_fail(ctx, "repo view (default branch)", rc, out + err)
+    try:
+        branch = json.loads(out).get("defaultBranchRef", {}).get("name")
+    except ValueError:
+        branch = None
+    if not branch:
+        raise TwError("blocked", "could not determine the default branch of %s" % repo)
+    rx = re.compile(r"(?<![0-9#])#%d(?![0-9])" % number)
+    for page in range(1, 11):
+        data = _gh_json(ctx, "api commits",
+                        ["api", "repos/%s/commits?sha=%s&per_page=100&page=%d"
+                         % (repo, branch, page)])
+        for commit in data:
+            if rx.search((commit.get("commit") or {}).get("message", "")):
+                return commit.get("sha")
+        if len(data) < 100:
+            break
+    return None
+
+
+def _referencing_merged_pr(ctx, repo, number):
+    data = _gh_json(ctx, "pr list",
+                    ["pr", "list", "-R", repo, "--state", "merged", "--limit", "100",
+                     "--json", "number,title,body"])
+    rx = re.compile(r"(?<![0-9#])#%d(?![0-9])" % number)
+    for pr in data:
+        if rx.search(pr.get("title") or "") or rx.search(pr.get("body") or ""):
+            return pr.get("number")
+    return None
+
+
+def cmd_close_github(ctx, ident):
+    ref, reason = _parse_close_args(ctx.args)
+    repo = ident["repo"]
+    _require_github(ctx, ident)
+    number = _parse_gh_ref(ref, repo)
+    cfg = _read_config(ident["root"])
+    item = _gh_view_issue(ctx, repo, number)
+    labels = _gh_label_names(item)
+    if (item.get("state") or "").upper() == "CLOSED":
+        evidence = {"check": "already-closed"}  # nothing to gate; no new mutation
+    else:
+        exempt = cfg.get("exempt_labels") or list(_DEFAULT_EXEMPT_LABELS)
+        matching = [l for l in exempt if l in labels]
+        if matching:
+            evidence = {"check": "exempt-label", "label": matching[0]}
+        else:
+            sha = _referencing_default_branch_commit(ctx, repo, number)
+            if sha:
+                evidence = {"check": "commit", "commit": sha}
+            else:
+                pr = _referencing_merged_pr(ctx, repo, number)
+                if pr is not None:
+                    evidence = {"check": "merged-pr", "pr": pr}
+                else:
+                    raise TwError("landed-evidence",
+                                  "no default-branch commit or merged PR references #%d in %s, "
+                                  "and the item carries no exempt label (%s)"
+                                  % (number, repo, ", ".join(exempt)))
+        argv = ["issue", "close", str(number), "-R", repo]
+        if reason is not None:
+            argv += ["--comment",
+                     _redact(reason, cfg.get("redaction") or {}, ident["root"])[0]]
+        rc, out, err = _gh(ctx, argv)
+        if rc != 0:
+            _gh_fail(ctx, "issue close", rc, out + err)
+        after = _gh_view_issue(ctx, repo, number)
+        if (after.get("state") or "").upper() != "CLOSED":
+            raise TwError("conflict", "read-back mismatch: issue %d still %r"
+                          % (number, after.get("state")))
+    return {"backend": "github", "repo": repo,
+            "item": {"number": number, "url": item.get("url")},
+            "evidence": evidence}
 
 
 if __name__ == "__main__":
