@@ -34,8 +34,7 @@ This is a sibling of **Orchestrate**, not a wrapper: Orchestrate decomposes one 
 Using the **track-work** skill (it auto-detects the backend in its Step 0), gather open items. Separate them into two lists:
 
 - **Work queue** — open, non-exempt items, sorted: `type:bug` first; then `priority` `p0 → p1 → p2 → p3`; then ease (small / labeled-effort before large; unlabeled last).
-  - **GitHub:** `gh issue list --state open --json number,title,labels,body` (via track-work).
-  - **File:** read `.agents/issues/README.md` (id/status/type/priority/title); `issue.sh show <ID>` for bodies when triage needs detail.
+  - **Both backends:** `python3 <track-work>/scripts/tw.py list --status open` (via the track-work CLI — one JSON envelope per repo, every GitHub call bound `-R` by the CLI; never ambient `gh`). Raw body reads when triage needs detail use the same skill's documented raw surface: `gh issue view <n> -R <repo>` / `issue.sh show <ID>`.
 - **Exempt-close batch** — `wontfix` and `duplicate` items already carrying the human-decision label; surfaced in the wizard for one-shot close. `duplicate` closes cross-link the canonical issue. (`status:blocked` and `invalid` are excluded entirely; they are not close candidates.)
 - **Decisions** — `type:decision` items go to neither list; they route to the rollup as human-triage items and are never auto-resolved or spec'd (unless decisions are explicitly in scope).
 

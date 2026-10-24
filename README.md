@@ -9,7 +9,7 @@ The workflows inline the discipline from the skills they depend on wherever an i
 **Requirements:**
 
 - **[RepoPrompt CE](https://github.com/repoprompt/repoprompt-ce)** (macOS today) to run the workflows — RPCE drives a backend CLI (Claude Code, Codex, opencode, or pi). RP Classic may work but is **untested**.
-- **bash** for the installer; **python3** for the hooks; **node** for the optional `sync-maintainability-review.mjs` sync script.
+- **bash** for the installer; **python3** for the hooks and the track-work CLI (`track-work/scripts/tw.py`); **node** for the optional `sync-maintainability-review.mjs` sync script.
 - The **Deep Plan** that `Loop`/`Backlog` consume ships with **RPCE core** — it is *not* in this repo.
 
 Workflows are macOS-only because RPCE is macOS-only today. Skills, slash commands, rules, and hooks are cross-platform (anywhere those CLIs and symlinks are supported).

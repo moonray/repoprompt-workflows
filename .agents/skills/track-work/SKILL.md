@@ -11,13 +11,33 @@ Every bug, feature, enhancement, or decision a repo works on is tracked as **one
 
 This is the entry gate: **no implementation, no spec edit, no test starts before the work has a tracking item** (or is confirmed to update an existing one).
 
+## The CLI is the mechanical executor
+
+Every mechanical operation runs through this skill's CLI; the prompt keeps the judgment (classification, signature dedup, triage, confirmations, what belongs in a body at all):
+
+```bash
+TW=<this-skill>/scripts/tw.py
+python3 "$TW" resolve                                            # envelope: backend, selected_by, repo|issues_dir, capability
+python3 "$TW" list [--status open|draft|..] [--label ..]         # items[] with id/title/status/labels/repo
+python3 "$TW" create --title .. --type bug --priority p1 [--label ..] [--body-file ..]
+python3 "$TW" status <ref> <draft|backlog|in-progress|review|blocked>
+python3 "$TW" close <ref> [--reason ..]
+python3 "$TW" migrate --to github|file [--status] [--retire-source]
+```
+
+- One JSON envelope per invocation (`ok`, `command`, `backend`, plus the result or a typed `error: {code, message}`); exit 0 success / 2 usage / 1 other failures. Consume the envelope — never screen-scrape.
+- `<ref>` is `owner/repo#N` or an issue URL on GitHub; `ISSUE-NNN` on the file backend.
+- The CLI owns the mechanics: identity resolution, `-R` binding on every repo-scoped call with wrong-repository read-back checks, deterministic redaction before staging, private (0600) body staging with guaranteed cleanup, label validation + one-operation cardinality transitions, landed-evidence checks on close, and journaled migrations.
+- Noninteractive callers (Backlog, workflows) pass `--noninteractive` (or `TW_NONINTERACTIVE=1`): confirmations and capability failures return `blocked` instead of prompting, with no mutation.
+- The file backend wraps `scripts/issue.sh` — ID allocation, locking, and atomic writes stay in the engine, which also remains directly usable.
+
 ## Workspace scope — multi-repo fan-out
 
 The ledger is per-repo, but questions often aren't. A workspace-level question — "what's open?", "list open issues by priority", "what should I work on next?" — spans **every repo in the workspace**: in RPCE, every loaded root that is a git repo (plus any repo the question names); elsewhere, every checkout the workspace covers. Answering it from the primary repo alone presents a partial list as complete, which is the one failure this section exists to prevent.
 
 - **Enumerate the repo set before querying any ledger.** The primary root or cwd is a routing default for repo-scoped commands, never the scope of a workspace-level question; only an explicit user narrowing ("just the website repo") reduces the set.
 - **Run backend selection (Step 0) and config discovery (Step 1) per repo** — one workspace can mix GitHub and file backends, each with its own labels and config.
-- **Bind every query to its repo** (`gh … -R owner/repo`; `issue.sh` inside that repo's tree) and aggregate into a single answer with each item labeled by repo (`owner/repo#123`, `<repo> #ID` for file backends) so a merged priority order stays unambiguous.
+- **Bind every query to its repo** — run `tw list` inside each repo's tree (the CLI binds every GitHub call `-R owner/repo`; ambient `GH_REPO` cannot redirect) and aggregate into a single answer with each item labeled by repo (`owner/repo#123`, `<repo> #ID` for file backends) so a merged priority order stays unambiguous.
 - **Report unreachable ledgers as gaps**, never silently omit them — a repo whose `gh` probes fail still appears in the answer as "unqueried (reason)".
 
 ## Step 0 — select the backend, then probe capability
@@ -29,20 +49,18 @@ Backend identity and current capability are separate. Select the ledger first:
 3. **File identity** — no origin, or a confirmed non-GitHub origin, selects the committed file backend. Read behavior-changing config from the trusted base; an unmerged config difference requires confirmation.
 4. **Rejected ≠ non-GitHub** — a GitHub-shaped origin that fails strict parsing (userinfo, lookalike host, ambiguity) is neither absent nor confirmed non-GitHub: stop before selecting a backend, report `origin-rejected(<reason>)` with the remediation (strip the userinfo from the remote URL, or pin `backend: github` + `github.repo` in config), and confirm the intended ledger before any write. Silently falling back to the file backend here is how a repo ends up with two live ledgers.
 
-After selecting GitHub, probe capability in order and retain the exact failing command/error class:
+After identity, capability is probed separately (gh presence, auth, repo view, Issues enabled) and reported in the envelope — it never changes the selected identity:
 
 ```bash
-command -v gh
-gh auth status
-gh repo view "$REPO" --json nameWithOwner,hasIssuesEnabled
+python3 "$TW" resolve
 ```
 
-- If all probes pass, `nameWithOwner` equals `$REPO`, and `hasIssuesEnabled` is true, proceed with GitHub. Retain `$REPO` and pass `-R "$REPO"` to every repository-scoped `gh` command; do not trust ambient `GH_REPO` or current-directory inference.
+- If the envelope reports `capability.ok`, proceed with GitHub — the CLI retains `$REPO` and binds `-R "$REPO"` to every repository-scoped call itself; ambient `GH_REPO` and working directory cannot redirect it.
 - If `gh` is missing, unauthenticated, network/API access fails, permissions are insufficient, or Issues are disabled, **stop before reading or writing either ledger**. Report `backend: github`, the identity evidence (`origin` or override), the failed probe, and remediation.
-- Offer retry/authentication/permission repair. For a GitHub-identified repo with existing issues, authoritative file mode requires a completed migration while GitHub is reachable; an outage may use only a clearly non-authoritative pending capture that Backlog cannot dispatch or close. That capture still goes through `issue.sh` (hand-written frontmatter once produced an invalid status — the helper's validation is the guard), carries a pending-mirror note, and the first successful GitHub operation mirrors it and cross-links; a fallback that outlives its outage is a second ledger.
+- Offer retry/authentication/permission repair. For a GitHub-identified repo with existing issues, authoritative file mode requires a completed migration while GitHub is reachable; an outage may use only a clearly non-authoritative pending capture that Backlog cannot dispatch or close. That capture still goes through the CLI's file backend (`TRACK_WORK_BACKEND=file` + `tw create`; the engine's frontmatter validation is the guard), carries a pending-mirror note, and the first successful GitHub operation mirrors it and cross-links; a fallback that outlives its outage is a second ledger.
 - Do not infer why an earlier run selected a backend from current state. State only observed evidence and clearly label any historical explanation as unverified.
 
-Every operation reports a compact diagnostic, for example: `backend=github; repo=owner/repo; selected_by=origin; capability=metadata-ready` or `capability=blocked(gh-auth)`. Capability is per operation, never cached: metadata success does not imply issue-write, label-admin, or Project access. Sanitize diagnostics before reporting.
+Every operation's envelope carries `backend`, `selected_by`, the normalized target, and `capability` (or the typed error) — report compactly from it, e.g. `backend=github; repo=owner/repo; selected_by=origin; capability=ok` or `capability=failed(gh-auth)`. Capability is per operation, never cached: metadata success does not imply issue-write, label-admin, or Project access. Sanitize what you add around the envelope before reporting.
 
 ## Step 1 — read repo conventions (cheap, capped)
 
@@ -178,20 +196,17 @@ gh label create -R "$REPO" status:blocked     --color B60205
 
 ### 2. Search before you create (avoid duplicates)
 ```bash
-gh issue list -R "$REPO" --state all --search "<keywords>" --json number,title,state,labels
+python3 "$TW" list --status open     # then judge matches against the item's review signature
 ```
 Search by the item's **review signature** (see *Triage — creation-time rules*), not loose keywords; if a match exists → update it (comment / relabel / reopen) instead of duplicating. Cross-link with `#<n>`.
 
 ### 3. Create the issue
-Apply labels from the repo's actual set (`gh label list -R "$REPO"`), honoring configured cardinality. Run deterministic redaction before writing. Use a private unique temp file, bind creation to `$REPO`, clean up on every exit, then read back the canonical URL (and confirm it is at `$REPO`).
+Compose the body from the template below, write it to a file, and hand it to the CLI — redaction (per config `redaction:`), private staging, `-R` binding, label validation against the repo's actual set, and the post-create read-back are the CLI's mechanics (the envelope reports the applied redaction classes; a wrong-repository read-back fails `wrong-repository`):
 ```bash
-umask 077
-BODY=$(mktemp "${TMPDIR:-/tmp}/track-work.XXXXXX") || exit 1
-trap 'rm -f "$BODY"' EXIT HUP INT TERM
-# Write the already-redacted body to "$BODY".
-URL=$(gh issue create -R "$REPO" --title "<imperative title, <=80 chars>" \
-  --label "type:bug,area:ui,priority:p1,status:draft" --body-file "$BODY")
-gh issue view "$URL" -R "$REPO" --json url
+BODY=$(mktemp "${TMPDIR:-/tmp}/track-work.XXXXXX")   # compose the body here
+python3 "$TW" create --title "<imperative title, <=80 chars>" \
+  --type bug --priority p1 [--label area:ui,..] --body-file "$BODY"
+rm -f "$BODY"
 ```
 
 ### 4. Link the detail files
@@ -207,23 +222,20 @@ Board ops need the `project` scope: `gh auth refresh -s project,read:project` (c
 
 ### 6. Implement, then verify-and-close
 - Run `spec-plan-readiness` before coding if a spec+plan exist; `spec-quality` when drafting spec changes; `test-quality` when adding the regression test.
-- Commit with the `commit` skill, referencing `#<issue>` in the message.
-- **Close** per the repo's close gate (below).
+- Commit with the `commit` skill, referencing `#<issue>` in the message — that reference is the CLI's landed-evidence anchor.
+- **Close** with `python3 "$TW" close owner/repo#N [--reason ..]` per the repo's close gate (below); the CLI verifies the evidence before mutating.
 
 ## File backend workflow (non-GitHub identity or confirmed override)
 
-Use this skill's helper for the fiddly parts (ID allocation + index sync):
+Mechanics go through the CLI (which wraps `scripts/issue.sh`); the engine stays directly usable for raw operations:
 ```bash
-bash <this-skill>/scripts/issue.sh new    "<title>" --type bug --priority p1 [--label x,y]
-bash <this-skill>/scripts/issue.sh list   [--status open]
-bash <this-skill>/scripts/issue.sh show   <ID>
-bash <this-skill>/scripts/issue.sh status <ID> <draft|backlog|in-progress|review|closed>
-bash <this-skill>/scripts/issue.sh block  <ID>
-bash <this-skill>/scripts/issue.sh unblock <ID> [prior-state]
-bash <this-skill>/scripts/issue.sh close  <ID>     # only after landed evidence is verified
-bash <this-skill>/scripts/issue.sh reopen <ID> [backlog]
+python3 "$TW" create --title "<title>" --type bug --priority p1 [--label x,y] [--body-file ..]
+python3 "$TW" list [--status open]
+python3 "$TW" status ISSUE-001 <draft|backlog|in-progress|review|blocked>   # close is a separate command
+python3 "$TW" close ISSUE-001 [--reason ..]                                 # verifies landed evidence first
+# engine-level (raw): issue.sh show/block/unblock/reopen — same validations, no envelope
 ```
-- Items live as `<issues_dir>/<ID>.md` with validated YAML frontmatter (`id`, `title`, `status`, `previous_status`, `type`, `priority`, `created`, `labels`). The helper confines a repo-relative non-symlink path, validates scalar inputs, serializes mutations with a lock, and atomically replaces items/indexes. **IDs are immutable**.
+- Items live as `<issues_dir>/<ID>.md` with validated YAML frontmatter (`id`, `title`, `status`, `previous_status`, `type`, `priority`, `created`, `labels`). The engine confines a repo-relative non-symlink path, validates scalar inputs, serializes mutations with a lock, and atomically replaces items/indexes. **IDs are immutable**.
 - A synced index table lives at `<issues_dir>/README.md`.
 - The issues dir is the **shared team backlog** — it is committed. If `git check-ignore <issues_dir>` says it is ignored, warn the user and fix it (gitignore negation like `!.agents/issues/`, or move the dir) before writing anything.
 - A status or item change commits the item **and** its synced index together — both or neither. Committing the item alone leaves a dirty index for the next session, and item and index drift.
@@ -232,11 +244,11 @@ bash <this-skill>/scripts/issue.sh reopen <ID> [backlog]
 
 Migration between backends is a separate, confirmed operation, not an automatic consequence of backend detection:
 
-1. While both ledgers are reachable, create and commit `docs/track-work-migrations/<timestamp>.md` before mutation. Record source revisions and one pending row per item; this journal is outside either ledger.
-2. Confirm migration, persistent override changes, and taxonomy creation. Backlog never initiates migration.
-3. Freeze or revision-check each source, search destination duplicates, and include `Migrated-from: <backend>:<ID>` as an idempotency marker. When rewriting in-body source-ID cross-references to destination `#<n>`s, scope the substitution to cross-reference lines — a global replace also rewrites the `Migrated-from:` marker itself, corrupting the idempotency trail.
-4. After each create, update the journal to `created`, read back title/body links/labels/state/repository, then mark `verified`.
-5. Ask separately before source retirement. Retire nothing until all rows verify; partial failure preserves sources and resumes from the journal without duplicate creation.
+1. Confirm migration, persistent override changes, and taxonomy creation first — Backlog never initiates migration, and an interactive `tw migrate` refuses without even creating a journal.
+2. Run the migration noninteractively once confirmed: `python3 "$TW" migrate --to github|file --noninteractive`. The CLI writes and commits `docs/track-work-migrations/<timestamp>.md` **before** any mutation, moves open items with `Migrated-from: <backend>:<ID>` idempotency markers (searching the destination before every create), advances rows `pending → created → verified` only on destination read-back, and leaves closed items in the source.
+3. Resume after partial failure by re-running the same command — verified rows are skipped, created rows re-checked via their marker, never re-created. `migrate --status` reports row states read-only.
+4. When rewriting in-body source-ID cross-references to destination `#<n>`s (your judgment, not the CLI's), scope the substitution to cross-reference lines — a global replace also rewrites the `Migrated-from:` marker itself, corrupting the idempotency trail.
+5. Ask separately before source retirement, then `python3 "$TW" migrate --to .. --retire-source --noninteractive` — it refuses unless every row is verified.
 
 ## Status lifecycle
 
@@ -254,7 +266,7 @@ draft → backlog → in-progress → review → CLOSE (done)
 
 An item is "done" **only when the change is verified and landed on the default branch** — a PR merged, or a trunk-based commit pushed to default and kept — never when code is merely local or sitting on an unmerged branch. (`review` is the step before: code posted for verification but not yet landed; don't conflate the two.)
 
-- Before close, verify the implementing commit is an ancestor of the selected repository's default branch (or the PR is merged there). Then close with `Fixes #N` / `Closes #N`; remove active `status:*` labels, update any configured terminal board state, and read back issue state/labels/board. For file backend, run `issue.sh close` only after the same landed-evidence check.
+- Close via `python3 "$TW" close <ref> [--reason ..]`: the CLI verifies the landed evidence (a digit-bounded `Fixes #N`/`Closes #N` referencing commit on the default branch, or a merged PR; `ISSUE-NNN`/`ISSUE-N` references on the file backend) or an exempt label before mutating, and reads closed state back. You still verify the change itself (tests, review) and update any configured terminal board state; the close comment names the locking test when one exists.
 - If `close_gate.enforcement` names a workflow (e.g. `issue-close-check.yml`), **do not** use `gh issue close` for a code fix — that workflow will reopen it. Close only via the referencing commit/PR.
 - Don't set `review` until the change is **posted for verification** (PR opened / branch pushed, or committed + pushed to default in a trunk flow) — not while it's only local. `done` (close) is the further gate: the change must have **landed on the default branch** (PR merged, or trunk commit verified + kept).
 - Name the locking test (under `close_gate.locking_test_dir`) in the close comment when one exists.
@@ -288,7 +300,7 @@ An item is "done" **only when the change is verified and landed on the default b
 
 ## Privacy / redaction before filing
 
-Before writing any temporary body or creating either backend item, run a deterministic preflight using `redaction` from config: resolve configured secret names to environment values without printing them; reject matching secret values, absolute home paths, and configured mirror destinations; sanitize CLI errors. If any match cannot be safely removed, stop rather than filing.
+`tw create` runs the deterministic preflight itself using `redaction` from config — configured secret values (resolved from the environment, never printed) and absolute local paths are replaced before the item exists on any backend, the envelope reports which redaction classes applied, and no unredacted staged copy survives the command. Your duties are the judgment around it: what belongs in a body at all, sanitizing anything you write *around* the envelope, and stopping rather than filing when content cannot be made safe.
 
 - **Secrets** (`secrets:` list — API keys, tokens) — values live only in gitignored `.env`.
 - **Absolute local paths** (`/Users/…`) → use repo-relative paths (when `redact_absolute_paths`).
@@ -313,7 +325,7 @@ Before writing any temporary body or creating either backend item, run a determi
 
 ## Multi-runtime discovery
 
-This skill uses POSIX `sh` for `issue.sh` and Bash 3.2+ for `place_on_board.sh`, plus `git`, `gh`, `jq`, `awk`, and `sed`. The global skill is auto-discovered by **Claude Code** (`~/.claude/skills/track-work`), **Codex** (`~/.agents/skills/track-work`), and **opencode** (`~/.agents/skills/track-work`) — all three resolve the same global symlink. If a runtime does *not* discover it, fall back to a project-local symlink:
+This skill uses `python3` for `tw.py` (the CLI), POSIX `sh` for `issue.sh` (the file engine it wraps) and `test_issue.sh`, Bash 3.2+ for `place_on_board.sh`, plus `git`, `gh`, `jq`, `awk`, and `sed`. The CLI's own suite is `test_tw.py` (`python3 -m unittest discover -s <this-skill>/scripts -p 'test_tw.py'`). The global skill is auto-discovered by **Claude Code** (`~/.claude/skills/track-work`), **Codex** (`~/.agents/skills/track-work`), and **opencode** (`~/.agents/skills/track-work`) — all three resolve the same global symlink. If a runtime does *not* discover it, fall back to a project-local symlink:
 ```bash
 mkdir -p .agents/skills && ln -sfn ~/.agents/skills/track-work .agents/skills/track-work
 ```
