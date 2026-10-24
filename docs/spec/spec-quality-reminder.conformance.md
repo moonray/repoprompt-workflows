@@ -1,9 +1,9 @@
 # Spec Conformance — Spec Quality Reminder Hook
 
 - **Spec:** `docs/spec/spec-quality-reminder.md` (Spec Quality Reminder Hook)
-- **Implementation:** `.agents/hooks/spec-quality-reminder.py` (+ unit suite `.agents/hooks/spec-quality-reminder.test.mjs`, 14 tests)
+- **Implementation:** `.agents/hooks/spec-quality-reminder.py` (+ unit suite `.agents/hooks/spec-quality-reminder.test.mjs`, 22 tests)
 - **Audited:** 2026-10-10 (re-audited after porting the rule-table rewrite; prior audit 2026-07-10 covered the single-class version)
-- **Method:** each Goal + scenario + Proposed Surface element mapped to its realization in the script; evidence = function / code branch; locking suite run green (`node --test`, 14/14).
+- **Method:** each Goal + scenario + Proposed Surface element mapped to its realization in the script; evidence = function / code branch; locking suite run green (`node --test`, 14/14 at the 2026-10-10 audit; 22/22 after the 2026-10-23 fixture hardening (#8) — suite-only, implementation rows unaffected).
 
 ## Matrix
 
@@ -13,7 +13,7 @@
 | G2 nudge the matching skill per path, aggregated into ONE reminder | Conformed | `main`: per-path `classify` hits appended when `text not in reminders`, emitted as one joined `additionalContext` |
 | G3 recognize paths across runtimes (scalar fields, list inputs, move pairs, apply_patch) | Conformed | `_paths_from_tool_input` (`scalar_keys` incl. `new_path`/`old_path`; `files`/`edits`/`paths` lists of strings or path-bearing dicts) + `_paths_from_patch` (`_PATCH_FILE_RE`) |
 | G4 suppress reminders for failed edits | Conformed | `_edit_succeeded` (`tool_response.is_error`/`error`/`status`) guard in `main` |
-| Editing a spec file nudges spec-quality | Conformed | `RULES[0]` + `classify` → SPEC QUALITY text (test: relative apply_patch body; absolute path) |
+| Editing a spec file nudges spec-quality | Conformed | `RULES[0]` + `classify` → SPEC QUALITY text (tests: absolute path via `path` field; apply_patch Add/Update body) |
 | Editing the spec index is ignored | Conformed | `_EXCLUDE_BASENAMES` basename check in `classify` |
 | Path outside every rule class is ignored | Conformed | `classify` returns `[]` when no rule matches |
 | Editing a plan nudges spec-plan-readiness (and only that class) | Conformed | `RULES[1]`; a `docs/plans/` path misses `RULES[0]`'s dir regex |
