@@ -81,7 +81,11 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
 - **T2 done** — skeleton, envelope/exit contract, 10 tests: `7108ca7`
 - **T3 done** — resolve (identity ladder, capability probes, 22 adversarial tests,
   32/32 total): `2ee9b64`
-- **T4 next** — file backend over `issue.sh` + redaction + close landed-evidence.
+- **T4 done** — file backend over `issue.sh` (create/list/status/close, redaction,
+  S-037 file half, S-038 file half; engine gained `new --body-file` + `mkdir -p`
+  race fix; 63/63, all four new guards mutation-verified): `fbe64f2`
+- **T5 next** — GitHub backend commands (bound `-R`, cardinality transitions,
+  wrong-repository, close ancestry).
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
@@ -96,6 +100,15 @@ Operational notes for the implementing session (lessons already paid for):
 - Verification loop: `python3 -m unittest discover -s .agents/skills/track-work/scripts
   -p 'test_tw.py'` → `sh .agents/skills/track-work/scripts/test_issue.sh` →
   `node --test .agents/hooks/*.test.mjs` (all green before commit).
+- Mutation-verify with `… discover -s … -k <test_name>` — running
+  `python3 -m unittest test_tw.Class.test` from the repo root import-fails
+  (ModuleNotFoundError) and every mutation "kills" vacuously; that is not
+  verification. Always inspect the failure is the intended assertion.
+- `apply_edits` intermittently fails `ownershipLost` on this repo; the working
+  fallback is a Bash python exact-replace with `assert count == 1` guards.
+- macOS fixtures: the canonical repo root is `/private/var/...` while
+  `tempfile` hands back `/var/...` — derive fixture repo-root paths via
+  `git rev-parse --show-toplevel` when testing repo-root stripping.
 
 ## First safe task
 
