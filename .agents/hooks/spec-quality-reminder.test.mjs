@@ -27,13 +27,14 @@ const edit = (tool_input, tool_response) => ({
   ...(tool_response !== undefined ? { tool_response } : {}),
 });
 
-test("spec edit (relative apply_patch body) -> SPEC QUALITY reminder", () => {
-  const c = edit({ command: "*** Begin Patch\n*** Add File: docs/spec/foo.md\n+x" });
-  assert.match(run(c), /SPEC QUALITY/);
-});
-
 test("absolute path under docs/spec via path field -> SPEC QUALITY reminder", () => {
   assert.match(run(edit({ path: "/Users/agent/work/project/docs/spec/foo.md" })), /SPEC QUALITY/);
+});
+
+test("backslash-separated paths are normalized before classification", () => {
+  // Defect this guards: deleting the '\'->'/' normalization (as seemingly dead code)
+  // would silently drop Windows-shaped payload paths from every rule.
+  assert.match(run(edit({ path: "docs\\spec\\win.md" })), /SPEC QUALITY/);
 });
 
 test("plan edit -> PLAN READINESS reminder (and only that class)", () => {
@@ -47,9 +48,26 @@ test("nested SKILL.md (group/audit depth) -> SKILL STANDARDS reminder", () => {
   assert.match(run(edit({ path: ".agents/skills/group-a/audit/SKILL.md" })), /SKILL STANDARDS/);
 });
 
-test("file_actions move: new_path AND old_path are both inspected", () => {
+test("file_actions move: destination in scalar new_path is inspected", () => {
   // Defect this guards: a move INTO docs/spec whose destination lives in new_path only.
   assert.match(run(edit({ action: "move", path: "docs/old.md", new_path: "docs/spec/moved.md" })), /SPEC QUALITY/);
+});
+
+test("file_actions move: source in scalar old_path is inspected", () => {
+  // Defect this guards: dropping old_path from the scalar key tuple would let a move
+  // OUT of docs/spec (removing the spec file) escape the reminder.
+  assert.match(run(edit({ action: "move", old_path: "docs/spec/original.md", new_path: "docs/elsewhere.md" })), /SPEC QUALITY/);
+});
+
+test("batched edits: move pairs inside list entries carry new_path/old_path sub-keys", () => {
+  // Defect this guards: the sub-key tuple inside list entries losing new_path/old_path
+  // (e.g. reduced back to path/file_path) would let batched moves into or out of
+  // docs/spec escape the reminder while scalar-key moves stay covered.
+  const c = run(edit({ edits: [
+    { old_path: "docs/spec/source-of-move.md", new_path: "docs/dest.md" },
+    { new_path: "docs/spec/via-subkey.md" },
+  ] }));
+  assert.match(c, /SPEC QUALITY/);
 });
 
 test("batched edits: every file in the edits array is classified, one bad entry is not fatal", () => {
@@ -125,12 +143,15 @@ test("negative: non-PostToolUse events are ignored", () => {
 // Claude Code (MCP + native), Codex, and opencode without breaking any of them.
 
 test("codex shape: apply_patch command body + tool_name apply_patch -> SPEC QUALITY", () => {
-  // Codex delivers edits as a patch command; payload is otherwise Claude-compatible.
+  // The single patch-command extractor test (Codex/opencode deliver edits as a patch
+  // command with no path field); it carries the Add alternative — Update/Move-to and
+  // Delete have their own tests below, and per-runtime duplicates belong to the e2e
+  // probe, not here.
   const c = run({
     hook_event_name: "PostToolUse",
     tool_name: "apply_patch",
     tool_input: {
-      command: "*** Begin Patch\n*** Update File: docs/spec/codex.md\n@@\n-x\n+y",
+      command: "*** Begin Patch\n*** Add File: docs/spec/codex.md\n+x",
     },
   });
   assert.match(c, /SPEC QUALITY/);
