@@ -89,7 +89,12 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
   evidence via default-branch commit / merged PR; stateful gh double; 84/84,
   four guards mutation-verified, live read-only `tw list` against the real
   repo): `b82903e`
-- **T6 next** — migrate (journal, resume, retirement gating).
+- **T6 done** — migrate (committed journal before mutation, marker-idempotent
+  resume, retirement gating, readonly --status, open-only source set, S-026
+  birth states; 93/93, guards mutation-verified incl. re-targeting M1 at the
+  dedup test; envelope catch-all for internal errors): `105c9ed`
+- **T7 next** — integration flip (SKILL.md, Backlog.md, READMEs, conformance
+  matrix S-033–S-040 + G6/S-024 repair).
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
