@@ -13,10 +13,8 @@ would require a confirmation or hits a failed capability probe returns error.cod
 Test seam: --gh <path> overrides the gh executable (used by the adversarial suite;
 identity never derives from probe outcomes, S-034).
 
-Status: T5 — GitHub backend commands (create/list/status/close) with bound -R
-per call, URL-read-back wrong-repository checks, label discovery + cardinality
-transitions (S-037 GitHub half), close evidence via default-branch commit or
-merged PR (S-038 GitHub half). migrate lands in T6 (docs/plans/track-work-cli.md).
+Status: T6 — all six commands implemented (migrate last: journaled, resumable,
+retirement-gated). Conformance flip lands in T7 (docs/plans/track-work-cli.md).
 """
 import json
 import os
@@ -349,7 +347,7 @@ def dispatch(ctx):
     if ctx.command == "resolve":
         return cmd_resolve(ctx)
     if ctx.command == "migrate":
-        raise TwError("blocked", "migrate is not implemented yet (lands in T6)")
+        return cmd_migrate(ctx)
     ident = _resolve_identity(ctx)
     handlers = {"file": {"list": cmd_list_file, "create": cmd_create_file,
                          "status": cmd_status_file, "close": cmd_close_file},
@@ -379,6 +377,14 @@ def main(argv):
         code = 2
     except TwError as e:
         env = envelope(False, command, error=e, noninteractive=noninteractive)
+        code = 1
+    except Exception as e:  # never break the one-envelope contract (S-033)
+        import traceback
+        traceback.print_exc()
+        env = envelope(False, command,
+                       error=TwError("blocked", "internal error: %s: %s"
+                                     % (type(e).__name__, e)),
+                       noninteractive=noninteractive)
         code = 1
     print(json.dumps(env))
     return code
@@ -1118,6 +1124,380 @@ def cmd_close_github(ctx, ident):
     return {"backend": "github", "repo": repo,
             "item": {"number": number, "url": item.get("url")},
             "evidence": evidence}
+
+# ---------------------------------------------------------------- T6: migrate
+# S-014/S-040: a committed journal outside both ledgers precedes any mutation;
+# rows advance pending -> created -> verified only on destination read-back;
+# Migrated-from markers make every create idempotent; retirement is a separate
+# confirmed step and never rides an incomplete migration. Destination items are
+# born draft (S-026) — source status labels never migrate; source status is
+# recorded in the row note instead.
+
+_JOURNAL_DIR = os.path.join("docs", "track-work-migrations")
+_MIGRATED_FROM = "Migrated-from: %s:%s"
+
+
+def _marker(source_backend, source_id):
+    return _MIGRATED_FROM % (source_backend, source_id)
+
+
+def _journal_files(root):
+    directory = os.path.join(root, _JOURNAL_DIR)
+    if not os.path.isdir(directory):
+        return []
+    return sorted(f for f in os.listdir(directory) if f.endswith(".md"))
+
+
+def _parse_journal(path):
+    """Parse a journal file into (header dict, rows list of dicts)."""
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    header = {}
+    rows = []
+    in_table = False
+    for line in lines:
+        if line.startswith("| ") and not line.startswith("| source"):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if len(cells) == 4:
+                rows.append({"source": cells[0], "state": cells[1],
+                             "destination": cells[2], "note": cells[3]})
+                in_table = True
+            continue
+        if not in_table:
+            key, sep, value = line.partition(":")
+            if sep and not line.startswith("#"):
+                header.setdefault(key.strip(), value.strip())
+    return header, rows
+
+
+def _write_journal(path, header, rows):
+    lines = ["# Track-work migration journal",
+             "",
+             "created: %(created)s" % header,
+             "source: %(source)s" % header,
+             "source_revision: %(source_revision)s" % header,
+             "destination: %(destination)s" % header,
+             "status: %(status)s" % header,
+             "",
+             "## Rows",
+             "",
+             "| source | state | destination | note |",
+             "|----|-------|-------------|------|"]
+    for row in rows:
+        lines.append("| %s | %s | %s | %s |" % (
+            row["source"], row["state"], row.get("destination", ""),
+            row.get("note", "").replace("|", "\\|")))
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(tmp, path)
+
+
+def _commit_path(root, rel_path, message):
+    rc, _ = _git(["add", "--", rel_path], cwd=root)
+    if rc != 0:
+        raise TwError("blocked", "journal write failed: git add %s" % rel_path)
+    rc, out = _git(["commit", "-m", message, "--", rel_path], cwd=root)
+    if rc != 0:
+        raise TwError("blocked", "journal commit failed: %s" % out)
+
+
+def _migrate_source_items_file(ctx, ident):
+    """Open file-backend items: (id, title, status, labels, body)."""
+    out = _run_issue(ident, ["list", "--status", "open"])
+    items = []
+    for line in out.splitlines():
+        if not line:
+            continue
+        parts = line.split("\t", 2)
+        if len(parts) != 3:
+            continue
+        item = _show_item(ident, parts[0])
+        items.append({"id": parts[0], "title": parts[2], "status": parts[1],
+                      "labels": item.get("labels", []), "body": item.get("_body", "")})
+    return items
+
+
+def _migrate_source_items_github(ctx, ident):
+    """Open GitHub items with bodies: (number, title, status, labels, body)."""
+    repo = ident["repo"]
+    data = _gh_json(ctx, "issue list",
+                    ["issue", "list", "-R", repo, "--state", "open", "--limit", "200",
+                     "--json", "number,title,state,labels,body"])
+    items = []
+    for issue in data:
+        items.append({"id": issue.get("number"), "title": issue.get("title", ""),
+                      "status": _derive_gh_status(issue.get("state"),
+                                                  _gh_label_names(issue)),
+                      "labels": _gh_label_names(issue),
+                      "body": issue.get("body", "") or ""})
+    return items
+
+
+def _migrate_dest_search_file(ctx, ident, marker):
+    """Existing destination item already carrying the marker, else None."""
+    out = _run_issue(ident, ["list"])
+    for line in out.splitlines():
+        if not line:
+            continue
+        item_id = line.split("\t", 2)[0]
+        if marker in _show_item(ident, item_id).get("_body", ""):
+            return item_id
+    return None
+
+
+def _migrate_dest_search_github(ctx, repo, marker):
+    data = _gh_json(ctx, "issue list",
+                    ["issue", "list", "-R", repo, "--state", "all", "--limit", "200",
+                     "--json", "number,title,body"])
+    for issue in data:
+        if marker in (issue.get("body") or ""):
+            return issue.get("number")
+    return None
+
+
+def _migrate_create_file(ctx, ident, item, marker, cfg):
+    """Create one destination file item; returns (dest_id, skipped_labels)."""
+    labels = [l for l in item["labels"]
+              if not l.startswith("status:") and not l.startswith("wontfix")]
+    keep = []
+    skipped = []
+    for label in labels:
+        try:
+            _validate_file_labels([label] + keep, cfg)
+        except TwError:
+            skipped.append(label)
+            continue
+        keep.append(label)
+    type_ = next((l.partition(":")[2] for l in keep if l.startswith("type:")), "bug")
+    priority = next((l.partition(":")[2] for l in keep if l.startswith("priority:")), "p2")
+    extra = [l for l in keep if not l.startswith("type:") and not l.startswith("priority:")]
+    red = cfg.get("redaction") or {}
+    body, _ = _redact("%s\n%s\n" % (item["body"], marker), red, ident["root"])
+    title, _ = _redact(item["title"], red, ident["root"])
+    body_path = _stage_body(body)
+    try:
+        out = _run_issue(ident, ["new", title, "--type", type_, "--priority", priority,
+                                 "--label", ",".join(extra) if extra else "",
+                                 "--body-file", body_path])
+    finally:
+        try:
+            os.unlink(body_path)
+        except OSError:
+            pass
+    m = re.search(r"ISSUE-[0-9]+", out)
+    if not m:
+        raise TwError("conflict", "engine output did not name the migrated item: %r" % out.strip())
+    return m.group(0), skipped
+
+
+def _migrate_create_github(ctx, root, repo, item, marker, cfg, repo_labels):
+    """Create one destination GitHub issue; returns (number, skipped_labels)."""
+    wanted = [l for l in item["labels"]
+              if not l.startswith("status:") and l in repo_labels]
+    skipped = [l for l in item["labels"]
+               if not l.startswith("status:") and l not in repo_labels]
+    red = cfg.get("redaction") or {}
+    body, _ = _redact("%s\n%s\n" % (item["body"], marker), red, root)
+    title, _ = _redact(item["title"], red, root)
+    body_path = _stage_body(body)
+    try:
+        argv = ["issue", "create", "-R", repo, "--title", title,
+                "--body-file", body_path]
+        for label in wanted:
+            argv += ["--label", label]
+        rc, out, err = _gh(ctx, argv)
+    finally:
+        try:
+            os.unlink(body_path)
+        except OSError:
+            pass
+    if rc != 0:
+        _gh_fail(ctx, "issue create", rc, out + err)
+    url_lines = [l.strip() for l in out.strip().splitlines() if l.strip()]
+    m = re.search(r"/issues/([0-9]+)$", url_lines[-1]) if url_lines else None
+    if not m:
+        raise TwError("conflict", "gh issue create did not return an issue url: %r" % out.strip())
+    return int(m.group(1)), skipped
+
+
+def _migrate_verify_file(ctx, ident, dest_id, item, marker):
+    got = _show_item(ident, dest_id)
+    return marker in got.get("_body", "") and got.get("title") == item["title"]
+
+
+def _migrate_verify_github(ctx, repo, dest_id, item, marker):
+    data = _gh_json(ctx, "issue view",
+                    ["issue", "view", str(dest_id), "-R", repo, "--json", "title,body"])
+    return marker in (data.get("body") or "") and data.get("title") == item["title"]
+
+
+def cmd_migrate(ctx):
+    dest = None
+    status_only = False
+    retire = False
+    i = 0
+    while i < len(ctx.args):
+        a = ctx.args[i]
+        if a == "--status":
+            status_only = True
+            i += 1
+        elif a == "--retire-source":
+            retire = True
+            i += 1
+        elif a == "--to":
+            if i + 1 >= len(ctx.args):
+                raise UsageError("--to requires a value (github|file)")
+            dest = ctx.args[i + 1]
+            i += 2
+        else:
+            raise UsageError("unknown argument for migrate: %s" % a)
+    ident = _resolve_identity(ctx)
+    source = ident["backend"]
+
+    if status_only:
+        files = _journal_files(ident["root"])
+        if not files:
+            return {"backend": source, "migrate": {"journal": None, "rows": [],
+                                                   "status": "none"}}
+        path = os.path.join(ident["root"], _JOURNAL_DIR, files[-1])
+        header, rows = _parse_journal(path)
+        return {"backend": source,
+                "migrate": {"journal": os.path.join(_JOURNAL_DIR, files[-1]),
+                            "rows": rows, "status": header.get("status", "unknown")}}
+
+    if dest not in ("github", "file"):
+        raise UsageError("migrate requires --to github|file")
+    if dest == source:
+        raise UsageError("migrate --to %s: this repository already resolves to %s"
+                         % (dest, dest))
+    if not ctx.noninteractive:
+        raise TwError("blocked",
+                      "migration requires caller-collected confirmation — preflight "
+                      "and rerun with --noninteractive (S-019); no journal written")
+    cfg = _read_config(ident["root"])
+
+    # Destination identity + capability for the github side of either direction.
+    dest_repo = None
+    repo_labels = None
+    if dest == "github":
+        dest_repo = cfg.get("github_repo", "")
+        if not dest_repo or not _GITHUB_OWNER_REPO.match(dest_repo):
+            raise UsageError("migrate --to github requires github.repo (owner/repo) "
+                             "in .agents/track-work.config.md")
+        cap = _probe_capability(ctx, dest_repo)
+        if not cap["ok"]:
+            _capability_stop(ctx, cap)
+        repo_labels = _gh_labels(ctx, dest_repo)
+    if source == "github":
+        cap = _probe_capability(ctx, ident["repo"])
+        if not cap["ok"]:
+            _capability_stop(ctx, cap)
+
+    # Find a resumable journal for this direction, else create (and commit) one
+    # before any mutation (S-014).
+    journal_rel = None
+    rows = None
+    header = None
+    for name in reversed(_journal_files(ident["root"])):
+        path = os.path.join(ident["root"], _JOURNAL_DIR, name)
+        h, r = _parse_journal(path)
+        if h.get("source") == source and h.get("destination") == dest \
+                and h.get("status") != "complete":
+            journal_rel = os.path.join(_JOURNAL_DIR, name)
+            header, rows = h, r
+            break
+    source_items = None
+    if rows is None:
+        if source == "github":
+            source_items = _migrate_source_items_github(ctx, ident)
+            revision = "github:%s (open issues: %d)" % (ident["repo"], len(source_items))
+        else:
+            source_items = _migrate_source_items_file(ctx, ident)
+            rc, sha = _git(["rev-parse", "HEAD"], cwd=ident["root"])
+            revision = "file@%s" % (sha if rc == 0 else "unknown")
+        import datetime
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        journal_rel = os.path.join(_JOURNAL_DIR, "%s.md" % stamp)
+        header = {"created": stamp, "source": source, "source_revision": revision,
+                  "destination": dest, "status": "in-progress"}
+        rows = [{"source": it["id"], "state": "pending", "destination": "",
+                 "note": "src-status: %s" % it["status"]} for it in source_items]
+        os.makedirs(os.path.join(ident["root"], _JOURNAL_DIR), exist_ok=True)
+        _write_journal(os.path.join(ident["root"], journal_rel), header, rows)
+        _commit_path(ident["root"], journal_rel,
+                     "track-work: migration journal %s (%s -> %s)" % (stamp, source, dest))
+
+    if retire:
+        if not rows or any(r["state"] != "verified" for r in rows):
+            raise TwError("blocked",
+                          "source retirement requires every journal row verified; "
+                          "current states: %s" % ", ".join(sorted(set(r["state"] for r in rows)) or ["none"]))
+        for row in rows:
+            if source == "github":
+                rc, out, err = _gh(ctx, ["issue", "close", str(row["source"]), "-R",
+                                         ident["repo"], "--comment",
+                                         "Migrated-to: %s ledger (%s)" % (dest, row.get("destination", ""))])
+                if rc != 0:
+                    _gh_fail(ctx, "issue close (retire)", rc, out + err)
+            else:
+                _run_issue(ident, ["status", row["source"], "closed"])
+        header["status"] = "complete"
+        _write_journal(os.path.join(ident["root"], journal_rel), header, rows)
+        _commit_path(ident["root"], journal_rel, "track-work: source retired (%s -> %s)" % (source, dest))
+        return {"backend": source, "migrate": {"journal": journal_rel, "rows": rows,
+                                               "retired": True}}
+
+    if source_items is None:  # resuming — re-read the source for pending rows
+        source_items = (_migrate_source_items_github(ctx, ident) if source == "github"
+                        else _migrate_source_items_file(ctx, ident))
+    by_id = {it["id"]: it for it in source_items}
+
+    for row in rows:
+        if row["state"] == "verified":
+            continue  # S-040: already-verified rows are skipped, never re-created
+        item = by_id.get(row["source"])
+        if item is None:
+            row["state"] = "verified"  # source item no longer open: nothing to move
+            row["note"] += "; source-no-longer-open"
+            _write_journal(os.path.join(ident["root"], journal_rel), header, rows)
+            continue
+        marker = _marker(source, item["id"])
+        if dest == "github":
+            existing = _migrate_dest_search_github(ctx, dest_repo, marker)
+            if existing is not None:
+                row["state"], row["destination"] = "created", str(existing)
+            elif row["state"] == "pending":
+                number, skipped = _migrate_create_github(ctx, ident["root"], dest_repo,
+                                                         item, marker, cfg, repo_labels)
+                row["state"], row["destination"] = "created", str(number)
+                if skipped:
+                    row["note"] += "; skipped-labels: %s" % ",".join(skipped)
+            # a 'created' row the marker search cannot find is re-CHECKED only —
+            # never re-created (S-040); verification below fails loudly if stale.
+            if _migrate_verify_github(ctx, dest_repo, int(row["destination"]), item, marker):
+                row["state"] = "verified"
+        else:
+            existing = _migrate_dest_search_file(ctx, ident, marker)
+            if existing is not None:
+                row["state"], row["destination"] = "created", existing
+            elif row["state"] == "pending":
+                dest_id, skipped = _migrate_create_file(ctx, ident, item, marker, cfg)
+                row["state"], row["destination"] = "created", dest_id
+                if skipped:
+                    row["note"] += "; skipped-labels: %s" % ",".join(skipped)
+            if _migrate_verify_file(ctx, ident, row["destination"], item, marker):
+                row["state"] = "verified"
+        _write_journal(os.path.join(ident["root"], journal_rel), header, rows)
+
+    all_verified = all(r["state"] == "verified" for r in rows)
+    if all_verified:
+        header["status"] = "verified"
+        _write_journal(os.path.join(ident["root"], journal_rel), header, rows)
+        _commit_path(ident["root"], journal_rel,
+                     "track-work: migration verified (%s -> %s)" % (source, dest))
+    return {"backend": source, "migrate": {"journal": journal_rel, "rows": rows,
+                                           "retired": False}}
 
 
 if __name__ == "__main__":

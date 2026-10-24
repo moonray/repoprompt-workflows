@@ -103,9 +103,9 @@ class TestSkeletonStubs(unittest.TestCase):
                     self.assertFalse(env["ok"])
                     self.assertEqual(env["command"], command)
                     self.assertEqual(env["error"]["code"], "blocked")
-        code, env, _, _ = run_tw("migrate")
-        self.assertEqual(code, 1)
-        self.assertEqual(env["error"]["code"], "blocked")
+        code, env, _, _ = run_tw("migrate")  # implemented (T6): bare call is usage
+        self.assertEqual(code, 2)
+        self.assertEqual(env["error"]["code"], "usage")
 
     def test_global_flags_accepted_without_changing_stub_contract(self):
         code, env, _, _ = run_tw("--gh", "/nonexistent/gh", "--noninteractive", "list")
@@ -903,7 +903,12 @@ if cmd == ["label", "list"]:
     print(json.dumps([{"name": n} for n in state.get("labels", [])]))
     sys.exit(0)
 if cmd == ["issue", "list"]:
-    print(json.dumps(state.get("issues", [])))
+    issues = state.get("issues", [])
+    if "--state" in args:
+        want = args[args.index("--state") + 1]
+        if want == "open":
+            issues = [i for i in issues if i["state"] != "CLOSED"]
+    print(json.dumps(issues))
     sys.exit(0)
 if cmd == ["issue", "create"]:
     title = ""
@@ -1319,3 +1324,214 @@ class TestGithubBodies(GithubBackendFixture):
                   if "--body-file" in l]
         for path in staged:  # every staged temp file was cleaned up
             self.assertFalse(os.path.exists(path))
+
+
+
+# ---------------------------------------------------------------- T6: migrate
+
+class TestMigrate(GithubBackendFixture):
+    """S-014 mechanics + S-040: journaled before mutation, resumable without
+    duplicates, retirement gated on fully-verified rows."""
+
+    def make_file_ledger(self, titles=("First bug", "Second bug", "Third bug")):
+        """A file-backend repo (no origin) whose config pins the github target."""
+        import shutil
+        import tempfile
+        root = self.make_repo(config_yaml="github:\n  repo: acme/widgets\n")
+        for title in titles:
+            run_tw("create", "--title", title, "--type", "bug",
+                   "--priority", "p1", cwd=root)
+        d = tempfile.mkdtemp(prefix="tw-t6-shim-")
+        self.addCleanup(shutil.rmtree, d, True)
+        shim, state_path, _log = write_gh_state_shim(d, labels=list(self.DEFAULT_LABELS))
+        return root, shim, state_path
+
+    def journal(self, root):
+        directory = os.path.join(root, "docs/track-work-migrations")
+        files = sorted(f for f in os.listdir(directory) if f.endswith(".md"))
+        self.assertEqual(len(files), 1, files)
+        with open(os.path.join(directory, files[0]), encoding="utf-8") as f:
+            return files[0], f.read()
+
+    def write_journal(self, root, body):
+        directory = os.path.join(root, "docs/track-work-migrations")
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, "20260101T000000Z.md"), "w", encoding="utf-8") as f:
+            f.write(body)
+
+    def journal_log(self, root):
+        return subprocess.run(["git", "-C", root, "log", "--oneline", "--",
+                               "docs/track-work-migrations"],
+                              capture_output=True, text=True).stdout
+
+    def test_interactive_migrate_blocks_without_journal(self):
+        # S-019: confirmation is caller-collected; an interactive migrate must
+        # not even create the journal.
+        root, _shim, _state = self.make_file_ledger(("One",))
+        code, env, _, _ = run_tw("migrate", "--to", "github", cwd=root)
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
+        self.assertIn("noninteractive", env["error"]["message"])
+        self.assertFalse(os.path.exists(os.path.join(root, "docs")))
+
+    def test_same_backend_migrate_is_usage(self):
+        root, _shim, _state = self.make_file_ledger(("One",))
+        code, env, _, _ = run_tw("--noninteractive", "migrate", "--to", "file", cwd=root)
+        self.assertEqual(code, 2)
+        self.assertEqual(env["error"]["code"], "usage")
+
+    def test_file_to_github_journals_commits_then_verifies(self):
+        # Defect this guards: destination mutations before a committed journal
+        # exists — an unrecorded migration can neither resume nor retire.
+        root, shim, state_path = self.make_file_ledger(("First bug", "Second bug"))
+        code, env, out, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                   "--to", "github", cwd=root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual([r["state"] for r in env["migrate"]["rows"]],
+                         ["verified", "verified"])
+        name, body = self.journal(root)
+        self.assertIn("source: file", body)
+        self.assertIn("destination: github", body)
+        self.assertIn("migration journal", self.journal_log(root))  # committed
+        state = json.load(open(state_path))
+        self.assertEqual(len(state["issues"]), 2)
+        for issue, src in zip(state["issues"], ("ISSUE-001", "ISSUE-002")):
+            self.assertIn("Migrated-from: file:%s" % src, issue["body"])
+        for src in ("ISSUE-001", "ISSUE-002"):  # sources untouched until retirement
+            with open(os.path.join(root, ".agents/issues/%s.md" % src)) as f:
+                self.assertIn("status: draft", f.read())
+
+    def test_github_to_file_migrates_open_items_with_markers(self):
+        # Closed items stay in the source ledger; open ones move with markers.
+        root, shim, state_path, _ = self.make_gh_repo(
+            issues=[{"number": 1, "title": "Open one", "state": "OPEN",
+                     "labels": [{"name": "type:bug"}, {"name": "priority:p1"}],
+                     "body": "the body", 
+                     "url": "https://github.com/acme/widgets/issues/1"},
+                    {"number": 2, "title": "Closed one", "state": "CLOSED",
+                     "labels": [{"name": "type:bug"}],
+                     "body": "done", 
+                     "url": "https://github.com/acme/widgets/issues/2"}])
+        code, env, out, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                   "--to", "file", cwd=root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual([r["source"] for r in env["migrate"]["rows"]], [1])
+        with open(os.path.join(root, ".agents/issues/ISSUE-001.md")) as f:
+            text = f.read()
+        self.assertIn("Migrated-from: github:1", text)
+        self.assertIn('title: "Open one"', text)
+        self.assertFalse(os.path.exists(os.path.join(root, ".agents/issues/ISSUE-002.md")))
+
+    def test_resume_skips_verified_rechecks_created_never_duplicates(self):
+        # S-040: verified rows skipped; created rows re-checked via marker only;
+        # only the pending row creates — no duplicates after a partial run.
+        root, shim, state_path = self.make_file_ledger(("First bug", "Second bug", "Third bug"))
+        with open(state_path, "w") as f:  # destination holds rows 1+2 already
+            json.dump({"labels": list(self.DEFAULT_LABELS),
+                       "next_number": 3,
+                       "issues": [
+                           {"number": 1, "title": "First bug", "state": "OPEN",
+                            "labels": [], "body": "x\nMigrated-from: file:ISSUE-001\n",
+                            "url": "https://github.com/acme/widgets/issues/1"},
+                           {"number": 2, "title": "Second bug", "state": "OPEN",
+                            "labels": [], "body": "x\nMigrated-from: file:ISSUE-002\n",
+                            "url": "https://github.com/acme/widgets/issues/2"}],
+                       "prs": [], "commits": [], "auth_rc": 0,
+                       "issues_enabled": True, "default_branch": "main",
+                       "wrong_repo": False}, f)
+        self.write_journal(root, """# Track-work migration journal
+
+created: 20260101T000000Z
+source: file
+source_revision: file@test
+destination: github
+status: in-progress
+
+## Rows
+
+| source | state | destination | note |
+|----|-------|-------------|------|
+| ISSUE-001 | verified | 1 | src-status: draft |
+| ISSUE-002 | created | 2 | src-status: draft |
+| ISSUE-003 | pending | | src-status: draft |
+""")
+        code, env, out, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                   "--to", "github", cwd=root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual([r["state"] for r in env["migrate"]["rows"]],
+                         ["verified", "verified", "verified"])
+        self.assertEqual(env["migrate"]["rows"][1]["destination"], "2")
+        with open(state_path) as f:
+            state = json.load(f)
+        self.assertEqual(len(state["issues"]), 3)  # exactly one new create
+        self.assertIn("Migrated-from: file:ISSUE-003",
+                      state["issues"][2]["body"])
+
+    def test_marker_already_in_destination_prevents_create(self):
+        # S-006/S-014 dual-ledger prevention: a pre-existing marker match means
+        # the row adopts that item instead of creating a duplicate.
+        root, shim, state_path = self.make_file_ledger(("First bug",))
+        with open(state_path, "w") as f:
+            json.dump({"labels": list(self.DEFAULT_LABELS), "next_number": 2,
+                       "issues": [{"number": 7, "title": "First bug", "state": "OPEN",
+                                   "labels": [], "body": "Migrated-from: file:ISSUE-001",
+                                   "url": "https://github.com/acme/widgets/issues/7"}],
+                       "prs": [], "commits": [], "auth_rc": 0,
+                       "issues_enabled": True, "default_branch": "main",
+                       "wrong_repo": False}, f)
+        code, env, out, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                   "--to", "github", cwd=root)
+        self.assertEqual(code, 0, out)
+        with open(state_path) as f:
+            self.assertEqual(len(json.load(f)["issues"]), 1)  # nothing created
+        self.assertEqual(env["migrate"]["rows"][0]["destination"], "7")
+
+    def test_retire_refuses_unless_all_rows_verified(self):
+        root, shim, state_path = self.make_file_ledger(("First bug", "Second bug"))
+        self.write_journal(root, """# Track-work migration journal
+
+created: 20260101T000000Z
+source: file
+source_revision: file@test
+destination: github
+status: in-progress
+
+## Rows
+
+| source | state | destination | note |
+|----|-------|-------------|------|
+| ISSUE-001 | verified | 1 | src-status: draft |
+| ISSUE-002 | pending | | src-status: draft |
+""")
+        code, env, _, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                 "--to", "github", "--retire-source", cwd=root)
+        self.assertEqual(code, 1)
+        self.assertEqual(env["error"]["code"], "blocked")
+        with open(os.path.join(root, ".agents/issues/ISSUE-001.md")) as f:
+            self.assertIn("status: draft", f.read())  # sources intact
+
+    def test_retire_closes_source_after_full_verification(self):
+        root, shim, state_path = self.make_file_ledger(("First bug",))
+        run_tw("--gh", shim, "--noninteractive", "migrate", "--to", "github", cwd=root)
+        code, env, out, _ = run_tw("--gh", shim, "--noninteractive", "migrate",
+                                   "--to", "github", "--retire-source", cwd=root)
+        self.assertEqual(code, 0, out)
+        self.assertTrue(env["migrate"]["retired"])
+        with open(os.path.join(root, ".agents/issues/ISSUE-001.md")) as f:
+            self.assertIn("status: closed", f.read())
+        name, body = self.journal(root)
+        self.assertIn("status: complete", body)
+        self.assertIn("retired", self.journal_log(root))
+
+    def test_status_is_readonly_and_deterministic(self):
+        root, shim, state_path = self.make_file_ledger(("First bug",))
+        run_tw("--gh", shim, "--noninteractive", "migrate", "--to", "github", cwd=root)
+        with open(state_path) as f:
+            count = len(json.load(f)["issues"])
+        _, _, out1, _ = run_tw("--gh", shim, "migrate", "--status", cwd=root)
+        _, _, out2, _ = run_tw("--gh", shim, "migrate", "--status", cwd=root)
+        self.assertEqual(out1, out2)  # identical outputs, no timestamps
+        env = json.loads(out1)
+        self.assertEqual([r["state"] for r in env["migrate"]["rows"]], ["verified"])
+        with open(state_path) as f:
+            self.assertEqual(len(json.load(f)["issues"]), count)  # no mutation
