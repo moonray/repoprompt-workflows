@@ -60,14 +60,12 @@ test("file_actions move: source in scalar old_path is inspected", () => {
 });
 
 test("batched edits: move pairs inside list entries carry new_path/old_path sub-keys", () => {
-  // Defect this guards: the sub-key tuple inside list entries losing new_path/old_path
-  // (e.g. reduced back to path/file_path) would let batched moves into or out of
-  // docs/spec escape the reminder while scalar-key moves stay covered.
-  const c = run(edit({ edits: [
-    { old_path: "docs/spec/source-of-move.md", new_path: "docs/dest.md" },
-    { new_path: "docs/spec/via-subkey.md" },
-  ] }));
-  assert.match(c, /SPEC QUALITY/);
+  // Defect this guards: the sub-key tuple inside list entries losing new_path or
+  // old_path (e.g. reduced back to path/file_path) would let batched moves into or
+  // out of docs/spec escape the reminder — each sub-key gets its own payload so one
+  // cannot mask the other's omission.
+  assert.match(run(edit({ edits: [{ old_path: "docs/spec/source-of-move.md", new_path: "docs/dest.md" }] })), /SPEC QUALITY/);
+  assert.match(run(edit({ edits: [{ old_path: "docs/from.md", new_path: "docs/spec/via-subkey.md" }] })), /SPEC QUALITY/);
 });
 
 test("batched edits: every file in the edits array is classified, one bad entry is not fatal", () => {
@@ -144,17 +142,18 @@ test("negative: non-PostToolUse events are ignored", () => {
 
 test("codex shape: apply_patch command body + tool_name apply_patch -> SPEC QUALITY", () => {
   // The single patch-command extractor test (Codex/opencode deliver edits as a patch
-  // command with no path field); it carries the Add alternative — Update/Move-to and
-  // Delete have their own tests below, and per-runtime duplicates belong to the e2e
-  // probe, not here.
-  const c = run({
-    hook_event_name: "PostToolUse",
-    tool_name: "apply_patch",
-    tool_input: {
-      command: "*** Begin Patch\n*** Add File: docs/spec/codex.md\n+x",
-    },
-  });
-  assert.match(c, /SPEC QUALITY/);
+  // command with no path field); Add and Update alternatives are each asserted in
+  // their own payload so neither can mask the other's omission — Delete and Move-to
+  // keep their own tests below, and per-runtime duplicates belong to the e2e probe,
+  // not here.
+  for (const op of ["Add", "Update"]) {
+    const c = run({
+      hook_event_name: "PostToolUse",
+      tool_name: "apply_patch",
+      tool_input: { command: `*** Begin Patch\n*** ${op} File: docs/spec/codex.md\n+x` },
+    });
+    assert.match(c, /SPEC QUALITY/, op);
+  }
 });
 
 test("apply_patch Delete File lines are inspected", () => {
