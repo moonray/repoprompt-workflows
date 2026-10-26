@@ -73,9 +73,11 @@ test("the word 'close' alone does not fire", () => {
 test("prose mentioning tw.py with 'close' elsewhere does not fire (adjacency)", () => {
   // Defect this guards (observed live on the hook's own introducing commit): a
   // `tw.py .* close` long-range bridge matched commit-message prose naming the
-  // close shapes; the matcher requires close as the immediate subcommand.
+  // close shapes; the matcher requires close as the immediate subcommand. The
+  // control avoids embedding the literal `gh issue close` sequence — an exact
+  // subcommand match in prose is the documented-acceptable residual.
   assert.equal(
-    run(bash('git commit -m "reminder hook: tw.py/$TW/issue.sh/gh issue close shapes"')),
+    run(bash('git commit -m "reminder hook: close shapes via tw.py / $TW / issue.sh — adjacency required"')),
     ""
   );
 });
