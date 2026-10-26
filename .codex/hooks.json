@@ -20,6 +20,11 @@
             "type": "command",
             "command": "TQ_HOOK_RUNTIME=codex python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/test-quality-reminder.py\"",
             "statusMessage": "Checking test run + vetting"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/doc-freshness-reminder.py\"",
+            "statusMessage": "Doc-freshness close reminder"
           }
         ]
       },
@@ -35,6 +40,11 @@
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/spec-conformance-gate.py\"",
             "statusMessage": "Spec-conformance gate"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/doc-freshness-reminder.py\"",
+            "statusMessage": "Doc-freshness close reminder"
           }
         ]
       },

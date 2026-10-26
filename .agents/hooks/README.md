@@ -12,6 +12,7 @@ Canonical hook scripts that enforce the rules in [`../rules/global.md`](../rules
 | `delegation-reminder.py` | reminder | PostToolUse:delegation tools | Nudges independent verification when a delegated agent (`Task` / `TaskOutput` / `agent_run`) returns a report. |
 | `chrome-gate.py` | gate (one-shot deny) | PreToolUse:mcp__chrome-devtools__* | Denies the session's **first** chrome-devtools MCP tool call with a reason directing to the `chrome` skill (own-app UI excepted — proceed under user-testing); every later call in the session passes silently. Fails open — a broken gate never disables browsing. |
 | `model-roster-reminder.py` | reminder (detection-gated) | PostToolUse:mcp__RepoPromptCE__(app_settings\|agent_manage\|ask_oracle) | On roster/oracle tool calls, compares the `model-routing` skill's picks against the runtimes' available-model caches (`~/.codex/models_cache.json`, `~/.claude/cache/model-catalog/`); nudges ONLY when a pick is missing or a strictly newer provider generation exists — silent (zero model-context tokens) otherwise. Fails open. |
+| `doc-freshness-reminder.py` | reminder | PostToolUse:Bash\|edit | Nudges the `document`-skill drift audit when a tracked work item is closed — shell close shapes (`tw.py`/`$TW`/`issue.sh`/`close.sh`/`gh issue close`) or a file-backend frontmatter flip to `status: closed` — so doc freshness is part of closeout, not a later user prompt. Fails open. |
 
 ### Runtime support for the test-quality Stop gate (#2)
 
@@ -45,7 +46,7 @@ Link each script, then merge the registration block into `~/.claude/settings.jso
 ```bash
 REPO="$(pwd)"   # run from the repo root
 mkdir -p "$HOME/.claude/hooks"
-for s in test-quality-reminder spec-quality-reminder spec-conformance-gate delegation-reminder chrome-gate model-roster-reminder; do
+for s in test-quality-reminder spec-quality-reminder spec-conformance-gate delegation-reminder chrome-gate model-roster-reminder doc-freshness-reminder; do
   ln -sfh "$REPO/.agents/hooks/$s.py" "$HOME/.claude/hooks/$s.py"
 done
 ```
@@ -60,8 +61,10 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
     ],
     "PostToolUse": [
       { "matcher": "Bash|Skill", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/test-quality-reminder.py\"" }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/doc-freshness-reminder.py\"" }] },
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/spec-quality-reminder.py\"" }] },
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/spec-conformance-gate.py\"" }] },
+      { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/doc-freshness-reminder.py\"" }] },
       { "matcher": "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/delegation-reminder.py\"" }] },
       { "matcher": "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/model-roster-reminder.py\"" }] }
     ],
@@ -72,7 +75,7 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
 }
 ```
 
-To remove: delete those six symlinks and strip the matching entries from `settings.json`, or run `bash scripts/install.sh --uninstall` (does both, and leaves any entries you added yourself untouched).
+To remove: delete those seven symlinks and strip the matching entries from `settings.json`, or run `bash scripts/install.sh --uninstall` (does both, and leaves any entries you added yourself untouched).
 
 Hooks are a guardrail, not an absolute enforcement boundary — a model can occasionally route around them. Treat them as strong default enforcement.
 

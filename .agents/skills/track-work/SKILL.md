@@ -273,6 +273,7 @@ An item is "done" **only when the change is verified and landed on the default b
 - If `close_gate.enforcement` names a workflow (e.g. `issue-close-check.yml`), **do not** use `gh issue close` for a code fix — that workflow will reopen it. Close only via the referencing commit/PR.
 - Don't set `review` until the change is **posted for verification** (PR opened / branch pushed, or committed + pushed to default in a trunk flow) — not while it's only local. `done` (close) is the further gate: the change must have **landed on the default branch** (PR merged, or trunk commit verified + kept).
 - Name the locking test (under `close_gate.locking_test_dir`) in the close comment when one exists.
+- **Doc-freshness closeout**: closing an item whose change touched code, docs, or agent-steering surfaces includes a change-driven drift audit — run the `document` skill in `code` mode over the item's landed span (dry-run default; report findings with the close; apply doc-side edits only under an explicit grant). Landed-code evidence is not doc freshness: green tests say nothing about whether READMEs, skills, and steering docs still match the change. Exempt-label closes that changed nothing skip with a stated reason. (The `doc-freshness-reminder` hook nudges this at close.)
 - **Exempt** (may close without code): anything in `close_gate.exempt_labels` (typically `wontfix`, `duplicate`, `invalid`, `type:decision`, `type:question`).
 
 ## Issue body template

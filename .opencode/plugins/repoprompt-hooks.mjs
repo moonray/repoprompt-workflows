@@ -7,6 +7,7 @@
 //   spec-quality-reminder  -> tool.execute.after (write/edit): log only.       [best-effort]
 //   test-quality-reminder  -> tool.execute.after (bash)        : run marker + log-only nudge. [best-effort]
 //   model-roster-reminder  -> tool.execute.after (RPCE roster/oracle tools): log only.  [best-effort, detection-gated]
+//   doc-freshness-reminder -> tool.execute.after (bash + write/edit): log only.  [best-effort]
 //                             event(session.idle) ≈ Stop       : DOCUMENTED-UNSUPPORTED for the
 //                             Stop gate (#2, rung 3): opencode has no blocking session-end
 //                             channel — session.idle fires after the turn ends, so this can
@@ -114,6 +115,12 @@ export const RepromptHooks = async ({ worktree, directory, client }) => {
           cwd: rootDir,
         }, rootDir);
         await note(client, r);
+        await note(client, runHook("doc-freshness-reminder.py", {
+          hook_event_name: "PostToolUse",
+          tool_name: "Bash",
+          tool_input: { command: args.command || "" },
+          cwd: rootDir,
+        }, rootDir));
       } else if (/RepoPromptCE/i.test(tool) && /(app_settings|agent_manage|ask_oracle)/.test(tool)) {
         const name = (tool.match(/(app_settings|agent_manage|ask_oracle)/) || [])[1] || "app_settings";
         // Detection-gated: silent unless the model-routing picks drift from the caches.
@@ -131,6 +138,7 @@ export const RepromptHooks = async ({ worktree, directory, client }) => {
           tool_input: { ...(args || {}), ...(fp ? { file_path: fp } : {}) },
         };
         await note(client, runHook("spec-quality-reminder.py", payload, rootDir));
+        await note(client, runHook("doc-freshness-reminder.py", payload, rootDir));
         const gate = runHook("spec-conformance-gate.py", payload, rootDir);
         if (gate && gate.decision === "block") {
           // Errors the edit result; the model sees the reason and must reconcile

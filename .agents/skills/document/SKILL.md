@@ -1,6 +1,6 @@
 ---
 name: document
-description: Use when reconciling documentation to code changes or auditing documentation drift in a repo. Applies whenever the user asks to update docs after code changes, check whether docs match code, run a documentation audit, or produce doc drift reports; also reviews accumulated work against the repo's mission/intent anchor for alignment; defaults to dry-run proposals and requires explicit apply before writing.
+description: Use when reconciling documentation to code changes or auditing documentation drift in a repo. Applies whenever the user asks to update docs after code changes, check whether docs match code, run a documentation audit, or produce doc drift reports, or when a tracked work item is closing after code/doc changes (run the change-driven drift audit before the close lands); also reviews accumulated work against the repo's mission/intent anchor for alignment; defaults to dry-run proposals and requires explicit apply before writing.
 ---
 
 # Document
