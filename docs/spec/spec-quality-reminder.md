@@ -10,18 +10,22 @@ status: implemented
 
 When an agent edits a spec, an implementation plan, or a skill definition, nothing in the lifecycle confirms the matching quality discipline was applied — `spec-quality` vetting on specs, `spec-plan-readiness` gating on plans, `skill-creator` standards on SKILL.md files. These are Skills with no shell command a hook can observe, so a hard gate would force commits on mid-flight edits. A reminder nudge at the edit is the right enforcement level.
 
+The same gap let hook scripts ship unspecced: the repo convention is a spec per hook, but nothing at creation time flagged a hook without one — the debt surfaced only in later drift audits. A detection-gated nudge at the hook edit closes it at the moment of creation.
+
 ## Goals
 
 1. Detect when an edit touches a spec file (`docs/spec/**/*.md` excluding index READMEs), a plan file (`docs/plans/*.md` excluding index READMEs), or a skill definition (`.agents/skills/**/SKILL.md`, recursive).
 2. Nudge the matching skill per affected path, aggregating every matched rule into ONE reminder.
 3. Recognize edited paths across runtimes — scalar path fields (Claude Code / MCP tools), list-valued inputs (files/edits/paths), move pairs (`new_path`+`old_path`), or an `apply_patch` command (Codex/opencode).
 4. Suppress reminders for tool calls the runtime reports as failed (no change was made).
+5. Detect when an edit touches a hook script (`.agents/hooks/*.py`) whose spec coverage is missing or unverifiable, and nudge that a hook without a spec is tracked debt.
 
 ## Non-Goals
 
 - Enforce a `Stop` gate (there is none); the downstream `spec-conformance` closeout gate is the backstop.
 - Detect that a skill actually ran (unobservable from a hook).
 - Gate files outside the three rule classes.
+- Apply the spec-debt check to scripts beyond `.agents/hooks/*.py` (a skill's `scripts/` CLI is spec'd under its skill's spec; repo `scripts/` coverage is heterogeneous) — hook scripts only, where the one-spec-per-hook convention is unambiguous.
 - Catch edits made through tools that report no path (e.g. raw shell redirects) — documented, accepted narrowness.
 
 ## Constraints
@@ -29,6 +33,8 @@ When an agent edits a spec, an implementation plan, or a skill definition, nothi
 - Wired to `PostToolUse` on `Edit|Write|MultiEdit|apply_edits|file_actions` — native AND MCP-qualified names, with anchored matchers (bare `apply_edits` never matched `mcp__RepoPromptCE__apply_edits`).
 - Reminder-only; one aggregated reminder per edit event, not one per path.
 - A malformed input entry is skipped, never fatal — one bad input must not suppress reminders for the other paths in a batch.
+- The hook-spec rule is detection-gated: silent when `docs/spec/<stem>.md` exists or the spec index names a covering spec; coverage the hook cannot verify (workspace-relative paths it cannot map, e.g. multi-root deliveries) nudges — remind rather than stay silent on a guess.
+- Root resolution for the coverage check tries the path-derived root, then the payload `cwd` joined with a relative root.
 
 ## Scenarios
 
@@ -82,6 +88,31 @@ When an agent edits a spec, an implementation plan, or a skill definition, nothi
 - **When** the hook runs
 - **Then** it emits the reminder, ignoring the extra arg keys
 
+### Scenario: Editing an unspecced hook script nudges the spec debt
+- **Given** an edit to `.agents/hooks/<name>.py` in a repo whose `docs/spec/` holds neither `<name>.md` nor an index mention of `<name>`
+- **When** the hook runs
+- **Then** it emits a `HOOK SPEC` reminder naming the tracked debt and the Spec-workflow path
+
+### Scenario: Editing a specced hook script stays silent
+- **Given** an edit to `.agents/hooks/<name>.py` where `docs/spec/<name>.md` exists
+- **When** the hook runs
+- **Then** no `HOOK SPEC` reminder (other rule classes may still fire on their own paths)
+
+### Scenario: A hook covered by another spec's index mention stays silent
+- **Given** an edit to `.agents/hooks/<name>.py` where `docs/spec/README.md` names `<name>` as covered by another spec
+- **When** the hook runs
+- **Then** no `HOOK SPEC` reminder
+
+### Scenario: Unverifiable coverage nudges
+- **Given** an edit to `.agents/hooks/<name>.py` delivered as a workspace-relative path the hook cannot map to a repo root (no candidate resolves to a `docs/spec/`)
+- **When** the hook runs
+- **Then** it emits the `HOOK SPEC` reminder — remind rather than stay silent on a guess
+
+### Scenario: A non-hook python script is out of scope
+- **Given** an edit to a `.py` path outside `.agents/hooks/`
+- **When** the hook runs
+- **Then** no `HOOK SPEC` reminder
+
 ### Scenario: Malformed payload exits cleanly
 - **Given** stdin that is not valid JSON or is not a `PostToolUse` event
 - **When** the hook runs
@@ -96,6 +127,7 @@ When an agent edits a spec, an implementation plan, or a skill definition, nothi
 | `hook_event_name` | yes | Must be `PostToolUse`. |
 | `tool_input` | yes | Scalar path field(s) (`file_path`/`path`/`filePath`/`notebook_path`/`new_path`/`old_path`), list-valued `files`/`edits`/`paths` (strings or path-bearing objects), or a `command` containing an `apply_patch`. |
 | `tool_response` | no | When present and error-shaped, the call made no change — reminders are suppressed. |
+| `cwd` | no | Session working directory; a candidate root for the hook-script spec-coverage check when the edited path is workspace-relative. |
 
 ### Hook Output
 

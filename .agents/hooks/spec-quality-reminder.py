@@ -10,6 +10,8 @@ Rule table (per affected path, aggregated into ONE reminder):
   - docs/spec/**/*.md (except README.md)                 -> run spec-quality before relying on it
   - docs/plans/*.md (except README.md)                   -> run spec-plan-readiness before implementing from it
   - .agents/skills/**/SKILL.md (recursive — nested dirs) -> apply skill-creator standards
+  - .agents/hooks/*.py with no spec (detection-gated)    -> a hook without a spec is tracked debt;
+    silent when docs/spec/<stem>.md exists or the spec index names a covering spec (#12)
 
 Reminder-only — no Stop gate. A Skill invocation is observable but "quality check passed" is not
 provable from it; a gate would also obstruct legitimate mid-flight edits. Guarantee is NARROW:
@@ -47,6 +49,43 @@ RULES = [
 ]
 
 _EXCLUDE_BASENAMES = {"readme.md"}
+
+_HOOK_SCRIPT_RE = re.compile(r"(^|/)\.agents/hooks/[^/]+\.py$")
+
+_HOOK_SPEC_NUDGE = (
+    "HOOK SPEC: you edited a hook script (.agents/hooks/). A hook without a spec is tracked "
+    "debt: confirm docs/spec/<stem>.md exists for it, or the docs/spec/README.md index names "
+    "its covering spec — otherwise author one via the Spec workflow and add the index row "
+    "and conformance matrix."
+)
+
+
+def _hook_spec_missing(norm_path, cwd=None):
+    """The hook-spec nudge when an edited hook script has neither its own spec
+    (docs/spec/<stem>.md) nor a covering spec named in the index (docs/spec/README.md
+    mentioning the stem — e.g. chrome-gate is covered by the chrome spec).
+    Detection-gated like model-roster-reminder: silent when covered, so specced-hook
+    edits cost zero context. None when the path is not a hook script or is covered.
+    Coverage the hook cannot VERIFY also nudges (workspace-relative paths outside cwd,
+    e.g. RPCE multi-root deliveries) — remind rather than stay silent on a guess.
+    """
+    if not _HOOK_SCRIPT_RE.search(norm_path):
+        return None
+    idx = norm_path.find("/.agents/hooks/")
+    root = norm_path[:idx] if idx != -1 else os.path.dirname(os.path.dirname(norm_path))
+    stem = os.path.basename(norm_path)[:-3]  # strip .py
+    candidates = [root] if os.path.isabs(root) else ([os.path.join(cwd, root), root] if cwd else [root])
+    for base in candidates:
+        if os.path.isfile(os.path.join(base, "docs", "spec", stem + ".md")):
+            return None
+        index = os.path.join(base, "docs", "spec", "README.md")
+        if os.path.isfile(index):
+            try:
+                if stem in open(index, encoding="utf-8", errors="ignore").read():
+                    return None
+            except OSError:
+                pass
+    return _HOOK_SPEC_NUDGE
 
 _PATCH_FILE_RE = re.compile(r"^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$", re.MULTILINE)
 _PATCH_MOVE_RE = re.compile(r"^\*\*\*\s+Move to:\s*(.+?)\s*$", re.MULTILINE)
@@ -105,7 +144,7 @@ def _edit_succeeded(payload):
     return True
 
 
-def classify(path):
+def classify(path, cwd=None):
     """All matching rule texts for one path (a path could theoretically match none)."""
     if not path:
         return []
@@ -116,6 +155,9 @@ def classify(path):
     for rule_re, text in RULES:
         if rule_re.search(norm):
             hits.append(text)
+    hook_nudge = _hook_spec_missing(norm, cwd)
+    if hook_nudge:
+        hits.append(hook_nudge)
     return hits
 
 
@@ -130,9 +172,10 @@ def main():
         sys.exit(0)
     if not _edit_succeeded(payload):
         sys.exit(0)
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else None
     reminders = []
     for p in _paths_from_tool_input(payload.get("tool_input")):
-        for text in classify(p):
+        for text in classify(p, cwd):
             if text not in reminders:
                 reminders.append(text)
     if reminders:

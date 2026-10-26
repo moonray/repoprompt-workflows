@@ -4,6 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const SCRIPT = new URL("./spec-quality-reminder.py", import.meta.url).pathname;
 
@@ -206,4 +209,102 @@ test("cross-runtime negative: bash-shaped payload with no matching path is silen
     tool_name: "bash",
     tool_input: { command: "echo hi" },
   }), "");
+});
+
+// --- hook-script spec-debt rule (#12) ---
+
+function hookTree({ spec, index }) {
+  const dir = mkdtempSync(path.join(tmpdir(), "sqr-hook-"));
+  mkdirSync(path.join(dir, ".agents", "hooks"), { recursive: true });
+  mkdirSync(path.join(dir, "docs", "spec"), { recursive: true });
+  writeFileSync(path.join(dir, ".agents", "hooks", "new-reminder.py"), "#!/usr/bin/env python3\n");
+  if (spec) writeFileSync(path.join(dir, "docs", "spec", "new-reminder.md"), "---\ntitle: t\n---\n");
+  if (index) writeFileSync(path.join(dir, "docs", "spec", "README.md"), index);
+  return { dir, script: path.join(dir, ".agents", "hooks", "new-reminder.py") };
+}
+
+const editAt = (file_path, extra = {}) => ({
+  hook_event_name: "PostToolUse",
+  tool_name: "Edit",
+  tool_input: { file_path },
+  ...extra,
+});
+
+test("hook script with no spec and no index mention nudges HOOK SPEC", () => {
+  // Defect this guards: a new hook ships unspecced and nothing at creation time
+  // flags it — the gap that left doc-freshness-reminder specless until closeout.
+  const t = hookTree({ spec: false, index: "# Spec Index\n| Spec |\n" });
+  try {
+    assert.match(run(editAt(t.script)), /HOOK SPEC/);
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
+test("hook script with its own spec stays silent", () => {
+  const t = hookTree({ spec: true, index: "# Spec Index\n" });
+  try {
+    assert.equal(run(editAt(t.script)), "");
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
+test("hook covered by an index mention stays silent (chrome-gate pattern)", () => {
+  // A hook whose spec lives inside another spec is named in the index — that
+  // mention is the coverage signal, not a same-named spec file.
+  const t = hookTree({ spec: false, index: "# Spec Index\n… `chrome-gate` under the chrome spec …\n" });
+  try {
+    const script = path.join(t.dir, ".agents", "hooks", "chrome-gate.py");
+    writeFileSync(script, "#!/usr/bin/env python3\n");
+    assert.equal(run(editAt(script)), "");
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
+test("unresolvable coverage (relative path, no cwd) nudges — remind, don't guess", () => {
+  // RPCE multi-root deliveries carry workspace-relative paths the hook cannot
+  // map to a filesystem tree; unverifiable coverage nudges rather than staying
+  // silent on a guess.
+  assert.match(
+    run(editAt("someworkspace/.agents/hooks/new-reminder.py")),
+    /HOOK SPEC/
+  );
+});
+
+test("cwd candidate resolves a relative workspace root", () => {
+  const t = hookTree({ spec: true, index: "# Spec Index\n" });
+  const wsRoot = path.join(t.dir, "repoprompt-workflows");
+  mkdirSync(path.join(wsRoot, ".agents", "hooks"), { recursive: true });
+  mkdirSync(path.join(wsRoot, "docs", "spec"), { recursive: true });
+  writeFileSync(path.join(wsRoot, ".agents", "hooks", "new-reminder.py"), "#!/usr/bin/env python3\n");
+  writeFileSync(path.join(wsRoot, "docs", "spec", "new-reminder.md"), "---\ntitle: t\n---\n");
+  try {
+    assert.equal(
+      run(editAt("repoprompt-workflows/.agents/hooks/new-reminder.py", { cwd: t.dir })),
+      ""
+    );
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
+test("non-hook python scripts are out of scope for the spec-debt rule", () => {
+  assert.equal(run(editAt("scripts/install-helper.py")), "");
+});
+
+test("uncovered hook aggregates with other rule classes in one reminder", () => {
+  const t = hookTree({ spec: false, index: "# Spec Index\n" });
+  try {
+    const c = run({
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { edits: [{ path: t.script }, { path: "docs/spec/x.md" }] },
+    });
+    assert.match(c, /HOOK SPEC/);
+    assert.match(c, /SPEC QUALITY/);
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
 });
