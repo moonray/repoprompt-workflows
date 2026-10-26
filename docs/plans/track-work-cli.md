@@ -100,7 +100,10 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
   "hooks README" toolchain lines — `.agents/hooks/README.md` carries no
   toolchain/requirements section (hooks are python3 like the CLI, already
   covered by the main README line), so nothing was invented there.
-- **All tasks T1–T7 complete.** Closeout remaining: push (user-gated) + close #1.
+- **All tasks T1–T7 complete; closeout executed 2026-10-26** (user-approved):
+  batched push of the accumulated local commits, then #1 closed via the CLI
+  itself (`tw close moonray/repoprompt-workflows#1` — the landed-evidence check
+  verified against the pushed `(#1 T*)` commits).
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
