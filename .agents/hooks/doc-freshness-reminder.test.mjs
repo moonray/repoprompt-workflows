@@ -70,6 +70,23 @@ test("the word 'close' alone does not fire", () => {
   assert.equal(run(bash("ls -la && echo close")), "");
 });
 
+test("prose mentioning tw.py with 'close' elsewhere does not fire (adjacency)", () => {
+  // Defect this guards (observed live on the hook's own introducing commit): a
+  // `tw.py .* close` long-range bridge matched commit-message prose naming the
+  // close shapes; the matcher requires close as the immediate subcommand.
+  assert.equal(
+    run(bash('git commit -m "reminder hook: tw.py/$TW/issue.sh/gh issue close shapes"')),
+    ""
+  );
+});
+
+test("adjacent tw.py close with explicit path still fires", () => {
+  assert.match(
+    run(bash("python3 .agents/skills/track-work/scripts/tw.py close ISSUE-009")),
+    /DOC FRESHNESS/
+  );
+});
+
 test("gh pr close is NOT an item close", () => {
   assert.equal(run(bash("gh pr close 7 -R owner/repo")), "");
 });

@@ -25,11 +25,14 @@ import os
 import re
 import sys
 
+# Adjacency (close as the immediate subcommand/argument, not a long-range "…close…" anywhere
+# in the string): a `.*` bridge matched PROSE mentioning close commands — observed live when
+# the hook fired on its own introducing commit whose message named the close shapes.
 _CLOSE_CMD_RES = [
-    re.compile(r"\btw\.py\b.*\bclose\b"),
+    re.compile(r"\btw\.py\b['\"]?\s+close\b"),
     re.compile(r"\$\{?TW\}?['\"]?\s+close\b"),
     re.compile(r"\btw\s+close\b"),
-    re.compile(r"\bissue\.sh\b.*\bclose\b"),
+    re.compile(r"\bissue\.sh\b['\"]?\s+close\b"),
     re.compile(r"\bclose\.sh\b"),
     re.compile(r"\bgh\s+issue\s+close\b"),
 ]
