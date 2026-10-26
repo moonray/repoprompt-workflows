@@ -24,7 +24,7 @@ This is a sibling of **Orchestrate**, not a wrapper: Orchestrate decomposes one 
 - **One unique worktree + branch per issue.** No two Loop subagents ever share a worktree or branch — cross-contamination is the critical failure this workflow exists to prevent. Branch named from the immutable track-work ID: `backlog/<id>-<slug>`.
 - **Only the outer layer changes issue status.** Loop subagents move their progress doc only; they never close, reopen, or relabel issues. Backlog closes via track-work **after** verification.
 - **Authorization and responsibility are separate.** Authorization is the wizard-issued ceiling; the per-action responsibility map assigns preparation, readiness, implementation/evidence, publication, landing, status/close, replacement, and cleanup. Git-visible actions never exceed the latest effective authorization revision or act outside the assigned owner. The wizard enumerates the concrete actions each path implies (informed consent), and merges are bounded to the triaged `issue_scope`. Destructive git is prohibited and is **not** grantable via any scope.
-- **Dispatch isolation.** Every `agent_run op=start` is the **only** call in its tool batch — never batched with `gh issue edit`, board/status moves, `cleanup_sessions`, label flips, **or verify/test commands**. A rejection/interruption in a mixed batch cascades into half-provisioned sessions + orphan worktrees. Run other mutations in a separate batch **after** the start confirms `running`.
+- **Dispatch isolation.** Every `agent_run op=start` is the **only** call in its tool batch — never batched with `tw status`/`tw close` (ledger mutations), board moves, `cleanup_sessions`, **or verify/test commands**. A rejection/interruption in a mixed batch cascades into half-provisioned sessions + orphan worktrees. Run other mutations in a separate batch **after** the start confirms `running`.
 - **Dispatch outcome is unknown until reconciled.** A rejected/interrupted/timed-out `start`, or any `start` that returns no usable `session_id`, is not a user decision and not proof that nothing was provisioned. Before abandoning or retrying, discover the attempt by its deterministic session name + branch, reconcile it, and confirm a provider is live. Never infer user intent from tool/harness rejection text; only an explicit user message changes the run.
 - **Inspectability.** Each dispatched Loop is a separate Agent Mode session/tab driven by `session_id`, directly inspectable in the RP UI — intentional, not a bug.
 - **Route-level degradation circuit breaker.** The Phase-2 canary proves initial capability, not continued runtime health. If orchestration-tool failures keep occurring without advancing any milestone, checkpoint the run and make **one** deliberate route change (e.g., plain `git` instead of a wrapper tool); if the alternative also cannot advance, block or hand off rather than continuing to spend calls. The threshold is repeated failure without a useful state transition — never a raw failure count.
@@ -165,7 +165,7 @@ Insufficient evidence → steer the same session only if it is live and its pers
 
 **Work-queue items**, per the chosen completion path and only for issues in `issue_scope`, only after §3d verify passes:
 
-- `branch+pr` / `branch+pr+merge` / `push-to-default`: on the GitHub backend the squash-merge subject MUST carry `(#N)` and the PR body MUST carry `Closes #N` (so both GitHub auto-close and the close-gate fire); file backend → `issue.sh close <ID>` after the commit lands. Respect a configured `close_gate`.
+- `branch+pr` / `branch+pr+merge` / `push-to-default`: on the GitHub backend the squash-merge subject MUST carry `(#N)` and the PR body MUST carry `Closes #N` (so both GitHub auto-close and the close-gate fire); file backend → `tw close <ID>` after the commit lands (the CLI verifies the landed-evidence reference or exempt label). Respect a configured `close_gate`.
 - **CI red on merge (E1):** leave at `branch+pr`, set `status:review`, flag in the rollup — **never** merge and **never** ask "merge anyway?".
 - `local-only`: do not close; set `status:review` (or `blocked`) and record ready-to-close evidence.
 
@@ -255,7 +255,7 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 | Operation | Tool call |
 |---|---|
 | Capability pre-flight | oracle ping; unattended-mode probe; ask whether another RPCE window is orchestrating; browser-tool reachability (UI only); backend CLI auth; git remote (push paths only) |
-| Discover (GitHub / file) | `gh issue list …` / read `.agents/issues/README.md` — via track-work |
+| Discover (both backends) | `python3 <track-work>/scripts/tw.py list --status open` per repo — via the track-work CLI |
 | Exempt-close batch | track-work close of `wontfix`/`duplicate` (no subagent); `duplicate` cross-links canonical |
 | Mark blocked | track-work → set `status:blocked` (label / frontmatter) |
 | Clarity gate | deterministic pre-check → `ask_oracle mode=plan` (`clear/ambiguous/blocked`) |
@@ -275,7 +275,7 @@ Maintain the progress doc at `docs/progress/backlog-<run>.md`; link (don't dupli
 | Close (GitHub) | PR body `Closes #N` + squash subject `(#N)`; CI red → `branch+pr` + `status:review` |
 | Concurrent-merge order | serial, most-independent first; rebase each branch onto default-as-updated before its merge (§3e) |
 | Merge conflict | allowlisted derived docs → regenerate; else abort → `status:blocked` |
-| Close (file) | `issue.sh close <ID>` after the commit lands |
+| Close (file) | `tw close <ID>` after the commit lands (landed evidence verified by the CLI) |
 | Remove worktrees (end-of-run pass; post-merge only; branches kept) | `manage_worktree op=unbind` → `git worktree remove <path>` — batched; deferrable via `retain_for_inspection` |
 | Dismiss session | `agent_manage op=cleanup_sessions session_ids=[...]` (may skip — route around) |
 | Resume after restart | read `backlog-<run>.md` + `list_sessions` + `git worktree list` + `git branch --list 'backlog/*'`; reuse grant, don't re-ask |

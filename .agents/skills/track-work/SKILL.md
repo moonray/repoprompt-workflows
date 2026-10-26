@@ -92,6 +92,9 @@ labels:
     # a dimension may use `prefixes: [a, b]` to enforce cardinality across a group
     # (e.g. exactly-one trace across `pass:*` and `from:*`):
     # - { prefixes: [pass, from], count: at_most1 }
+    # (the CLI's config subset enforces single-`prefix` dimensions; group
+    # `prefixes:` cardinality is enforced by the judgment layer until the CLI
+    # parses it)
 github:
   board:                   # optional GitHub Project board
     owner: <org>           # resolved from origin if omitted

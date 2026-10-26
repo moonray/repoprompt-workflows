@@ -103,7 +103,10 @@ named subset through the CLI path; T7 records the rest as still skill-owned.
 - **All tasks T1–T7 complete; closeout executed 2026-10-26** (user-approved):
   batched push of the accumulated local commits, then #1 closed via the CLI
   itself (`tw close moonray/repoprompt-workflows#1` — the landed-evidence check
-  verified against the pushed `(#1 T*)` commits).
+  verified against the pushed `(#1 T*)` commits; evidence commit `b25cf37`).
+- **Post-close dogfood fix** — the first live close exposed that `gh repo view`
+  takes the repository positionally (rejects `-R`); fixed in `8453fc1` with the
+  shim hardened to reject `repo view -R` so the suite pins the real shape.
 - All commits LOCAL on main; origin/main sits at `badf779` — the user wants one
   batched push later (ask before pushing).
 
