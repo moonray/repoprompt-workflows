@@ -1049,7 +1049,9 @@ def cmd_status_github(ctx, ident):
 def _referencing_default_branch_commit(ctx, repo, number):
     """A commit on the default branch whose message references #N (digit-bounded,
     so #1 never matches a #12 reference). Bounded walk: 10 pages x 100 commits."""
-    rc, out, err = _gh(ctx, ["repo", "view", "-R", repo, "--json", "defaultBranchRef"])
+    # gh repo view takes the repository positionally — it rejects -R (unlike
+    # issue/label/pr); pinned live against real gh (found by the #1 dogfood close).
+    rc, out, err = _gh(ctx, ["repo", "view", repo, "--json", "defaultBranchRef"])
     if rc != 0:
         _gh_fail(ctx, "repo view (default branch)", rc, out + err)
     try:

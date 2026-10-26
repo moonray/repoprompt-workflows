@@ -894,6 +894,9 @@ issue_repo = "evil/other-repo" if state.get("wrong_issue_repo") else repo
 
 cmd = args[:2]
 if cmd == ["repo", "view"]:
+    if "-R" in args:  # real gh: "unknown shorthand flag: 'R' in -R"
+        print("unknown shorthand flag: 'R' in -R", file=sys.stderr)
+        sys.exit(1)
     name = "evil/other-repo" if state.get("wrong_repo") else repo
     print(json.dumps({"nameWithOwner": name,
                       "hasIssuesEnabled": state.get("issues_enabled", True),
