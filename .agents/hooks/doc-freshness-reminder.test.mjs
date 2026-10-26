@@ -70,6 +70,13 @@ test("the word 'close' alone does not fire", () => {
   assert.equal(run(bash("ls -la && echo close")), "");
 });
 
+test("close.sh without a ref-shaped argument stays silent", () => {
+  // Defect this guards: a bare \bclose\.sh\b word match fired on any mention
+  // ("cat close.sh", "the close.sh wrapper") — oracle-flagged broadest residual.
+  assert.equal(run(bash("cat close.sh")), "");
+  assert.equal(run(bash('git commit -m "the close.sh wrapper handles refs"')), "");
+});
+
 test("prose mentioning tw.py with 'close' elsewhere does not fire (adjacency)", () => {
   // Defect this guards (observed live on the hook's own introducing commit): a
   // `tw.py .* close` long-range bridge matched commit-message prose naming the
@@ -91,6 +98,12 @@ test("adjacent tw.py close with explicit path still fires", () => {
 
 test("gh pr close is NOT an item close", () => {
   assert.equal(run(bash("gh pr close 7 -R owner/repo")), "");
+});
+
+test("an exact close-subcommand sequence embedded in prose fires (accepted residual)", () => {
+  // Pins the documented residual (spec S-006): adjacency cannot distinguish a
+  // quoted literal `gh issue close` in prose from the real subcommand.
+  assert.match(run(bash('git commit -m "then gh issue close 12 to finish"')), /DOC FRESHNESS/);
 });
 
 test("failed close command is suppressed", () => {

@@ -33,6 +33,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Spec Conformance Gate Hook](spec-conformance-gate.md) | none | implemented |
 | [Delegation Reminder Hook](delegation-reminder.md) | none | implemented |
 | [Model Roster Reminder Hook](model-roster-reminder.md) | 10 | implemented |
+| [Doc-Freshness Reminder Hook](doc-freshness-reminder.md) | 12 | implemented |
 
 ## Conformance matrices
 
@@ -46,6 +47,6 @@ Current coverage:
 
 - **Workflows** — ✅ all 5 specced (`Spec`, `Test`, `Loop`, `Backlog`, `Deep Review`).
 - **Skills** — ✅ all 17 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`, `bot-wall`, `rpce-tool-gotchas`, `live-dryrun`, `chat-mining`, `chrome`, `model-routing`, `triage-work`) plus `skill-creator` — upstream Anthropic skill carried as a sparse submodule; no local spec by design (its own docs are the spec).
-- **Hooks** — 5 specced with matrices (`test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`, `model-roster-reminder`), `chrome-gate` covered by the [`chrome`](chrome.md) spec, and `doc-freshness-reminder` pending its spec ([#12](https://github.com/moonray/repoprompt-workflows/issues/12)).
+- **Hooks** — ✅ all specced: `test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`, `model-roster-reminder`, and `doc-freshness-reminder` each with a matrix, plus `chrome-gate` under the [`chrome`](chrome.md) spec.
 
 Author missing specs with the `Spec` workflow, then add a row to the table above and a sibling `<spec>.conformance.md`.

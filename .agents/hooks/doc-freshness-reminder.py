@@ -33,7 +33,9 @@ _CLOSE_CMD_RES = [
     re.compile(r"\$\{?TW\}?['\"]?\s+close\b"),
     re.compile(r"\btw\s+close\b"),
     re.compile(r"\bissue\.sh\b['\"]?\s+close\b"),
-    re.compile(r"\bclose\.sh\b"),
+    # close.sh takes the ref as its argument — require a ref-shaped one (ISSUE-N, URL,
+    # N, owner/repo#N) so bare prose mentions ("the close.sh wrapper") stay silent.
+    re.compile(r"\bclose\.sh\b['\"]?\s+(?:ISSUE-\d|https?://|\d|[\w.-]+/[\w.-]*#\d+)"),
     re.compile(r"\bgh\s+issue\s+close\b"),
 ]
 
