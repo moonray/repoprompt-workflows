@@ -38,6 +38,11 @@
           },
           {
             "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/spec-accuracy-reminder.py\"",
+            "statusMessage": "Spec-accuracy drift reminder"
+          },
+          {
+            "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/spec-conformance-gate.py\"",
             "statusMessage": "Spec-conformance gate"
           },

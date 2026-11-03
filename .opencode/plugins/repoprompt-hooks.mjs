@@ -5,6 +5,7 @@
 //   spec-conformance-gate  -> tool.execute.after (write/edit): BLOCK via throw.  [enforced]
 //   chrome-gate            -> tool.execute.before (chrome-devtools MCP): BLOCK via throw. [enforced, pre-call]
 //   spec-quality-reminder  -> tool.execute.after (write/edit): log only.       [best-effort]
+//   spec-accuracy-reminder -> tool.execute.after (write/edit): log only.       [best-effort]
 //   test-quality-reminder  -> tool.execute.after (bash)        : run marker + log-only nudge. [best-effort]
 //   model-roster-reminder  -> tool.execute.after (RPCE roster/oracle tools): log only.  [best-effort, detection-gated]
 //   doc-freshness-reminder -> tool.execute.after (bash + write/edit): log only.  [best-effort]
@@ -138,6 +139,7 @@ export const RepromptHooks = async ({ worktree, directory, client }) => {
           tool_input: { ...(args || {}), ...(fp ? { file_path: fp } : {}) },
         };
         await note(client, runHook("spec-quality-reminder.py", payload, rootDir));
+        await note(client, runHook("spec-accuracy-reminder.py", payload, rootDir));
         await note(client, runHook("doc-freshness-reminder.py", payload, rootDir));
         const gate = runHook("spec-conformance-gate.py", payload, rootDir);
         if (gate && gate.decision === "block") {

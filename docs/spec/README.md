@@ -34,10 +34,11 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Delegation Reminder Hook](delegation-reminder.md) | none | implemented |
 | [Model Roster Reminder Hook](model-roster-reminder.md) | 10 | implemented |
 | [Doc-Freshness Reminder Hook](doc-freshness-reminder.md) | 12 | implemented |
+| [Spec-Accuracy Reminder Hook](spec-accuracy-reminder.md) | 13 | implemented |
 
 ## Conformance matrices
 
-Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 17 skills, and 5 hooks.
+Each spec has a sibling `<spec>.conformance.md` — a section-by-section audit (Conformed / Diverged / Not-built, with coverage proof) produced by the `spec-conformance` skill, showing the spec matches its implementation. Every spec in the table above now has a sibling `<spec>.conformance.md` — all fully conformed (every section Conformed, with no Diverged or Not-built items), spanning the 5 workflows, 17 skills, and 7 hooks.
 
 ## Coverage policy
 
@@ -47,6 +48,6 @@ Current coverage:
 
 - **Workflows** — ✅ all 5 specced (`Spec`, `Test`, `Loop`, `Backlog`, `Deep Review`).
 - **Skills** — ✅ all 17 specced (`document`, `spec-quality`, `spec-plan-readiness`, `test-quality`, `spec-conformance`, `review-quality`, `review-depth`, `maintainability-review`, `user-testing`, `track-work`, `bot-wall`, `rpce-tool-gotchas`, `live-dryrun`, `chat-mining`, `chrome`, `model-routing`, `triage-work`) plus `skill-creator` — upstream Anthropic skill carried as a sparse submodule; no local spec by design (its own docs are the spec).
-- **Hooks** — ✅ all specced: `test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`, `model-roster-reminder`, and `doc-freshness-reminder` each with a matrix, plus `chrome-gate` under the [`chrome`](chrome.md) spec.
+- **Hooks** — ✅ all specced: `test-quality-reminder`, `spec-quality-reminder`, `spec-conformance-gate`, `delegation-reminder`, `model-roster-reminder`, `doc-freshness-reminder`, and `spec-accuracy-reminder` each with a matrix, plus `chrome-gate` under the [`chrome`](chrome.md) spec.
 
 Author missing specs with the `Spec` workflow, then add a row to the table above and a sibling `<spec>.conformance.md`.
