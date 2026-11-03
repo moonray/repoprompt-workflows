@@ -8,7 +8,7 @@ status: implemented
 
 ## Problem
 
-When an agent edits a spec, an implementation plan, or a skill definition, nothing in the lifecycle confirms the matching quality discipline was applied — `spec-quality` vetting on specs, `spec-plan-readiness` gating on plans, `skill-creator` standards on SKILL.md files. These are Skills with no shell command a hook can observe, so a hard gate would force commits on mid-flight edits. A reminder nudge at the edit is the right enforcement level.
+When an agent edits a spec, an implementation plan, or a skill definition, nothing in the lifecycle confirms the matching quality discipline was applied — `spec-quality` vetting on specs, `spec-plan-readiness` gating on plans, `skill-creator` standards on SKILL.md files. These are Skills with no shell command a hook can observe, so a hard gate would force commits on mid-flight edits. A reminder nudge at the edit is the right enforcement level. The mirror gap rides the same event: a spec edit that changes documented behavior can leave the operational docs implementing it stale — the spec-file nudge therefore also carries the reverse-direction check (#14).
 
 The same gap let hook scripts ship unspecced: the repo convention is a spec per hook, but nothing at creation time flagged a hook without one — the debt surfaced only in later drift audits. A detection-gated nudge at the hook edit closes it at the moment of creation.
 
@@ -19,6 +19,7 @@ The same gap let hook scripts ship unspecced: the repo convention is a spec per 
 3. Recognize edited paths across runtimes — scalar path fields (Claude Code / MCP tools), list-valued inputs (files/edits/paths), move pairs (`new_path`+`old_path`), or an `apply_patch` command (Codex/opencode).
 4. Suppress reminders for tool calls the runtime reports as failed (no change was made).
 5. Detect when an edit touches a hook script (`.agents/hooks/*.py`) whose spec coverage is missing or unverifiable, and nudge that a hook without a spec is tracked debt.
+6. Carry the reverse-direction duty on spec edits: when the edit changes documented behavior, direct the same-session check of the operational docs that implement it (`.agents/slash/`, `docs/procedures/`, `docs/operations/`) — the mirror of `spec-accuracy-reminder`.
 
 ## Non-Goals
 
@@ -27,6 +28,7 @@ The same gap let hook scripts ship unspecced: the repo convention is a spec per 
 - Gate files outside the three rule classes.
 - Apply the spec-debt check to scripts beyond `.agents/hooks/*.py` (a skill's `scripts/` CLI is spec'd under its skill's spec; repo `scripts/` coverage is heterogeneous) — hook scripts only, where the one-spec-per-hook convention is unambiguous.
 - Catch edits made through tools that report no path (e.g. raw shell redirects) — documented, accepted narrowness.
+- Detect that documented behavior actually changed (the reverse-direction clause is directional text; the judgment stays with the agent).
 
 ## Constraints
 
@@ -41,7 +43,7 @@ The same gap let hook scripts ship unspecced: the repo convention is a spec per 
 ### Scenario: Editing a spec file nudges spec-quality
 - **Given** a `PostToolUse` event editing `docs/spec/<feature>.md` where the basename is not `README.md`
 - **When** the hook runs
-- **Then** it emits a reminder to run the `spec-quality` skill on the spec
+- **Then** it emits a reminder to run the `spec-quality` skill on the spec, carrying the reverse-direction clause: when the edit changes documented behavior, check the implementing operational docs (`.agents/slash/`, `docs/procedures/`, `docs/operations/`) for OLD-behavior descriptions — fix or flag, same session
 
 ### Scenario: Editing the spec index is ignored
 - **Given** an edit to `docs/spec/README.md`

@@ -32,7 +32,11 @@ RULES = [
         "SPEC QUALITY: you edited a spec file (docs/spec/). Before declaring spec work done, "
         "run the spec-quality skill (Skill tool) on it and resolve findings: contract-level scope, "
         "observable/identifiable/independent/focused scenarios, goal- and surface-to-scenario "
-        "coverage, redundancy, ambiguity/testability, Open Questions with recommendations.",
+        "coverage, redundancy, ambiguity/testability, Open Questions with recommendations. "
+        "AND if this edit changes documented behavior, check the operational docs that "
+        "implement it (.agents/slash/ runbooks, docs/procedures/, docs/operations/) for "
+        "descriptions of the OLD behavior — fix or flag now, same session (the reverse "
+        "direction of spec-accuracy-reminder).",
     ),
     (
         re.compile(r"(^|/)docs/plans/[^/]+\.md$"),

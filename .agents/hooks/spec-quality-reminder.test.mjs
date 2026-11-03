@@ -308,3 +308,15 @@ test("uncovered hook aggregates with other rule classes in one reminder", () => 
     rmSync(t.dir, { recursive: true, force: true });
   }
 });
+
+test("spec-file nudge carries the reverse-direction clause; other rules do not (#14)", () => {
+  // Defect this guards: the spec -> operational-doc direction silently dropping out
+  // of the nudge — the mirror of the drift spec-accuracy-reminder watches, and just
+  // as able to leave runbooks describing a superseded procedure.
+  const spec = run(edit({ path: "/Users/agent/work/project/docs/spec/foo.md" }));
+  assert.match(spec, /SPEC QUALITY/);
+  assert.match(spec, /OLD behavior/);
+  assert.match(spec, /docs\/operations\//);
+  assert.ok(!run(edit({ path: "/Users/agent/work/project/docs/plans/p.md" })).includes("OLD behavior"));
+  assert.ok(!run(edit({ path: ".agents/skills/g/s/SKILL.md" })).includes("OLD behavior"));
+});
