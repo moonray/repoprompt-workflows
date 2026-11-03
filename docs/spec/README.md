@@ -35,6 +35,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Model Roster Reminder Hook](model-roster-reminder.md) | 10 | implemented |
 | [Doc-Freshness Reminder Hook](doc-freshness-reminder.md) | 12 | implemented |
 | [Spec-Accuracy Reminder Hook](spec-accuracy-reminder.md) | 13 | implemented |
+| [Session-End Command](session-end.md) | 15 | implemented |
 
 ## Conformance matrices
 
