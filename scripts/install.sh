@@ -319,6 +319,59 @@ else:
 PY
 }
 
+# register_opencode_global — keep the global opencode plugin entry (~/.config/opencode/opencode.jsonc)
+# pointing at this repo's plugin package. opencode 2.x loads plugin PACKAGES (directories) from
+# the config "plugin" array — verified live 2026-11-03: bare .mjs entries are rejected
+# ("configured plugin path must be a directory") and the plugins dir is not auto-scanned.
+# Idempotent: appends the entry only when missing; --uninstall removes exactly our path;
+# a config that is not plain JSON (jsonc with comments) is skipped with a hint, never mangled.
+register_opencode_global() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  skip     opencode.jsonc (python3 not found)" >&2; SKIPPED=$((SKIPPED+1)); return
+  fi
+  CONFIG_OC="$HOME/.config/opencode/opencode.jsonc" PLUGIN_OC="$REPO/.opencode/plugins/repoprompt-hooks" \
+  DRY="$DRY" UNINSTALL="$UNINSTALL" python3 - <<'PY' || { echo "  skip     opencode.jsonc (registration failed)" >&2; SKIPPED=$((SKIPPED+1)); }
+import json, os, shutil, sys, tempfile
+path = os.environ["CONFIG_OC"]; entry = os.environ["PLUGIN_OC"]
+dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
+try:
+    with open(path) as f: data = json.load(f)
+except FileNotFoundError:
+    data = {}
+except Exception:
+    print("  skip     opencode.jsonc (not plain JSON — add \"plugin\": [\"%s\"] manually)" % entry)
+    sys.exit(0)
+if not isinstance(data, dict): data = {}
+plugins = data.get("plugin")
+if uninst:
+    if isinstance(plugins, list) and entry in plugins:
+        plugins.remove(entry)
+        if plugins: data["plugin"] = plugins
+        else: data.pop("plugin", None)
+        # fall through to write
+    else:
+        print("  settings %s: nothing to remove" % path); sys.exit(0)
+else:
+    if plugins is None:
+        plugins = []
+    elif not isinstance(plugins, list):
+        print("  skip     opencode.jsonc (\"plugin\" key is not a list — merge manually)"); sys.exit(0)
+    if entry in plugins:
+        print("  settings %s: already registered" % path); sys.exit(0)
+    plugins.append(entry); data["plugin"] = plugins
+write = True
+if dry:
+    print("    [dry-run] %s: plugin entry %s (nothing written)" % (path, entry)); sys.exit(0)
+d = os.path.dirname(path); os.makedirs(d, exist_ok=True)
+if os.path.exists(path): shutil.copy2(path, path + ".bak")
+fd, tmp = tempfile.mkstemp(dir=d)
+with os.fdopen(fd, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+os.replace(tmp, path)
+bak = f" (backup: {path}.bak)" if os.path.exists(path + ".bak") else ""
+print("  settings %s: plugin entry added%s" % (path, bak))
+PY
+}
+
 # link_sources <src-glob> [skip-basename...] -- <dest-dir>...
 # One fan-out for every category: iterate the glob, skip reserved basenames,
 # manage() each source into every destination dir.
@@ -371,9 +424,8 @@ echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
 link_sources "$SRC/hooks/*.py" -- "$HOME/.claude/hooks"
 register_claude_settings
 
-echo "• opencode global plugin → ~/.config/opencode/plugins  (canonical plugin; global-fallback resolution)"
-manage "$REPO/.opencode/plugins/repoprompt-hooks.mjs" "$HOME/.config/opencode/plugins/repoprompt-hooks.mjs"
-register_codex_global
+echo "• opencode global plugin → ~/.config/opencode  (config entry → this repo's plugin package)"
+register_opencode_global
 
 shopt -u nullglob
 
@@ -384,5 +436,5 @@ else
   echo "Summary: already-correct=$OK linked-or-fixed=$FIXED conflicts=$CONFLICT."
   [ "$CONFLICT" -gt 0 ] && echo "Note: $CONFLICT conflict(s) need manual resolution (real files where a symlink was expected)." >&2
   echo "Restart RepoPrompt CE to pick up workflow changes."
-  echo "Hooks: scripts linked to ~/.claude/hooks/ and registered in ~/.claude/settings.json (Claude Code, global). Codex: global layer ~/.codex/hooks.json (every repo — review/trust once via /hooks); the committed repo .codex/hooks.json remains for consumers without the global layer. opencode: canonical plugin symlinked into ~/.config/opencode/plugins/ (global fallback) + project adapters in this repo (.codex/, .opencode/)."
+  echo "Hooks: scripts linked to ~/.claude/hooks/ and registered in ~/.claude/settings.json (Claude Code, global). Codex: global layer ~/.codex/hooks.json (every repo — review/trust once via /hooks); the committed repo .codex/hooks.json remains for consumers without the global layer. opencode: plugin package entry in ~/.config/opencode/opencode.jsonc (global, hot-reloaded) + the project declaration in this repo."
 fi

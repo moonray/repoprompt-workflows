@@ -1,0 +1,6 @@
+{
+  "name": "repoprompt-hooks",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "description": "repoprompt-workflows hook guarantees for opencode (project plugin; global via ~/.config/opencode plugin entry)"
+}
