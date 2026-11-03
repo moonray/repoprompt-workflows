@@ -223,6 +223,102 @@ else:
 PY
 }
 
+# register_codex_global — keep the GLOBAL Codex hook layer (~/.codex/hooks.json) in sync.
+# Codex discovers hooks from every active config layer: the user-level file loads for EVERY
+# project (even untrusted ones; project layers merge on top), so this is the all-repos-
+# including-future-ones mechanism. Scripts resolve via $HOME/.claude/hooks (the symlinks
+# this installer maintains). One-time /hooks trust after the first write. Idempotent:
+# merges our registrations into an existing file without touching foreign entries;
+# --uninstall removes only entries that are exactly ours.
+register_codex_global() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  skip     ~/.codex/hooks.json (python3 not found — register manually)" >&2
+    SKIPPED=$((SKIPPED+1)); return
+  fi
+  echo "• Codex global hooks  (~/.codex/hooks.json — every repo; trust once via /hooks)"
+  DRY="$DRY" UNINSTALL="$UNINSTALL" CODEX_HOOKS="$HOME/.codex/hooks.json" python3 - <<'PY' || { echo "  skip     ~/.codex/hooks.json (registration failed)" >&2; SKIPPED=$((SKIPPED+1)); }
+import json, os, shutil, sys, tempfile
+path = os.environ["CODEX_HOOKS"]; dry = os.environ["DRY"] == "1"; uninst = os.environ["UNINSTALL"] == "1"
+def hook(name, msg=None, env="", extra=None):
+    h = {"type": "command", "command": f'{env}python3 "$HOME/.claude/hooks/{name}"'.strip()}
+    if msg: h["statusMessage"] = msg
+    if extra: h.update(extra)
+    return h
+expected = {
+  "PreToolUse": [{"matcher": "^mcp__chrome[-_]devtools__", "hooks": [hook("chrome-gate.py", "chrome skill gate")]}],
+  "PostToolUse": [
+    {"matcher": "Bash", "hooks": [hook("test-quality-reminder.py", "Checking test run + vetting", env="TQ_HOOK_RUNTIME=codex "),
+                                    hook("doc-freshness-reminder.py", "Doc-freshness close reminder")]},
+    {"matcher": "apply_patch|Edit|Write", "hooks": [hook("spec-quality-reminder.py", "Spec-quality reminder"),
+                                                     hook("spec-accuracy-reminder.py", "Spec-accuracy drift reminder"),
+                                                     hook("spec-conformance-gate.py", "Spec-conformance gate"),
+                                                     hook("doc-freshness-reminder.py", "Doc-freshness close reminder")]},
+    {"matcher": "^mcp__RepoPromptCE__(app_settings|agent_manage|ask_oracle)$", "hooks": [hook("model-roster-reminder.py", "Model-roster drift check")]},
+  ],
+  "Stop": [{"hooks": [hook("test-quality-reminder.py", env="TQ_HOOK_RUNTIME=codex ", extra={"timeout": 30})]}],
+}
+try:
+    with open(path) as f: data = json.load(f)
+except FileNotFoundError:
+    data = {}
+except Exception:
+    sys.exit(1)  # unreadable JSON — let the bash guard count it (SKIPPED) and print the hint
+if not isinstance(data, dict): sys.exit(1)
+hooks = data.get("hooks")
+if not isinstance(hooks, dict): hooks = {}
+data["hooks"] = hooks
+ours = {h["command"] for ev in expected.values() for e in ev for h in e["hooks"]}
+if uninst:
+    removed = 0
+    for ev, entries in expected.items():
+        lst = hooks.get(ev, [])
+        if not isinstance(lst, list): continue
+        for e in lst:
+            if not isinstance(e, dict): continue
+            hh = e.get("hooks")
+            if isinstance(hh, list):
+                before = len(hh)
+                e["hooks"] = [h for h in hh if not (isinstance(h, dict) and h.get("command") in ours)]
+                removed += before - len(e["hooks"])
+        hooks[ev] = [e for e in lst if isinstance(e, dict) and e.get("hooks")]
+        if not hooks[ev]: hooks.pop(ev, None)
+    write = removed > 0 and all(not v for v in hooks.values())
+    if write:
+        os.remove(path); print(f"  removed  {path} ({removed} hook registrations)")
+    else:
+        print(f"  settings {path}: removed {removed} registrations" if removed else f"  settings {path}: nothing to remove")
+    sys.exit(0)
+added = 0
+for ev, entries in expected.items():
+    lst = hooks.get(ev, [])
+    if not isinstance(lst, list): lst = []
+    for want in entries:
+        matches = [e for e in lst if isinstance(e, dict) and e.get("matcher", "*") == want.get("matcher", "*")]
+        entry = matches[0] if matches else None
+        if entry is None:
+            entry = {"matcher": want["matcher"], "hooks": []}; lst.append(entry)
+        hh = entry.setdefault("hooks", [])
+        if not isinstance(hh, list): hh = []; entry["hooks"] = hh
+        for h in want["hooks"]:
+            if not any(isinstance(x, dict) and x.get("command") == h["command"] for x in hh):
+                hh.append(h); added += 1
+    hooks[ev] = lst
+write = added > 0 or not os.path.exists(path)
+if dry:
+    print(f"    [dry-run] {path}: +{added} hook registrations (nothing written)")
+elif write:
+    d = os.path.dirname(path); os.makedirs(d, exist_ok=True)
+    if os.path.exists(path): shutil.copy2(path, path + ".bak")
+    fd, tmp = tempfile.mkstemp(dir=d)
+    with os.fdopen(fd, "w") as f: json.dump(data, f, indent=2); f.write("\n")
+    os.replace(tmp, path)
+    bak = f" (backup: {path}.bak)" if os.path.exists(path + ".bak") else ""
+    print(f"  settings {path}: +{added} hook registrations{bak} — review/trust once via /hooks")
+else:
+    print(f"  settings {path}: already registered")
+PY
+}
+
 # link_sources <src-glob> [skip-basename...] -- <dest-dir>...
 # One fan-out for every category: iterate the glob, skip reserved basenames,
 # manage() each source into every destination dir.
@@ -275,6 +371,10 @@ echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
 link_sources "$SRC/hooks/*.py" -- "$HOME/.claude/hooks"
 register_claude_settings
 
+echo "• opencode global plugin → ~/.config/opencode/plugins  (canonical plugin; global-fallback resolution)"
+manage "$REPO/.opencode/plugins/repoprompt-hooks.mjs" "$HOME/.config/opencode/plugins/repoprompt-hooks.mjs"
+register_codex_global
+
 shopt -u nullglob
 
 echo
@@ -284,5 +384,5 @@ else
   echo "Summary: already-correct=$OK linked-or-fixed=$FIXED conflicts=$CONFLICT."
   [ "$CONFLICT" -gt 0 ] && echo "Note: $CONFLICT conflict(s) need manual resolution (real files where a symlink was expected)." >&2
   echo "Restart RepoPrompt CE to pick up workflow changes."
-  echo "Hooks: scripts linked to ~/.claude/hooks/ and registered in ~/.claude/settings.json (Claude Code). Codex/opencode activate automatically in this repo (.codex/, .opencode/)."
+  echo "Hooks: scripts linked to ~/.claude/hooks/ and registered in ~/.claude/settings.json (Claude Code, global). Codex: global layer ~/.codex/hooks.json (every repo — review/trust once via /hooks); the committed repo .codex/hooks.json remains for consumers without the global layer. opencode: canonical plugin symlinked into ~/.config/opencode/plugins/ (global fallback) + project adapters in this repo (.codex/, .opencode/)."
 fi

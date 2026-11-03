@@ -25,15 +25,30 @@
 // `tool.execute.before` (throwing blocks the call itself; opencode plugin docs, re-verified
 // 2026-10-11) — wired in #9, harness-validated against the real chrome-gate.py.
 //
-// Repo-scoped: this plugin calls .agents/hooks/*.py relative to the project root, so it
-// is active when working IN this repo (or any repo that ships .agents/hooks/).
+// Repo-scoped with global fallback: this plugin resolves .agents/hooks/*.py relative to
+// the project root when present, else the global ~/.claude/hooks symlinks — active when
+// working IN this repo (or any repo that ships .agents/hooks/) AND, via the symlink
+// install.sh places in ~/.config/opencode/plugins/, in every repo opencode opens.
 // LOADING (verified live on opencode 1.18.35, 2026-10-11, #9): plugins are NOT auto-scanned
 // from .opencode/plugins/ — the repo's opencode.json must declare this file in its "plugin"
 // array (it does). Session identity arrives as input.sessionID on tool hooks.
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const HOOKS_DIR = ".agents/hooks";
+
+// Repo-scoped with GLOBAL FALLBACK: resolve .agents/hooks/*.py relative to the project root
+// when this repo ships them, else the global ~/.claude/hooks install (the same scripts,
+// symlinked by scripts/install.sh) — so the SAME file works as this repo's project plugin
+// AND as the global plugin (install.sh symlinks it into ~/.config/opencode/plugins/,
+// activating the guarantees in every repo opencode opens).
+function resolveScript(script, root) {
+  const local = path.join(root, HOOKS_DIR, script);
+  if (existsSync(local)) return local;
+  return path.join(process.env.HOME ?? os.homedir(), ".claude", "hooks", script);
+}
 
 // Pull a file path out of opencode tool args without guessing the exact key name.
 function extractPath(args) {
@@ -58,7 +73,7 @@ function extractSession(input, output) {
 
 function runHook(script, payload, root) {
   try {
-    const out = execFileSync("python3", [path.join(root, HOOKS_DIR, script)], {
+    const out = execFileSync("python3", [resolveScript(script, root)], {
       input: JSON.stringify(payload),
       encoding: "utf8",
       timeout: 20000,

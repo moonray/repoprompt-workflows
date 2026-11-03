@@ -25,20 +25,19 @@ Two are reminders rather than hard gates because the matching discipline is a Sk
 
 ## Scope: repo-scoped vs global
 
-The `.py` scripts are invoked two ways, and that decides their scope:
+The `.py` scripts are invoked three ways, and that decides their scope:
 
-- **Codex / opencode — repo-scoped.** Bundled adapters call the scripts relative to the repo root, so they are active **only when working in this repo** (or any repo that ships `.agents/hooks/`):
-  - `.codex/hooks.json` — Codex loads it from the project when trusted; it runs the scripts via `$(git rev-parse --show-toplevel)/.agents/hooks/`.
-  - `.opencode/plugins/repoprompt-hooks.mjs` — declared in the repo's `opencode.json` `plugin` array (opencode ≥1.18 does not auto-scan the plugin dir — verified live 2026-10-11, #9); it `execFileSync`-es the scripts.
 - **Claude Code — global (cross-repo).** `scripts/install.sh` symlinks the scripts into `~/.claude/hooks/` and registers them in `~/.claude/settings.json`. Because that config is global, the hooks then apply in every repo.
+- **Codex — global user layer + optional project layer.** Codex discovers hooks from every active config layer: `~/.codex/hooks.json` / `~/.codex/config.toml` (user level — loads for EVERY project, even untrusted ones) merges with `<repo>/.codex/hooks.json` (project level, trust-gated). `scripts/install.sh` maintains the user-level file (scripts via `$HOME/.claude/hooks/`); review/trust it once via `/hooks` after the first write. Verified live 2026-11-03: the user-level file alone fires in a brand-new repo with no project wiring — discovery → dispatch → nudge injection. The committed `.codex/hooks.json` in this repo remains for consumers who have not installed the global layer (it resolves scripts repo-relative via `git rev-parse --show-toplevel`).
+- **opencode — project plugin with global fallback.** The committed `.opencode/plugins/repoprompt-hooks.mjs` resolves scripts repo-relative first, then falls back to the global `~/.claude/hooks/` symlinks — so `scripts/install.sh` symlinks the SAME file into `~/.config/opencode/plugins/` as the global plugin (docs declare global plugin sources load everywhere; per-project declarations remain for repos that want pinned wiring). Reminder hooks surface as structured warn logs — opencode has no model-visible `additionalContext` injection (see the plugin header).
 
 ## Install
 
 ### Automatic (recommended)
 
-`scripts/install.sh` symlinks every `.agents/hooks/*.py` into `~/.claude/hooks/` **and** idempotently merges the registrations below into `~/.claude/settings.json` (Claude Code). The merge is safe: it parses the JSON with `python3`, backs `settings.json` up to `settings.json.bak` before writing, never duplicates an entry, and honors `--dry-run` / `--uninstall`. Restart Claude Code after the first install.
+`scripts/install.sh` symlinks every `.agents/hooks/*.py` into `~/.claude/hooks/`, idempotently merges the registrations into `~/.claude/settings.json` (Claude Code, global), writes the global Codex layer `~/.codex/hooks.json` (every repo — review/trust once via Codex's `/hooks`), and symlinks the canonical opencode plugin into `~/.config/opencode/plugins/` (global fallback resolution). Each merge is safe: JSON parsed with `python3`, backup written before changing anything, no duplicate entries, `--dry-run` / `--uninstall` honored. Restart Claude Code after the first install; trust the Codex layer once via `/hooks`.
 
-Codex and opencode need no extra step in this repo — their adapters (`.codex/hooks.json`, `.opencode/plugins/repoprompt-hooks.mjs`) are committed here and load automatically.
+Codex and opencode need no extra step in this repo — their adapters (`.codex/hooks.json`, `.opencode/plugins/repoprompt-hooks.mjs`) are committed here and load automatically; the installer additionally maintains the global layers for every OTHER repo.
 
 ### Manual (Claude Code)
 
