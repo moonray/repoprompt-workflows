@@ -2,8 +2,9 @@
 """Claude Code hook: nudge a same-session spec-accuracy check when an operational doc changes.
 
 PostToolUse reminder (fails open — a crashed hook never traps the agent). Fires when an edit
-lands on an operational doc — `.agents/slash/*.md` (runbooks/commands) or
-`docs/procedures/*.md` — in a repo that has a `docs/spec/` directory, nudging: if the edit
+lands on an operational doc — `.agents/slash/*.md` (runbooks/commands),
+`docs/procedures/*.md`, or `docs/operations/*.md` — in a repo that has a `docs/spec/`
+directory, nudging: if the edit
 changed documented behavior, check NOW whether any spec (or its conformance matrix) still
 describes the OLD behavior, and fix or flag the drift in the same session.
 
@@ -35,13 +36,15 @@ import sys
 _OPDOC_RES = [
     re.compile(r"(^|/)\.agents/slash/[^/]+\.md$"),
     re.compile(r"(^|/)docs/procedures/[^/]+\.md$"),
+    re.compile(r"(^|/)docs/operations/[^/]+\.md$"),
 ]
 
 _EXCLUDE_BASENAMES = {"readme.md"}
 
 NUDGE = (
-    "SPEC ACCURACY: you edited an operational doc (a .agents/slash/ runbook or a "
-    "docs/procedures/ procedure) — the documented reality of how things work. If this edit "
+    "SPEC ACCURACY: you edited an operational doc (a .agents/slash/ runbook, a "
+    "docs/procedures/ procedure, or a docs/operations/ doc) — the documented reality of "
+    "how things work. If this edit "
     "changes documented behavior, check NOW, in this session while the context is fresh, "
     "whether any spec in docs/spec/ (or its conformance matrix) still describes the OLD "
     "behavior, and fix or flag the drift — a rewritten operational doc whose spec keeps a "

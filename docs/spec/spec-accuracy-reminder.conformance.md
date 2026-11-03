@@ -9,12 +9,12 @@
 
 | Item | Status | Evidence |
 |---|---|---|
-| G1 detect an operational-doc edit at change time | Conformed | `_OPDOC_RES` (`.agents/slash/*.md`, `docs/procedures/*.md`); `_is_opdoc()` with README exclusion |
+| G1 detect an operational-doc edit at change time | Conformed | `_OPDOC_RES` (`.agents/slash/*.md`, `docs/procedures/*.md`, `docs/operations/*.md`); `_is_opdoc()` with README exclusion |
 | G2 nudge the same-session spec-accuracy check | Conformed | `NUDGE` carries: same-session check while context is fresh, OLD-behavior drift, specs + conformance matrices, fix-or-flag, quick-no-op allowance |
 | G3 silence where there is nothing to check | Conformed | `_spec_dir_state()` positive-absence gate; `_is_opdoc()` path filter; `_edit_succeeded()` suppression |
 | G4 fail open on malformed input | Conformed | `try/except json.load` → exit 0; non-dict payload → exit 0 |
 | S-001 runbook edit in a specs repo fires | Conformed | `_OPDOC_RES[0]` + `_spec_dir_state() is not False`; test "runbook edit … fires the nudge" |
-| S-002 procedure edit in a specs repo fires | Conformed | `_OPDOC_RES[1]`; test "procedure edit … fires the nudge" |
+| S-002 procedure or operations-doc edit in a specs repo fires | Conformed | `_OPDOC_RES[1]`/`_OPDOC_RES[2]`; test "procedure and operations-doc edits fire the nudge" |
 | S-003 positively spec-less repo stays silent | Conformed | `_spec_dir_state()` returns False when a resolvable base lacks `docs/spec/`; test "repo without docs/spec/ stays silent" |
 | S-004 unresolvable root nudges | Conformed | `_spec_dir_state()` returns None when no base resolves → `is not False` → nudge; test "unresolvable root nudges" |
 | S-005 relative paths resolve against payload cwd, exclusively | Conformed | `_repo_root("")` + explicit-cwd-only `bases` (process cwd consulted only when payload cwd absent — the poisoning defect the test caught pre-fix); test "relative path resolves against payload cwd" |
@@ -38,3 +38,5 @@
 ## Notes
 
 The suite earned its keep before landing: the S-005 test failed against the first implementation (the hook process's own cwd was consulted alongside the payload cwd, letting an unrelated repo's `docs/spec/` invent specs the edited repo lacked) — the fix made the explicit payload cwd the sole resolution, and that defect is now pinned.
+
+Re-audited 2026-11-03 (same day) after the operator-directed scope extension: `docs/operations/` added as a third standard watch dir (#13 comment) — G1/S-002/Constraints updated, the pinned silent-assertion for `docs/operations/` flipped to firing, and the nudge parenthetical widened. No other section moved.

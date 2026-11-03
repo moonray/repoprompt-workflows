@@ -43,10 +43,11 @@ test("runbook edit (.agents/slash/*.md, spec dir present) fires the nudge", () =
   }
 });
 
-test("procedure edit (docs/procedures/*.md) fires the nudge", () => {
+test("procedure and operations-doc edits fire the nudge", () => {
   const repo = fakeRepo(true);
   try {
     assert.match(run(edit(`${repo}/docs/procedures/deployment.md`)), /SPEC ACCURACY/);
+    assert.match(run(edit(`${repo}/docs/operations/server-environment.md`)), /SPEC ACCURACY/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -102,7 +103,6 @@ test("non-watched paths stay silent", () => {
     assert.equal(run(edit(`${repo}/docs/spec/add-location.md`)), "");
     assert.equal(run(edit(`${repo}/docs/plans/plan-2026.md`)), "");
     assert.equal(run(edit(`${repo}/src/main.py`)), "");
-    assert.equal(run(edit(`${repo}/docs/operations/server-environment.md`)), "");
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

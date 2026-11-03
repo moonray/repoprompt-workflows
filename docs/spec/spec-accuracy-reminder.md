@@ -8,11 +8,11 @@ status: implemented
 
 ## Problem
 
-Operational docs (runbooks in `.agents/slash/`, procedures in `docs/procedures/`) and specs (`docs/spec/`) describe the same behavior from two sides — how we do it vs what the behavior contract is. When the operational side changes, nothing prompts a check of the spec side: the sibling hooks own every other direction (spec-quality-reminder: spec edited → writing quality; doc-freshness-reminder: item closed → drift audit; spec-conformance-gate: spec closed → matrix). Observed incident (private client workspace, 2026-10-30 → 11-02, recovered via operator-directed chat mining): a runbook was rewritten for a changed convention and its paired spec kept describing the old world for three days, silently, until the operator asked. The gap is a trigger gap at change time, not a knowledge gap — the fix existed in-session and was never applied to the paired doc.
+Operational docs (runbooks in `.agents/slash/`, procedures in `docs/procedures/`, operations docs in `docs/operations/`) and specs (`docs/spec/`) describe the same behavior from two sides — how we do it vs what the behavior contract is. When the operational side changes, nothing prompts a check of the spec side: the sibling hooks own every other direction (spec-quality-reminder: spec edited → writing quality; doc-freshness-reminder: item closed → drift audit; spec-conformance-gate: spec closed → matrix). Observed incident (private client workspace, 2026-10-30 → 11-02, recovered via operator-directed chat mining): a runbook was rewritten for a changed convention and its paired spec kept describing the old world for three days, silently, until the operator asked. The gap is a trigger gap at change time, not a knowledge gap — the fix existed in-session and was never applied to the paired doc.
 
 ## Goals
 
-1. Detect an operational-doc edit at the moment it lands (`.agents/slash/*.md`, `docs/procedures/*.md`) via any supported edit-tool path form.
+1. Detect an operational-doc edit at the moment it lands (`.agents/slash/*.md`, `docs/procedures/*.md`, `docs/operations/*.md`) via any supported edit-tool path form.
 2. Nudge a same-session accuracy check: if the edit changed documented behavior, check whether any spec (or its conformance matrix) still describes the OLD behavior, and fix or flag the drift now, while the change context is fresh — with an explicit quick-no-op allowance when no spec pairs with the doc.
 3. Stay silent where there is nothing to check: repos without a `docs/spec/` directory (positively verified), README index files, non-operational paths, and edits the runtime reported as failed.
 4. Fail open — a malformed input or crash never traps the agent.
@@ -27,7 +27,7 @@ Operational docs (runbooks in `.agents/slash/`, procedures in `docs/procedures/`
 
 ## Constraints
 
-- Watched paths are immediate `.md` children of `.agents/slash/` and `docs/procedures/` (recursive descent deliberately excluded — nested content is not a runbook); `README.md` basenames excluded.
+- Watched paths are immediate `.md` children of `.agents/slash/`, `docs/procedures/`, and `docs/operations/` (recursive descent deliberately excluded — nested content is not a runbook; `README.md` basenames excluded). `docs/operations/` is a standard watch name even where only one repo currently has one — absent dirs simply never match.
 - Spec-dir gate is three-valued: nudge when `docs/spec/` exists; silent only on POSITIVE absence (a resolvable base directory lacking it); nudge when unverifiable — verification failure is not evidence of absence.
 - An explicit payload `cwd` is the sole resolution base for relative paths; the hook process's own cwd is consulted only when the payload carries none (an unrelated repo at the process cwd must not invent or mask the edited repo's specs — the defect the suite caught pre-fix).
 - Path tolerance: scalar path keys (`file_path`/`path`/`filePath`/`notebook_path`/`new_path`/`old_path`), array forms (`files`/`edits`/`paths`, including dict items), and apply-patch headers (`Add`/`Update`/`Delete File`, `Move to`); a malformed entry is skipped, not fatal.
@@ -42,8 +42,8 @@ Operational docs (runbooks in `.agents/slash/`, procedures in `docs/procedures/`
 - **When** the hook runs
 - **Then** it emits the spec-accuracy nudge
 
-### Scenario S-002: Procedure edit in a specs repo fires the nudge
-- **Given** the same event shape with the path an immediate `.md` child of `docs/procedures/`
+### Scenario S-002: Procedure or operations-doc edit in a specs repo fires the nudge
+- **Given** the same event shape with the path an immediate `.md` child of `docs/procedures/` or `docs/operations/`
 - **When** the hook runs
 - **Then** it emits the spec-accuracy nudge
 
