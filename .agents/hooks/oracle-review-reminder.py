@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Claude Code hook: nudge an oracle review when a session commits a substantial
+change set without any oracle consultation.
+
+PostToolUse reminder (fails open — a crashed hook never traps the agent).
+Accumulates per-session state from tool events:
+
+  - edit events (edit tools or apply_patch commands): distinct edited paths;
+    any write under docs/spec|specs/plans sets the spec/plan flag
+  - ask_oracle (MCP-qualified name ending in ask_oracle): stamps consulted
+  - a successful `git commit` shell command: the trigger moment
+
+At the commit, if the session edited >=3 distinct non-doc files OR wrote a
+spec/plan doc, and never consulted the oracle, emit ONE nudge (per session)
+directing a bounded ask_oracle review pass — or a reasoned skip. Silent on
+everything else; never blocks.
+
+Why commit-keyed rather than Stop: Stop fires every turn, so it would nudge
+mid-flight work; the commit is the observable "declaring this change done"
+moment (the same surface doc-freshness-reminder rides for closes). Evidence
+base: 2026-11-05 chat-mining sweep — oracle compliance tracks enforcement, not
+the harness's soft guidance line; ad-hoc sessions skipped oracle in ~all of
+150+ sessions over two months, and the one ad-hoc session that consulted caught
+6 verified defects. Spec: docs/spec/oracle-review-reminder.md.
+
+Source of truth: `.agents/hooks/oracle-review-reminder.py` in this repo; symlink
+it into your runtime's hooks directory (e.g. `~/.claude/hooks/`).
+"""
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+
+CACHE_DIR = os.environ.get("ORACLE_REVIEW_STATE_DIR") or os.path.expanduser(
+    "~/.cache/oracle-review-hook"
+)
+_STATE_TTL = 7 * 24 * 3600  # prune session state older than a week on write
+
+NUDGE = (
+    "ORACLE REVIEW: this session is committing a substantial change set (>=3 files or a "
+    "spec/plan write) with no oracle consultation observed. Before declaring the work "
+    "done, run one `ask_oracle` review pass (mode:review) over the diff or change summary "
+    "— routed per the `model-routing` skill (Review & Refine) — and fold confirmed "
+    "findings; or state why an independent lane isn't warranted (trivial/mechanical "
+    "change, user declined). One-time nudge for this session."
+)
+
+# Oracle observation: the MCP-qualified tool name (any server prefix) or bare name.
+_ORACLE_TOOL_RE = re.compile(r"(?:^|__)ask_oracle$")
+# Commit adjacency: `git commit`, `git -C <path> commit`, &&-chained segments; flag forms
+# like `git -c k=v commit` are covered by the (flag value)* group.
+_COMMIT_RE = re.compile(
+    r"\bgit\s+(?:-[A-Za-z][\w-]*\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s+)*commit\b"
+)
+_DOC_EXT_RE = re.compile(r"\.(md|markdown|mdx|txt|rst|adoc)$", re.IGNORECASE)
+_SPEC_PLAN_RE = re.compile(r"(^|/)docs/(spec|specs|plans)/")
+
+
+def _norm(path):
+    return path.replace("\\", "/")
+
+
+def _is_doc(path):
+    return bool(_DOC_EXT_RE.search(path))
+
+
+def _is_spec_plan(path):
+    return bool(_SPEC_PLAN_RE.search(path))
+
+
+def _paths_from_patch(command):
+    """Codex/opencode deliver file edits as an apply_patch command (no path field)."""
+    if not isinstance(command, str):
+        return []
+    return re.findall(
+        r"^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$", command, re.MULTILINE
+    )
+
+
+def _paths_from_payload(ti):
+    if not isinstance(ti, dict):
+        return []
+    paths = []
+    for k in ("file_path", "path", "filePath", "notebook_path"):
+        v = ti.get(k)
+        if isinstance(v, str) and v:
+            paths.append(v)
+    paths.extend(_paths_from_patch(ti.get("command")))
+    return paths
+
+
+def _succeeded(payload):
+    """Suppress contribution for calls the runtime reports as failed; unknown = success."""
+    tr = payload.get("tool_response")
+    if not isinstance(tr, dict):
+        return True
+    if tr.get("is_error") is True or tr.get("isError") is True:
+        return False
+    err = tr.get("error")
+    if err is True or (isinstance(err, (str, dict)) and err):
+        return False
+    if str(tr.get("status", "")).lower() == "error":
+        return False
+    if tr.get("ok") is False or tr.get("success") is False:
+        return False
+    return True
+
+
+def _state_path(payload):
+    key_src = payload.get("session_id") or payload.get("cwd") or "default"
+    key = hashlib.sha1(str(key_src).encode()).hexdigest()[:12]
+    return os.path.join(CACHE_DIR, f"sess-{key}.json")
+
+
+def _load(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+    return {"files": [], "spec": False, "consulted": False, "nudged": False}
+
+
+def _save(path, state):
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        # Opportunistic, bounded prune of stale session state (only our prefix).
+        now = time.time()
+        for name in os.listdir(CACHE_DIR):
+            if not name.startswith("sess-"):
+                continue
+            fp = os.path.join(CACHE_DIR, name)
+            try:
+                if now - os.path.getmtime(fp) > _STATE_TTL:
+                    os.unlink(fp)
+            except OSError:
+                pass
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception:
+        pass  # fail open
+
+
+def main():
+    try:
+        payload = json.load(sys.stdin)
+    except Exception:
+        sys.exit(0)
+    if not isinstance(payload, dict):
+        sys.exit(0)
+    if payload.get("hook_event_name") != "PostToolUse":
+        sys.exit(0)
+
+    tool_name = str(payload.get("tool_name") or "")
+    ti = payload.get("tool_input")
+    ti = ti if isinstance(ti, dict) else {}
+    sp = _state_path(payload)
+    state = _load(sp)
+
+    # 1. Oracle consultation observed — any outcome counts (transport failure != skip).
+    if _ORACLE_TOOL_RE.search(tool_name):
+        state["consulted"] = True
+        _save(sp, state)
+        sys.exit(0)
+
+    # 2. Edit events accumulate the session's change-set picture.
+    paths = _paths_from_payload(ti)
+    if paths:
+        if _succeeded(payload):
+            files = set(state.get("files") or [])
+            for p in paths:
+                np = _norm(p)
+                files.add(np)
+                if _is_spec_plan(np):
+                    state["spec"] = True
+            state["files"] = sorted(files)
+            _save(sp, state)
+        sys.exit(0)
+
+    # 3. Shell events: the commit is the trigger moment.
+    command = ti.get("command")
+    if isinstance(command, str) and _COMMIT_RE.search(command) and _succeeded(payload):
+        if state.get("nudged") or state.get("consulted"):
+            sys.exit(0)
+        non_doc = [p for p in (state.get("files") or []) if not _is_doc(p)]
+        if len(non_doc) >= 3 or state.get("spec"):
+            state["nudged"] = True
+            _save(sp, state)
+            print(json.dumps({
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": NUDGE,
+                }
+            }))
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

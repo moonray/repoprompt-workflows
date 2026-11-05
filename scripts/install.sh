@@ -155,12 +155,15 @@ _ROSTER = "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$"
 regs = [
     {"event": "PostToolUse", "matcher": "Bash|Skill", "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
     {"event": "PostToolUse", "matcher": "Bash",          "command": 'python3 "$HOME/.claude/hooks/doc-freshness-reminder.py"'},
+    {"event": "PostToolUse", "matcher": "Bash",          "command": 'python3 "$HOME/.claude/hooks/oracle-review-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-quality-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-accuracy-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/doc-freshness-reminder.py"'},
+    {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/oracle-review-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ANCHORED_EDIT,   "command": 'python3 "$HOME/.claude/hooks/spec-conformance-gate.py"'},
     {"event": "PostToolUse", "matcher": _TASKS,           "command": 'python3 "$HOME/.claude/hooks/delegation-reminder.py"'},
     {"event": "PostToolUse", "matcher": _ROSTER,           "command": 'python3 "$HOME/.claude/hooks/model-roster-reminder.py"'},
+    {"event": "PostToolUse", "matcher": _ROSTER,           "command": 'python3 "$HOME/.claude/hooks/oracle-review-reminder.py"'},
     {"event": "Stop",        "matcher": "*",             "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
     {"event": "PreToolUse", "matcher": "^mcp__chrome-devtools__", "command": 'python3 "$HOME/.claude/hooks/chrome-gate.py"'},
 ]
@@ -267,12 +270,15 @@ expected = {
   "PreToolUse": [{"matcher": "^mcp__chrome[-_]devtools__", "hooks": [hook("chrome-gate.py", "chrome skill gate")]}],
   "PostToolUse": [
     {"matcher": "Bash", "hooks": [hook("test-quality-reminder.py", "Checking test run + vetting", env="TQ_HOOK_RUNTIME=codex "),
-                                    hook("doc-freshness-reminder.py", "Doc-freshness close reminder")]},
+                                    hook("doc-freshness-reminder.py", "Doc-freshness close reminder"),
+                                    hook("oracle-review-reminder.py", "Oracle-review commit reminder")]},
     {"matcher": "apply_patch|Edit|Write", "hooks": [hook("spec-quality-reminder.py", "Spec-quality reminder"),
                                                      hook("spec-accuracy-reminder.py", "Spec-accuracy drift reminder"),
                                                      hook("spec-conformance-gate.py", "Spec-conformance gate"),
-                                                     hook("doc-freshness-reminder.py", "Doc-freshness close reminder")]},
-    {"matcher": "^mcp__RepoPromptCE__(app_settings|agent_manage|ask_oracle)$", "hooks": [hook("model-roster-reminder.py", "Model-roster drift check")]},
+                                                     hook("doc-freshness-reminder.py", "Doc-freshness close reminder"),
+                                                     hook("oracle-review-reminder.py", "Oracle-review commit reminder")]},
+    {"matcher": "^mcp__RepoPromptCE__(app_settings|agent_manage|ask_oracle)$", "hooks": [hook("model-roster-reminder.py", "Model-roster drift check"),
+                                                                                             hook("oracle-review-reminder.py", "Oracle-review consult marker")]},
   ],
   "Stop": [{"hooks": [hook("test-quality-reminder.py", env="TQ_HOOK_RUNTIME=codex ", extra={"timeout": 30})]}],
 }
@@ -468,6 +474,7 @@ register_claude_settings
 
 echo "• opencode global plugin → ~/.config/opencode  (config entry → this repo's plugin package)"
 register_opencode_global
+register_codex_global   # restored: 621a88c's plugin migration replaced this call instead of adding beside it — Codex global layer silently unmaintained since
 
 shopt -u nullglob
 

@@ -119,6 +119,7 @@ export default Plugin.define({
         }
         nudge(runHook("test-quality-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
         nudge(runHook("doc-freshness-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
+        nudge(runHook("oracle-review-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
       } else if (isEdit) {
         const fp = extractPath(input)
         const payload = {
@@ -130,6 +131,7 @@ export default Plugin.define({
         nudge(runHook("spec-quality-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
         nudge(runHook("spec-accuracy-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
         nudge(runHook("doc-freshness-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
+        nudge(runHook("oracle-review-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
         const gate = runHook("spec-conformance-gate.py", payload, rootDir)
         if (gate && gate.decision === "block") {
           // Errors the edit result; the model sees the reason and must reconcile.
@@ -138,6 +140,12 @@ export default Plugin.define({
       } else if (/RepoPromptCE/i.test(tool) && /(app_settings|agent_manage|ask_oracle)/.test(tool)) {
         const name = (tool.match(/(app_settings|agent_manage|ask_oracle)/) || [])[1] || "app_settings"
         nudge(runHook("model-roster-reminder.py", {
+          hook_event_name: "PostToolUse",
+          tool_name: `mcp__RepoPromptCE__${name}`,
+          tool_input: input,
+          cwd: rootDir,
+        }, rootDir)?.hookSpecificOutput?.additionalContext)
+        nudge(runHook("oracle-review-reminder.py", {
           hook_event_name: "PostToolUse",
           tool_name: `mcp__RepoPromptCE__${name}`,
           tool_input: input,

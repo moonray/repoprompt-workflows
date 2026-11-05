@@ -53,8 +53,8 @@ Unless the user explicitly chooses `quick` / `standard` / `deep` at intake, sele
 **Presets:**
 
 - **Quick** — one zone; correctness + thermo-nuclear; no verification.
-- **Standard** — partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0.
-- **Deep** — fine-grained zones; full lens matrix; adversarial verification of all P0/high-severity findings.
+- **Standard** — partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0; one `ask_oracle` review lane (routed per `model-routing`) over the diff summary.
+- **Deep** — fine-grained zones; full lens matrix; adversarial verification of all P0/high-severity findings; an `ask_oracle` review lane is included.
 
 ---
 
@@ -332,6 +332,7 @@ Bounded report:
 - **Shots:** `agent_run(model_id:"pair", detach:true)`, each calling `context_builder(response_type:"review")` on its zone+lens; `wait`.
 - **Aggregate/govern:** orchestrator inline.
 - **Verify:** `agent_run` skeptics.
+- **Second-lane review (standard/deep):** `ask_oracle` review mode over the diff summary, routed per `model-routing` (Review & Refine).
 - **Tie-breaks / classification:** `ask_oracle`, routed per `model-routing` (tie-breaks → Review & Refine; repeat-threshold classification → Escalation).
 - **Author intake/reconciliation:** `ask_user`.
 - **Follow-up implementation:** hand accepted findings to `Loop`.
