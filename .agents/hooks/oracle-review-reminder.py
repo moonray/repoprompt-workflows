@@ -60,6 +60,11 @@ def _commit_lines(command, cwd):
     None when unmeasurable -> caller nudges (fail toward the reminder, not silence)."""
     if re.search(r"\s(?:-C\s|--git-dir|--work-tree)", command):
         return None  # commit landed elsewhere; cwd stats would be the wrong commit
+    commit_at = _COMMIT_RE.search(command)
+    if commit_at and re.search(
+        r"\bcd\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s*(?:&&|;)", command[: commit_at.start()]
+    ):
+        return None  # `cd <dir> && git commit …` — same blind spot as -C (observed live 2026-11-05)
     try:
         out = subprocess.run(
             ["git", "-C", cwd or ".", "show", "--shortstat", "--format=", "HEAD"],

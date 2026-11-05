@@ -260,6 +260,22 @@ test("quick-band cwd commit (<=150 lines) stays silent; spec writes bypass the g
   );
 });
 
+test("cd-prefixed commits bypass the line gate (measured nowhere, nudge)", () => {
+  const f = fresh();
+  const repo = mkdtempSync(path.join(tmpdir(), "oracle-repo-"));
+  execFileSync("bash", ["-c",
+    `cd ${JSON.stringify(repo)} && git init -q . && git config user.email t@t && git config user.name t && printf 'a\nb\n' > small.txt && git add small.txt && git commit -q -m tiny`,
+  ]);
+  for (const p of ["src/a.py", "src/b.py", "src/c.ts"]) runHook(EDIT(f, p), f);
+  // cwd holds a tiny HEAD (a bare commit would gate silent), but the cd prefix means
+  // the real commit landed elsewhere — unmeasurable, so fail toward the nudge.
+  assert.match(
+    runHook(COMMIT(f, "cd /Users/x/elsewhere && git commit -m x", undefined, repo), f)
+      ?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+});
+
 test("malformed input exits cleanly", () => {
   const f = fresh();
   const out = execFileSync("python3", [HOOK], {

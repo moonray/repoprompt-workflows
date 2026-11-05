@@ -86,9 +86,10 @@ shape as the doc-freshness close-audit gap.
   spec/plan flag, the hook measures the just-landed commit (`git show --shortstat HEAD`
   in the event's `cwd`) and stays silent at or below `review-depth`'s S/M boundary
   (≤150 changed lines — the change sizes `quick`, and quick reviews carry no oracle
-  lane). Commits redirected via `-C`/`--git-dir`/`--work-tree` (landed outside `cwd`, so
-  `cwd` stats would measure the wrong commit) and unmeasurable cases fail toward the
-  nudge, never toward silence. Spec/plan writes bypass the gate: document-shaped
+  lane). Commits redirected via `-C`/`--git-dir`/`--work-tree` or a `cd <dir> &&|;`
+  prefix before the commit (landed outside `cwd`, so `cwd` stats would measure the
+  wrong commit — the cd shape observed live 2026-11-05) and unmeasurable cases fail
+  toward the nudge, never toward silence. Spec/plan writes bypass the gate: document-shaped
   consultations are the cheapest, highest-yield lane. The one-shot flag is not consumed
   by a silent gate — a later substantial commit in the same session still nudges.
 - Exactly one nudge per session (`nudged` flag persists in session state); a nudge is
@@ -142,7 +143,7 @@ shape as the doc-freshness close-audit gap.
 ### Scenario S-015: Quick-band cwd commits stay silent; spec writes and redirected commits bypass the gate
 - **Given** a qualifying ≥3-file change set with no consultation, and a landed commit measurable in the event's `cwd` with ≤150 changed lines
 - **When** the hook runs on that successful commit
-- **Then** no nudge and the one-shot is not consumed — while the same small commit still nudges when the session wrote a spec/plan doc (document lane bypasses the gate), and a `-C <path>` commit (unmeasurable from `cwd`) also still nudges
+- **Then** no nudge and the one-shot is not consumed — while the same small commit still nudges when the session wrote a spec/plan doc (document lane bypasses the gate), and a `-C <path>` or `cd <dir> &&`-prefixed commit (unmeasurable from `cwd`) also still nudges
 
 ### Scenario S-014: Commit look-alikes and dry-runs do not trigger or consume the one-shot
 - **Given** shell commands `git commit-tree …`, `git commit-graph …`, or `git commit --dry-run …`

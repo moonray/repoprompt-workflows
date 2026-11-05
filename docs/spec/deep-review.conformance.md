@@ -29,7 +29,7 @@
 | S-017 report bounded/actionable | Conformed | Phase 6 |
 | S-018 repeated findings escalate | Conformed | Phase 4 classify-or-stop |
 | S-019 git safety before mutating | Conformed | Git safety section + Phase 0 base SHA |
-| S-020 budget tier caps deep-mode cost | Conformed | Depth selection "Budget (cost ceiling)" + Phase 4 `frugal` limit + Phase 0 budget intake |
+| S-020 budget tier caps deep-mode cost | Conformed | Depth selection "Budget (cost ceiling)" + Phase 4 `frugal` limit + Phase 0 budget intake; amended 2026-11-05 — `frugal` also drops the standard-tier oracle review lane (deep keeps it), per `model-routing`'s lane economy |
 | Input: Budget tier | Conformed | Phase 0 author intake (frugal/balanced/unlimited) |
 
 ## Coverage proof
