@@ -119,6 +119,105 @@ test("directory-resolved cc cache: newest -cc.json is authoritative (current pic
   assert.equal(runHook(PAYLOAD(), { ...env(f), MODEL_ROSTER_CC_CACHE: dir }), null);
 });
 
+test("failed lane in an ask_oracle response nudges LANE DOWN with the model", () => {
+  const f = fixtures({
+    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+  });
+  const r = runHook({
+    ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
+    tool_response: {
+      content: [{
+        type: "text",
+        text: [
+          "### Oracle",
+          "- Status: Completed",
+          "- Provider: codex",
+          "- Model: gpt-6.1-sol-high",
+          "",
+          "### Oracle 2",
+          "- Status: Failed",
+          "- Provider: claudeCode",
+          "- Model: claude-opus-5-5",
+          "",
+          "Oracle group status: partial",
+        ].join("\n"),
+      }],
+    },
+  }, env(f));
+  const ctx = r?.hookSpecificOutput?.additionalContext ?? "";
+  assert.match(ctx, /ORACLE LANE DOWN/);
+  assert.match(ctx, /claude-opus-5-5/);
+  assert.match(ctx, /no extra tokens spent/);
+});
+
+test("all-completed ask_oracle response stays silent (no lane nudge)", () => {
+  const f = fixtures({
+    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+  });
+  const r = runHook({
+    ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
+    tool_response: {
+      content: [{
+        type: "text",
+        text: [
+          "### Oracle",
+          "- Status: Completed",
+          "- Provider: codex",
+          "- Model: gpt-6.1-sol-high",
+          "",
+          "Oracle group status: completed",
+        ].join("\n"),
+      }],
+    },
+  }, env(f));
+  assert.equal(r, null);
+});
+
+test("lane-failure text on a non-oracle tool stays silent", () => {
+  const f = fixtures({
+    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+  });
+  const r = runHook({
+    ...PAYLOAD("mcp__RepoPromptCE__app_settings"),
+    tool_response: {
+      content: [{
+        type: "text",
+        text: "### Oracle 2\n- Status: Failed\n- Model: claude-opus-5-5",
+      }],
+    },
+  }, env(f));
+  assert.equal(r, null);
+});
+
+test("partial group with no named failed lane defers to the response", () => {
+  const f = fixtures({
+    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+  });
+  const r = runHook({
+    ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
+    tool_response: {
+      content: [{
+        type: "text",
+        text: [
+          "### Oracle",
+          "- Status: Completed",
+          "- Provider: codex",
+          "- Model: gpt-6.1-sol-high",
+          "",
+          "Oracle group status: partial",
+        ].join("\n"),
+      }],
+    },
+  }, env(f));
+  const ctx = r?.hookSpecificOutput?.additionalContext ?? "";
+  assert.match(ctx, /ORACLE LANE DOWN/);
+  assert.match(ctx, /at least one lane/);
+});
+
 test("directory-resolved cc cache: newest file's missing pick flags (proves newest-wins)", () => {
   const f = fixtures({ codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"], ccIds: [] });
   const dir = mkdtempSync(path.join(tmpdir(), "roster-dir-"));

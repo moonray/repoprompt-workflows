@@ -15,6 +15,21 @@ import sys
 
 TOOL_RE = re.compile(r"^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$")
 
+# Lane-failure detection (auth deaths like the 2026-10-29 expired-OAuth lane): parse the
+# consultation's OWN response for failed lanes. Zero additional oracle calls, zero premium
+# tokens — the response already exists when the hook sees it.
+_ORACLE_TOOL_RE = re.compile(r"ask_oracle$")
+_LANE_MODEL_RE = re.compile(r"^\s*-\s*Model:\s*(\S+)", re.MULTILINE)
+_LANE_STATUS_FAILED_RE = re.compile(r"^\s*-\s*Status:\s*(?:Failed|Error)", re.MULTILINE | re.IGNORECASE)
+_GROUP_PARTIAL_RE = re.compile(r"Oracle group status:\s*partial", re.IGNORECASE)
+
+LANE_DOWN_NUDGE = (
+    "ORACLE LANE DOWN: {lanes} failed in that consultation — parsed from the response "
+    "itself, no extra tokens spent. Auth/credential failures (expired OAuth etc.): "
+    "re-auth the provider, then re-check the pick (app_settings models.* / the "
+    "model-routing table). Transport-level failures may simply retry. "
+)
+
 GPT_NAME_RE = re.compile(r"^GPT-(\d+(?:\.\d+)?)\s+(\S+)$")
 CLAUDE_NAME_RE = re.compile(r"^Claude\s+(\S+)\s+(\d+(?:\.\d+)?)$")
 GPT_VER_RE = re.compile(r"^gpt-(\d+(?:\.\d+)?)-")
@@ -114,6 +129,31 @@ def _ver(slug, provider):
     return tuple(int(p) for p in part.split("."))
 
 
+def _response_text(payload):
+    """All text blocks from an MCP tool_response, best-effort."""
+    tr = payload.get("tool_response")
+    if tr is None:
+        return ""
+    out = []
+    _collect_strings(tr, "text", out)
+    return "\n".join(out) if out else (tr if isinstance(tr, str) else json.dumps(tr))
+
+
+def detect_lane_failures(text):
+    """Model ids of lanes whose Status reads Failed/Error, from `### Oracle` sections."""
+    if not text:
+        return []
+    failed = []
+    for section in re.split(r"^###\s+", text, flags=re.MULTILINE):
+        if _LANE_STATUS_FAILED_RE.search(section):
+            m = _LANE_MODEL_RE.search(section)
+            if m:
+                failed.append(m.group(1))
+    if not failed and _GROUP_PARTIAL_RE.search(text):
+        return ["at least one lane (see the response for which)"]
+    return failed
+
+
 def detect(picks, codex_ids, cc_ids):
     """Return a one-line drift reason, or '' when current."""
     caches = {"gpt": codex_ids, "claude": cc_ids}
@@ -160,15 +200,22 @@ def main() -> int:
             "id",
             "claude-",
         )
+        nudges = []
+        if _ORACLE_TOOL_RE.search(str(payload.get("tool_name") or "")):
+            lanes = detect_lane_failures(_response_text(payload))
+            if lanes:
+                nudges.append(LANE_DOWN_NUDGE.format(lanes=", ".join(sorted(set(lanes)))))
         reason = detect(picks, codex_ids, cc_ids)
         if reason:
+            nudges.append(
+                f"MODEL ROUTING DRIFT: {reason}. Surface this to the user and suggest "
+                "the model-routing skill's re-evaluation; do not silently re-route."
+            )
+        if nudges:
             print(json.dumps({
                 "hookSpecificOutput": {
                     "hookEventName": "PostToolUse",
-                    "additionalContext": (
-                        f"MODEL ROUTING DRIFT: {reason}. Surface this to the user and suggest "
-                        "the model-routing skill's re-evaluation; do not silently re-route."
-                    ),
+                    "additionalContext": " | ".join(nudges),
                 }
             }))
     except Exception:

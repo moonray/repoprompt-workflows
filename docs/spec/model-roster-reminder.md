@@ -12,7 +12,7 @@ The model-routing skill's picks go stale silently: new model generations land ev
 ## Goals
 1. Run the comparison exactly when a roster/oracle tool call happens (RPCE `app_settings` / `agent_manage` / `ask_oracle`).
 2. Stay silent — zero model-context tokens — when every pick is present and no strictly newer provider generation exists.
-3. Flag exactly two defect classes: a pick missing from its provider's available-model cache (roster drift), and a strictly newer provider generation than every same-provider pick.
+3. Flag exactly three defect classes: a pick missing from its provider's available-model cache (roster drift), a strictly newer provider generation than every same-provider pick, and a failed oracle lane in a consultation that just ran (auth deaths like an expired-OAuth lane are otherwise invisible until someone loses a review lane).
 4. Fail open: any error, missing skill, or unreadable cache means silence, never a broken tool call.
 5. Register per backend: Claude Code (installer settings merge), Codex (`.codex/hooks.json`), opencode (plugin branch, warn-log bridge).
 
@@ -26,6 +26,7 @@ The model-routing skill's picks go stale silently: new model generations land ev
 - Env overrides (`MODEL_ROUTING_SKILL`, `MODEL_ROSTER_CODEX_CACHE`, `MODEL_ROSTER_CC_CACHE`) exist so tests never touch real caches.
 - The nudge names the `model-routing` skill and explicitly forbids silent re-routing.
 - Pick normalization follows the two known naming shapes (`GPT-X.Y Name` → `gpt-X.Y-name`; `Claude Name X.Y` → `claude-name-X-Y`); unparsable names are skipped silently rather than guessed.
+- Lane-failure detection is strictly response-parsed: it reads the ask_oracle call's own `tool_response` (text blocks, falling back to a stringified response) for lane sections whose `Status` reads `Failed`/`Error`, plus the `Oracle group status: partial` header as a model-less fallback. It NEVER issues an oracle call or any network probe — the check costs zero premium tokens by construction, on every invocation. It applies to `ask_oracle` events only; lane-shaped text in other tools' responses is ignored.
 
 ## Scenarios
 
@@ -54,6 +55,21 @@ The model-routing skill's picks go stale silently: new model generations land ev
 - **When** the hook runs
 - **Then** it exits silently with a zero status — detection never breaks the tool call
 
+### S-007: Failed oracle lane flagged
+- **Given** an `ask_oracle` PostToolUse event whose response contains a lane section with `Status: Failed` (or `Error`)
+- **When** the hook runs
+- **Then** it emits an `ORACLE LANE DOWN` reminder naming the failed lane's model, stating the parse is response-only (no extra tokens spent), and directing auth failures to provider re-auth / pick update while noting transport failures may retry — joined with any drift reminder when both apply
+
+### S-008: Healthy consultations and foreign lane text stay silent
+- **Given** an `ask_oracle` response whose lanes all read `Completed` (group status `completed`), or lane-failure-shaped text in a non-`ask_oracle` tool's response
+- **When** the hook runs
+- **Then** no lane nudge (the drift check proceeds independently)
+
+### S-009: Partial group without a named failed lane
+- **Given** an `ask_oracle` response with `Oracle group status: partial` but no parsable failed lane section
+- **When** the hook runs
+- **Then** the lane nudge names "at least one lane" and defers to the response for which
+
 ### S-006: Cross-backend registration
 - **Given** the hook ships in this repo's hook infrastructure
 - **When** a backend is wired
@@ -69,4 +85,4 @@ The model-routing skill's picks go stale silently: new model generations land ev
 | Available-model caches | yes | Codex slugs and Claude ids; env-overridable for tests. |
 
 ### Output
-Nothing (silent), or one `hookSpecificOutput.additionalContext` reminder: `MODEL ROUTING DRIFT: <findings>. Surface this to the user and suggest the model-routing skill's re-evaluation; do not silently re-route.`
+Nothing (silent), or one `hookSpecificOutput.additionalContext` reminder — `ORACLE LANE DOWN: <models> …` (ask_oracle lane failures), `MODEL ROUTING DRIFT: <findings> …` (roster drift), or both joined with ` | `.

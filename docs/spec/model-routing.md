@@ -37,6 +37,11 @@ Oracle consultations during spec, plan, and review work choose models ad hoc: ca
 - **When** it selects the oracle model
 - **Then** it uses the Review & Refine role's model and effort, whose model family differs from the Context & Discovery role's
 
+### S-002b: Lane count matches consultation shape (lane economy)
+- **Given** an agent about to consult the oracle, with the role picked per S-002/S-003/S-004
+- **When** it chooses whether to pass a `model` override (one lane) or consult the full oracle group (no override)
+- **Then** routine single-opinion work (review passes, hook-nudged standard reviews, spec cross-checks, readiness/clarity verdicts) passes the Review & Refine model override for a single lane, while consultations whose value is independent disagreement (contested P0s, tie-breaks, escalation cross-checks, deep-review lanes) use the full group — a full-group fanout is never the unthinking default
+
 ### S-003: Generation consultations route to Context & Discovery
 - **Given** an agent consulting the oracle to generate or synthesize (draft from a source request, deep plan, discovery synthesis)
 - **When** it selects the oracle model

@@ -177,7 +177,7 @@ The workflow also resolves two tensions its inputs create. First, thermo-nuclear
 | Preset | Trigger | Behavior |
 |--------|---------|----------|
 | Quick | Small change (≤150 lines, one module), no severe flag, or doc-only | One zone; correctness + thermo-nuclear; no verification. |
-| Standard | Medium change (151–800 lines), 2–3 modules, or any severe risk flag | Partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0; one `ask_oracle` review lane (routed per `model-routing`) over the diff summary. |
+| Standard | Medium change (151–800 lines), 2–3 modules, or any severe risk flag | Partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0; one single-lane `ask_oracle` review (Review & Refine pick, per `model-routing`'s lane economy) over the diff summary. |
 | Deep | Large change (>800 lines), ≥4 modules, or high blast radius | Fine-grained zones; full lens matrix; adversarial verification of all P0/high-severity findings; an `ask_oracle` review lane is included. |
 
 ### Lenses

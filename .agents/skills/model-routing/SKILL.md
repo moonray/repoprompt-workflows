@@ -17,6 +17,7 @@ Canonical as of 2026-10-10 (user-ratified; last re-evaluated 2026-10-10). Roles 
 
 Invariants:
 
+- **Lane economy.** Default to a single lane; spend the full oracle group only where disagreement between lanes is the value. A no-override `ask_oracle` consults the whole group (~N× premium tokens); pass the `model` override for one lane.
 - **Cache-first economics.** Cached-input price, not nominal input price, is the primary cost criterion for the Context & Discovery role.
 - **Cross-family review.** The Review & Refine model comes from a different model family than the Context & Discovery model.
 - **Bounded escalation.** Escalate only the specific stuck sub-task — never re-run the whole task on a stronger model — and record what was escalated and why.
@@ -29,6 +30,11 @@ Route by consultation type, not by mode name:
 - **Verdicts and critiques** — go/no-go readiness, issue clarity, spec cross-check, finding classification, tie-breaks → Review & Refine.
 - **Generation** — drafting from a source request, deep-plan production, discovery synthesis → Context & Discovery.
 - **Stuck twice on the same sub-task** → Escalation, at the repeat threshold the calling workflow already defines.
+
+Lane count by consultation shape (the token lever — a full-group fanout multiplies premium cost N×):
+
+- **Single lane** (pass the role's model via `ask_oracle`'s `model` override): routine review passes, hook-nudged standard-depth reviews, spec cross-checks, readiness/clarity verdicts — one cross-family opinion suffices.
+- **Full group** (no override): contested P0 findings and tie-breaks where lanes may disagree, escalation cross-checks, deep-review lanes, and any consultation whose whole point is independent disagreement.
 
 RPCE wiring: `models.planning_model` mirrors Context & Discovery; `models.additional_oracle_models` carries the Review & Escalation picks; `ask_oracle`'s model override takes the specific model id. Workflows and skills reference roles, not model names, so a re-evaluation rewrites this one table and no call sites.
 

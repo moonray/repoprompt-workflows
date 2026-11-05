@@ -53,7 +53,7 @@ Unless the user explicitly chooses `quick` / `standard` / `deep` at intake, sele
 **Presets:**
 
 - **Quick** — one zone; correctness + thermo-nuclear; no verification.
-- **Standard** — partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0; one `ask_oracle` review lane (routed per `model-routing`) over the diff summary.
+- **Standard** — partitioned zones; correctness + thermo-nuclear + surface lenses; verification only for a contested P0; one single-lane `ask_oracle` review (Review & Refine pick, per `model-routing`'s lane economy) over the diff summary.
 - **Deep** — fine-grained zones; full lens matrix; adversarial verification of all P0/high-severity findings; an `ask_oracle` review lane is included.
 
 ---
