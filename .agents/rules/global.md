@@ -80,6 +80,8 @@ A delegation that has not returned is the same failure as an unverified claim. A
 
 This is the inbound form of the same principle behind Review Quality (no finding closed on model opinion alone), Spec–Implementation Reconciliation (no close without coverage proof), Test Quality (no done without a run), and Frontend Verification (no done because tests pass). Those gates catch unverified self-claims at closeout; this one catches unverified delegated claims at the moment they are handed back.
 
+Corollary — handoff and fork prompts carry their verification contract: when delegating work that resumes or forks from live state (a paused epoch, a recovered session, a re-dispatch), the handoff prompt must pin what the receiver must re-verify, not just what remains to do: the ground-truth re-verification contract (which files/SHAs/tests to check against reality before building), the expected states (worktree HEAD, tree cleanliness, ledger fields), and the prechecks that gate starting (binding liveness, base SHA, attempt counters). A handoff that only narrates progress transfers the narrator's assumptions; one that pins the re-verify contract transfers evidence. (Pattern proven twice — a t18 recovery handoff and a Backlog fork epoch — before being encoded here 2026-11-05.)
+
 Enforcement: inlined into workflows; outside a workflow, a `PostToolUse` reminder (`delegation-reminder`) fires when a delegation tool returns, directing the delegating agent to verify before accepting. Hooks are a guardrail, not an absolute boundary (see `.agents/README.md` "Known limits"); the downstream closeout gates remain the backstop.
 
 ## Accuracy and Anti-Fabrication (hard rule)
