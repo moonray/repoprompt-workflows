@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -45,9 +46,33 @@ NUDGE = (
     "spec/plan write) with no oracle consultation observed. Before declaring the work "
     "done, run one `ask_oracle` review pass (mode:review) over the diff or change summary "
     "— routed per the `model-routing` skill (Review & Refine) — and fold confirmed "
-    "findings; or state why an independent lane isn't warranted (trivial/mechanical "
-    "change, user declined). One-time nudge for this session."
+    "findings; or state why an independent lane isn't warranted (trivial or mechanical "
+    "change, review-depth quick band, user declined). One-time nudge for this session."
 )
+
+# review-depth's S/M boundary: at or below this many changed lines in the landed commit,
+# the change sizes `quick` and an oracle lane is not worth premium tokens.
+_SMALL_CHANGE_LINES = 150
+
+
+def _commit_lines(command, cwd):
+    """Changed lines of the just-landed commit when it ran in `cwd` (no -C/--git-dir).
+    None when unmeasurable -> caller nudges (fail toward the reminder, not silence)."""
+    if re.search(r"\s(?:-C\s|--git-dir|--work-tree)", command):
+        return None  # commit landed elsewhere; cwd stats would be the wrong commit
+    try:
+        out = subprocess.run(
+            ["git", "-C", cwd or ".", "show", "--shortstat", "--format=", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout
+        m_ins = re.search(r"(\d+) insertion", out)
+        m_del = re.search(r"(\d+) deletion", out)
+        if not m_ins and not m_del:
+            return None
+        return int(m_ins.group(1) if m_ins else 0) + int(m_del.group(1) if m_del else 0)
+    except Exception:
+        return None
+
 
 # Oracle observation: the MCP-qualified tool name (any server prefix) or bare name.
 _ORACLE_TOOL_RE = re.compile(r"(?:^|__)ask_oracle$")
@@ -251,6 +276,13 @@ def _main_locked(payload, tool_name, ti, sp):
             sys.exit(0)
         non_doc = [p for p in (state.get("files") or []) if not _is_doc(p)]
         if len(non_doc) >= 3 or state.get("spec"):
+            # Token-economy gate: a spec/plan write always warrants the (cheap, document-
+            # shaped) consultation; a code change at or below review-depth's quick band
+            # does not — measure the landed commit when it ran in cwd, and stay silent.
+            if not state.get("spec"):
+                lines = _commit_lines(command, payload.get("cwd"))
+                if lines is not None and lines <= _SMALL_CHANGE_LINES:
+                    return
             state["nudged"] = True
             _save(sp, state)
             print(json.dumps({

@@ -48,7 +48,7 @@ Unless the user explicitly chooses `quick` / `standard` / `deep` at intake, sele
 
 **Rule:** `base = {S:quick, M:standard, L:deep}[size]`; any severe flag floors at standard and escalates one level per severe flag; high blast radius escalates one level; doc-only with no severe flag → quick. Cap at deep. Record the chosen depth, the signals, and a one-line rationale.
 
-**Budget (cost ceiling):** an optional tier — `frugal` / `balanced` (default) / `unlimited`. It only bites at **deep** (quick/standard are already cheap): `frugal` coarsens the zone partition (fewer parallel shots) and limits Phase 4 verification to *contested* P0s rather than all high-severity findings; record any trim from the depth-default plan. `balanced` runs the depth-default; `unlimited` caps nothing.
+**Budget (cost ceiling):** an optional tier — `frugal` / `balanced` (default) / `unlimited`. It only bites at **deep** (quick/standard are already cheap): `frugal` coarsens the zone partition (fewer parallel shots), limits Phase 4 verification to *contested* P0s rather than all high-severity findings, and drops the standard-tier oracle review lane (deep keeps it); record any trim from the depth-default plan. `balanced` runs the depth-default; `unlimited` caps nothing.
 
 **Presets:**
 

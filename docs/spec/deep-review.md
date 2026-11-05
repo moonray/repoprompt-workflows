@@ -143,7 +143,7 @@ The workflow also resolves two tensions its inputs create. First, thermo-nuclear
 ### Scenario S-020: Budget tier caps deep-mode cost
 - **Given** a budget tier is supplied (`frugal`/`balanced`/`unlimited`; default `balanced`) and depth is deep
 - **When** review plans shots and adversarial verification
-- **Then** a `frugal` budget coarsens the zone partition (fewer parallel shots) and limits verification to contested P0s (not all high-severity), and any reduction from the depth-default plan is recorded; `balanced`/`unlimited` leave the depth-default plan unchanged
+- **Then** a `frugal` budget coarsens the zone partition (fewer parallel shots), limits verification to contested P0s (not all high-severity), and drops the standard-tier oracle review lane (deep keeps it), and any reduction from the depth-default plan is recorded; `balanced`/`unlimited` leave the depth-default plan unchanged
 
 ## Proposed Surface
 

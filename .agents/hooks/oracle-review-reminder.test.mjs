@@ -30,11 +30,14 @@ const EDIT = (f, file_path, tool_response) => ({
   ...(tool_response !== undefined ? { tool_response } : {}),
 });
 
-const COMMIT = (f, command = 'git commit -m "x"', tool_response) => ({
+const COMMIT = (f, command = 'git commit -m "x"', tool_response, cwd) => ({
   hook_event_name: "PostToolUse",
   session_id: f.sid,
   tool_name: "Bash",
   tool_input: { command },
+  // A tmpdir with no git repo: _commit_lines fails open (None -> nudge), so firing
+  // tests never depend on the real repo's HEAD; gate tests pass a real repo cwd.
+  cwd: cwd ?? f.dir,
   ...(tool_response !== undefined ? { tool_response } : {}),
 });
 
@@ -235,6 +238,26 @@ test("path aliasing collapses (./ and // prefixes normalize)", () => {
   runHook(EDIT(f, "./src/a.py"), f);
   runHook(EDIT(f, "src//a.py"), f);
   assert.equal(runHook(COMMIT(f), f), null); // one distinct file, not three
+});
+
+test("quick-band cwd commit (<=150 lines) stays silent; spec writes bypass the gate", () => {
+  const f = fresh();
+  // A real temp repo whose HEAD commit is tiny (2 lines).
+  const repo = mkdtempSync(path.join(tmpdir(), "oracle-repo-"));
+  execFileSync("bash", ["-c",
+    `cd ${JSON.stringify(repo)} && git init -q . && git config user.email t@t && git config user.name t && printf 'a\nb\n' > small.txt && git add small.txt && git commit -q -m tiny`,
+  ]);
+  for (const p of ["src/a.py", "src/b.py", "src/c.ts"]) runHook(EDIT(f, p), f);
+  // mechanical multi-file change, landed commit measures 2 lines -> quick band, silent
+  assert.equal(runHook(COMMIT(f, 'git commit -m "x"', undefined, repo), f), null);
+  // a spec/plan write bypasses the line gate: document-shaped reviews are the cheap lane
+  const g = fresh();
+  runHook(EDIT(g, "docs/spec/tiny.md"), g);
+  assert.match(
+    runHook(COMMIT(g, 'git commit -m "x"', undefined, repo), g)
+      ?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
 });
 
 test("malformed input exits cleanly", () => {
