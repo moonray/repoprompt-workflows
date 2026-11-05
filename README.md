@@ -62,6 +62,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 - every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` (RepoPrompt CE's cross-backend command source)
 - every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, registered in `~/.claude/settings.json` (Claude Code)
 - every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core)
+- optionally, your **custom style guide** (`--style-guide=<path>`) → `~/.agents/style-guide.md` — a single generic pointer; skills that draft prose you will publish or send follow it when it is present ([details](#custom-style-guide-optional))
 
 **Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — definition, when you need one, and every way to configure it in [**Your organization repo**](#your-organization-repo-optional), after the worked example below.
 
@@ -110,6 +111,25 @@ done
 
 **Why the overlay link matters.** It is the runtime discovery contract: an agent resolves your two shared homes by following symlink targets — `readlink ~/.claude/rules/global.md` points at this public machinery repo, and the overlay link beside it points at your org repo. Wherever the links point *is* the active source, so re-pointing them (a fork, a moved checkout, a second machine) re-configures discovery with no static config to keep up to date.
 
+### Custom style guide (optional)
+
+**Definition.** A *custom style guide* is a markdown file you own — house rules for prose an agent drafts on your behalf that a human will later publish or send: client emails and chat messages, reports and proposals, posts and titles. This repo ships no guide content and stays consumer-agnostic; it defines only the **pointer**: when configured, your guide is linked at `~/.agents/style-guide.md`, and skills reference that generic path — never your repo or organization — so the same machinery works for any consumer.
+
+**Configure it** (flag and env forms; both idempotent):
+
+```bash
+bash scripts/install.sh --style-guide="$HOME/Sites/myorg/docs/style-guide.md"   # flag form
+STYLE_GUIDE="$HOME/Sites/myorg/docs/style-guide.md" bash scripts/install.sh     # env form
+```
+
+Pass nothing and nothing is linked — the installer prints a one-line note until you do, and never creates or seeds a guide for you (presence is the opt-in). Fully manual (what the flag automates):
+
+```bash
+ln -sfh "$HOME/Sites/myorg/docs/style-guide.md" "$HOME/.agents/style-guide.md"
+```
+
+**The skill-side convention.** A skill that authors publishable or sendable prose carries a line like: *“If a custom style guide is linked at `~/.agents/style-guide.md`, follow it for this output; if absent, proceed without one.”* Uninstalling? Pass the same `--style-guide` flag so `--uninstall` recognizes and removes the link.
+
 ---
 
 ## For developers — extend and contribute
@@ -124,7 +144,7 @@ done
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
 | `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |
-| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/rules, registers Claude Code hooks, and links an org repo's private rules overlay via `--org-repo` (`--dry-run`, `--uninstall`). |
+| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/rules, registers Claude Code hooks, links an org repo's private rules overlay via `--org-repo`, and an optional custom style guide via `--style-guide` (`--dry-run`, `--uninstall`). |
 | `scripts/sync-maintainability-review.mjs` | Re-syncs the vendored `maintainability-review` lens from upstream. |
 | `AGENTS.md` | Agent guide for working in this repo (`CLAUDE.md` is a symlink to it). |
 

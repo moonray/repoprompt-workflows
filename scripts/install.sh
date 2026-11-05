@@ -3,7 +3,8 @@
 # Idempotent: detects what's already linked (partial installs) and only fixes what's missing or wrong.
 # Adding a new workflow/skill/command? Just drop it in its dir — no edit to this script needed.
 # Flags: --dry-run (preview), --uninstall (remove our links), --org-repo=<path> (also link your
-#        organization repo's private rules overlay), --help. ORG_REPO env works too.
+#        organization repo's private rules overlay), --style-guide=<path> (link your custom style
+#        guide to the generic ~/.agents/style-guide.md pointer), --help. ORG_REPO/STYLE_GUIDE env work too.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,13 +16,15 @@ CLAUDE_CMD="$HOME/.claude/commands"
 AGENTS_SLASH="$HOME/.agents/slash"
 CLAUDE_RULES="$HOME/.claude/rules"
 AGENTS_RULES="$HOME/.agents/rules"
+AGENTS_STYLE="$HOME/.agents/style-guide.md"
 
-DRY=0; UNINSTALL=0; ORG_REPO="${ORG_REPO:-}"; ORG_GIVEN=0
+DRY=0; UNINSTALL=0; ORG_REPO="${ORG_REPO:-}"; ORG_GIVEN=0; STYLE_GUIDE="${STYLE_GUIDE:-}"; STYLE_GIVEN=0
 for a in "$@"; do
   case "$a" in
     --dry-run)   DRY=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --org-repo=*) ORG_REPO="${a#--org-repo=}"; ORG_GIVEN=1 ;;
+    --style-guide=*) STYLE_GUIDE="${a#--style-guide=}"; STYLE_GIVEN=1 ;;
     -h|--help)   sed -n '2,6p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown flag '$a' (try --help)" >&2; exit 2 ;;
   esac
@@ -32,6 +35,9 @@ done
 if [ "$ORG_GIVEN" = 1 ] && [ -z "$ORG_REPO" ]; then
   echo "install.sh: --org-repo requires a path (empty value given)" >&2; exit 2
 fi
+if [ "$STYLE_GIVEN" = 1 ] && [ -z "$STYLE_GUIDE" ]; then
+  echo "install.sh: --style-guide requires a path (empty value given)" >&2; exit 2
+fi
 
 # Canonicalize the org repo to an absolute path, failing closed: a relative
 # value would become a relative symlink target (resolved against the link's
@@ -41,6 +47,14 @@ if [ -n "$ORG_REPO" ]; then
   ORG_CANON="$(cd "$ORG_REPO" 2>/dev/null && pwd -P)" ||
     { echo "install.sh: --org-repo path not found: $ORG_REPO" >&2; exit 2; }
   ORG_REPO="$ORG_CANON"
+fi
+
+# Canonicalize the style guide to an absolute existing file: a relative value would become a
+# relative symlink target, and a missing one a permanently broken pointer every later run
+# would then report as healthy.
+if [ -n "$STYLE_GUIDE" ]; then
+  [ -f "$STYLE_GUIDE" ] || { echo "install.sh: --style-guide file not found: $STYLE_GUIDE" >&2; exit 2; }
+  STYLE_GUIDE="$(cd "$(dirname "$STYLE_GUIDE")" && pwd -P)/$(basename "$STYLE_GUIDE")"
 fi
 
 OK=0; FIXED=0; CONFLICT=0; REMOVED=0; SKIPPED=0
@@ -55,6 +69,11 @@ link_is_ours() {
   if [ -n "$ORG_REPO" ]; then
     case "$1" in
       "$ORG_REPO"|"$ORG_REPO"/*) return 0 ;;
+    esac
+  fi
+  if [ -n "$STYLE_GUIDE" ]; then
+    case "$1" in
+      "$STYLE_GUIDE") return 0 ;;
     esac
   fi
   return 1
@@ -418,6 +437,15 @@ if [ -n "$ORG_REPO" ]; then
   fi
 else
   echo "• org overlay: none — re-run with --org-repo=<path> (or ORG_REPO env) to link your organization repo's private rules overlay; that link is also what makes the org repo discoverable by symlink"
+fi
+
+echo "• custom style guide → ~/.agents/style-guide.md  (generic pointer; skills follow it for outbound/published prose when present)"
+if [ -n "$STYLE_GUIDE" ]; then
+  manage "$STYLE_GUIDE" "$AGENTS_STYLE"
+elif [ -e "$AGENTS_STYLE" ]; then
+  echo "  present  $AGENTS_STYLE (left as-is this run — pass --style-guide=<path> to manage it)"
+else
+  echo "  none     — to opt in, re-run with --style-guide=<path> (or STYLE_GUIDE env); no guide is ever created for you, and consumers without one simply skip the house-style step"
 fi
 
 echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"

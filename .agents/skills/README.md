@@ -48,6 +48,14 @@ One source of truth, read by every runtime — symlink rather than copy.
 
 > **Skill-count budget:** Codex loads only each skill's name + description initially and shortens or omits descriptions when many skills are installed. Keep descriptions concise, front-load trigger words, and avoid proliferating overlapping skills: too many degrades triggering.
 
+## Custom style guide (optional, machine-local)
+
+When a skill drafts prose a human will publish or send on their behalf — client emails and chat messages, reports and proposals, posts and titles — it defers to the consumer's house style through one generic pointer: `~/.agents/style-guide.md`, linked by `scripts/install.sh --style-guide=<path>` (see the repo README's *Custom style guide* section). Convention for skill bodies:
+
+> If a custom style guide is linked at `~/.agents/style-guide.md`, follow it for this output; if absent, proceed without one.
+
+Never hardcode a consumer's guide path or name a specific organization — the pointer is the whole mechanism, and absence is a valid state (no house style).
+
 ## Adding or updating skills
 
 - Prefer a directory with `SKILL.md` for cross-runtime skills.
