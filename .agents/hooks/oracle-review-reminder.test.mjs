@@ -152,6 +152,91 @@ test("foreign events are ignored", () => {
   }, f), null);
 });
 
+test("steering markdown (.agents skills/workflows/rules) counts as non-doc", () => {
+  const f = fresh();
+  runHook(EDIT(f, ".agents/skills/model-routing/SKILL.md"), f);
+  runHook(EDIT(f, ".agents/workflows/Deep-Review.md"), f);
+  runHook(EDIT(f, ".agents/rules/global.md"), f);
+  assert.match(
+    runHook(COMMIT(f), f)?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+});
+
+test("docs/plans writes also set the spec/plan flag", () => {
+  const f = fresh();
+  runHook(EDIT(f, "docs/plans/thing-2026.md"), f);
+  assert.match(
+    runHook(COMMIT(f), f)?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+});
+
+test("commit look-alikes and dry-runs do not trigger", () => {
+  const f = fresh();
+  for (const p of ["src/a.py", "src/b.py", "src/c.ts"]) runHook(EDIT(f, p), f);
+  assert.equal(runHook(COMMIT(f, "git commit-tree HEAD^{tree} -m x"), f), null);
+  assert.equal(runHook(COMMIT(f, "git commit-graph write"), f), null);
+  assert.equal(runHook(COMMIT(f, 'git commit --dry-run -m "x"'), f), null);
+  // ...and none of those consumed the one-shot:
+  assert.match(
+    runHook(COMMIT(f), f)?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+});
+
+test("long-flag and =value commit forms are detected", () => {
+  const f = fresh();
+  for (const p of ["src/a.py", "src/b.py", "src/c.ts"]) runHook(EDIT(f, p), f);
+  assert.match(
+    runHook(COMMIT(f, "git --no-pager commit -m x"), f)
+      ?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+  const f2 = fresh();
+  for (const p of ["src/a.py", "src/b.py", "src/c.ts"]) runHook(EDIT(f2, p), f2);
+  assert.match(
+    runHook(COMMIT(f2, 'git --git-dir=/x/.git --work-tree=/x commit -m y'), f2)
+      ?.hookSpecificOutput?.additionalContext ?? "",
+    /ORACLE REVIEW/,
+  );
+});
+
+test("absent session_id keys state by cwd (fallback shares state)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "oracle-hook-"));
+  const shared = { dir, sid: undefined };
+  const NO_SID = (file_path) => ({
+    hook_event_name: "PostToolUse",
+    cwd: "/fallback/cwd",
+    tool_name: "mcp__RepoPromptCE__apply_edits",
+    tool_input: { path: file_path },
+  });
+  const env = { ...process.env, ORACLE_REVIEW_STATE_DIR: dir };
+  for (const p of ["src/a.py", "src/b.py", "src/c.py"]) {
+    execFileSync("python3", [HOOK], { input: JSON.stringify(NO_SID(p)), encoding: "utf8", env });
+  }
+  const r = execFileSync("python3", [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: "PostToolUse",
+      cwd: "/fallback/cwd",
+      tool_name: "Bash",
+      tool_input: { command: 'git commit -m "x"' },
+    }),
+    encoding: "utf8",
+    env,
+  });
+  assert.match(JSON.parse(r).hookSpecificOutput.additionalContext, /ORACLE REVIEW/);
+  void shared;
+});
+
+test("path aliasing collapses (./ and // prefixes normalize)", () => {
+  const f = fresh();
+  runHook(EDIT(f, "src/a.py"), f);
+  runHook(EDIT(f, "./src/a.py"), f);
+  runHook(EDIT(f, "src//a.py"), f);
+  assert.equal(runHook(COMMIT(f), f), null); // one distinct file, not three
+});
+
 test("malformed input exits cleanly", () => {
   const f = fresh();
   const out = execFileSync("python3", [HOOK], {

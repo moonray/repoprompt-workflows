@@ -46,7 +46,10 @@ shape as the doc-freshness close-audit gap.
 - No coverage of bash/heredoc-written files (only edit-tool and apply-patch paths are
   observed) — accepted residual, fails silent.
 - No per-repo scoping: state is session-scoped (keyed by `session_id`, falling back to
-  `cwd`), so cross-repo work inside one session shares one change-set picture.
+  `cwd`), so cross-repo work inside one session shares one change-set picture. On runtimes
+  whose events carry no session identifier and no resolvable per-session field (opencode
+  when its event lacks `sessionID`), state is effectively per-repo — documented-unsupported
+  isolation, not a per-session guarantee.
 
 ## Constraints
 
@@ -59,12 +62,25 @@ shape as the doc-freshness close-audit gap.
   (`is_error`/`isError` true, truthy `error`, `status: "error"`, `ok`/`success` false);
   absent or unrecognized response shapes count (nudges are cheap; misses are not).
 - Doc-ish extensions (`.md`, `.markdown`, `.mdx`, `.txt`, `.rst`, `.adoc`) never count
-  toward the 3-file threshold; paths under `docs/spec/`, `docs/specs/`, or `docs/plans/`
-  set the spec/plan flag regardless of extension.
-- Commit detection is adjacency-based (`git commit`, including `git -C <path> commit` and
-  `&&`-chained segments); prose embedding an exact `git commit` sequence fires (accepted
-  residual — same class as doc-freshness S-006). `gh pr close`, `git push`, `git add` are
-  not commits.
+  toward the 3-file threshold, EXCEPT steering markdown — paths under
+  `.agents/(skills|workflows|rules|slash)/` and any `SKILL.md` count as non-doc (in
+  agent-machinery repos those files are the behavior-defining surface); paths under
+  `docs/spec/`, `docs/specs/`, or `docs/plans/` set the spec/plan flag regardless of
+  extension.
+- Paths are lexically normalized (`\` → `/`, `./` prefixes, duplicate slashes, trailing
+  `/`) before counting; absolute vs repo-relative spellings of one file may still count
+  twice (accepted residual — resolving against a base would corrupt workspace-root-relative
+  paths; the duplicate direction only over-nudges, bounded by the one-shot).
+- Commit detection is adjacency-based on shell-tool events (`tool_name` `Bash`/`bash`/
+  `shell`): `git commit`, including `git -C <path> commit`, `--no-pager`/`--git-dir=X`
+  global-flag forms, and `&&`-chained segments; `git commit-tree`, `git commit-graph`,
+  and `--dry-run` (a non-writing mode) are not commits; prose embedding an exact
+  `git commit` sequence fires (accepted residual — same class as doc-freshness S-006).
+  `gh pr close`, `git push`, `git add` are not commits.
+- State is a per-key JSON file written by atomic replace under an exclusive `flock` held
+  around the whole load-modify-save transaction (parallel tool events cannot lose edits
+  or tear a read); state older than the TTL resets on load (prune-on-write alone never
+  clears an actively reused key).
 - Exactly one nudge per session (`nudged` flag persists in session state); a nudge is
   emitted only on a successful commit.
 - Session state lives in a cache dir (`~/.cache/oracle-review-hook`, overridable via
@@ -104,9 +120,19 @@ shape as the doc-freshness close-audit gap.
 - **Then** those paths are absent from the counted set (a session with only 2 successful non-doc edits stays silent)
 
 ### Scenario S-007: Doc-only change sets stay silent
-- **Given** ≥3 edit events all on doc-ish files outside `docs/spec|specs|plans`
+- **Given** ≥3 edit events all on doc-ish files outside `docs/spec|specs|plans` and outside the steering paths (`.agents/(skills|workflows|rules|slash)/`, `SKILL.md`)
 - **When** a successful `git commit` fires
 - **Then** no nudge
+
+### Scenario S-013: Steering markdown counts as non-doc
+- **Given** edit events on ≥3 distinct steering paths (e.g. `SKILL.md` files, workflow or rules markdown under `.agents/`)
+- **When** a successful `git commit` fires
+- **Then** the hook emits the nudge (S-001's Then applies)
+
+### Scenario S-014: Commit look-alikes and dry-runs do not trigger or consume the one-shot
+- **Given** shell commands `git commit-tree …`, `git commit-graph …`, or `git commit --dry-run …`
+- **When** the hook runs on their successful events
+- **Then** no nudge and the one-shot flag is not consumed — a subsequent real qualifying commit still nudges
 
 ### Scenario S-008: Non-commit shell commands never nudge
 - **Given** any shell event that is not a `git commit` shape (`git status`, `git add`, `git push`, `gh pr close`, test runs)
@@ -144,7 +170,8 @@ shape as the doc-freshness close-audit gap.
 | `tool_name` | yes-ish | Oracle observation on names ending `ask_oracle`; commit detection on shell events. |
 | `tool_input.file_path` / `path` / `filePath` / `notebook_path` | edit events | Scalar edited path(s) accumulated into the session set. |
 | `tool_input.command` apply-patch forms | edit events | `*** Add/Update/Delete File: <path>` header lines parsed for paths. |
-| `tool_input.command` | shell events | Matched against the commit adjacency shapes. |
+| `tool_name` | shell events | Commit detection applies only to shell tool names (`Bash`/`bash`/`shell`) carrying a `command`. |
+| `tool_input.command` | shell events | Matched against the commit adjacency shapes; `--dry-run` anywhere in the command suppresses the trigger. |
 | `tool_response` | no | Explicit failure indicators suppress that event's contribution. |
 
 ### Hook Output

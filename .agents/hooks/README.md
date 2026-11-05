@@ -38,7 +38,7 @@ The `.py` scripts are invoked three ways, and that decides their scope:
 
 `scripts/install.sh` symlinks every `.agents/hooks/*.py` into `~/.claude/hooks/`, idempotently merges the registrations into `~/.claude/settings.json` (Claude Code, global), writes the global Codex layer `~/.codex/hooks.json` (every repo — review/trust once via Codex's `/hooks`), and appends the plugin package to `~/.config/opencode/opencode.jsonc`'s `plugin` array (opencode 2.x global mechanism, verified live). Each merge is safe: JSON parsed with `python3`, backup written before changing anything, no duplicate entries, `--dry-run` / `--uninstall` honored. Restart Claude Code after the first install; trust the Codex layer once via `/hooks`.
 
-Codex and opencode need no extra step in this repo — their adapters (`.codex/hooks.json`, `.opencode/plugins/repoprompt-hooks.mjs`) are committed here and load automatically; the installer additionally maintains the global layers for every OTHER repo.
+Codex and opencode need no extra step in this repo — their adapters (`.codex/hooks.json`, the `.opencode/plugins/repoprompt-hooks/` package) are committed here and load automatically; the installer additionally maintains the global layers for every OTHER repo.
 
 ### Manual (Claude Code)
 

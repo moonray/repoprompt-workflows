@@ -105,6 +105,17 @@ export default Plugin.define({
       const tool = String(event.tool ?? "")
       const input = event.input ?? {}
       const rootDir = root()
+      // Failed oracle consultations still count as consultations (transport failure ≠
+      // skip) — record them before the generic error return suppresses everything else.
+      if (event.status === "error" && /RepoPromptCE/i.test(tool) && /ask_oracle/.test(tool)) {
+        runHook("oracle-review-reminder.py", {
+          hook_event_name: "PostToolUse",
+          tool_name: `mcp__RepoPromptCE__ask_oracle`,
+          tool_input: input,
+          session_id: event.sessionID ?? event.session_id,
+          cwd: rootDir,
+        }, rootDir)
+      }
       if (event.status === "error") return // no change was made; reminders would train ignoring
       const isBash = tool === "bash" || tool === "shell"
       const isEdit = tool === "write" || tool === "edit" || /patch/i.test(tool)
@@ -115,6 +126,7 @@ export default Plugin.define({
           hook_event_name: "PostToolUse",
           tool_name: "Bash",
           tool_input: { command: input.command ?? "" },
+          session_id: event.sessionID ?? event.session_id,
           cwd: rootDir,
         }
         nudge(runHook("test-quality-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
@@ -126,6 +138,7 @@ export default Plugin.define({
           hook_event_name: "PostToolUse",
           tool_name: toolName,
           tool_input: { ...(input ?? {}), ...(fp ? { file_path: fp } : {}) },
+          session_id: event.sessionID ?? event.session_id,
           cwd: rootDir,
         }
         nudge(runHook("spec-quality-reminder.py", payload, rootDir)?.hookSpecificOutput?.additionalContext)
@@ -149,6 +162,7 @@ export default Plugin.define({
           hook_event_name: "PostToolUse",
           tool_name: `mcp__RepoPromptCE__${name}`,
           tool_input: input,
+          session_id: event.sessionID ?? event.session_id,
           cwd: rootDir,
         }, rootDir)?.hookSpecificOutput?.additionalContext)
       }
