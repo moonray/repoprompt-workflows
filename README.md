@@ -42,7 +42,7 @@ Paste into Claude Code (or any agent with shell access):
 Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt-workflows doesn't already exist, clone https://github.com/moonray/repoprompt-workflows there. Then run `bash scripts/install.sh`, paste me its full output, and tell me to restart RepoPrompt CE.
 ```
 
-> Have an [organization repo](#your-organization-repo-optional)? Append to the prompt: *“Run the installer with `--org-repo=$HOME/Sites/<myorg>`.”*
+> Have an [organization repo](#your-organization-repo-optional)? Append to the prompt: *“Run the installer with `--org-repo=$HOME/Sites/<myorg>`.”* A style guide at `<myorg>/docs/style-guide.md` is linked automatically by that same flag; anyone else can add `--style-guide=<path>` (see [Custom style guide](#custom-style-guide-optional)).
 
 #### Option B — run the installer yourself
 
@@ -90,7 +90,7 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 
 **Do you need one?** Only if you have non-public content you want available across your repos. A plain install with no org repo is fully functional — every workflow, skill, command, hook, and the generic rules work as-is. Expect to add one when your first org-specific rule or skill shows up; wiring it later is a single re-run of the installer, so deciding later costs nothing.
 
-**What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`. Nothing else in the org repo is touched — org-private skills and commands follow your org repo's own install docs.
+**What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`, and — if `<org>/docs/style-guide.md` exists — links it as your [custom style guide](#custom-style-guide-optional) too. Nothing else in the org repo is touched; org-private skills and commands follow your org repo's own install docs.
 
 **Configure it** (flag and env forms; both idempotent):
 
@@ -115,20 +115,23 @@ done
 
 **Definition.** A *custom style guide* is a markdown file you own — house rules for prose an agent drafts on your behalf that a human will later publish or send: client emails and chat messages, reports and proposals, posts and titles. This repo ships no guide content and stays consumer-agnostic; it defines only the **pointer**: when configured, your guide is linked at `~/.agents/style-guide.md`, and skills reference that generic path — never your repo or organization — so the same machinery works for any consumer.
 
-**Configure it** (flag and env forms; both idempotent):
+**Configure it** (all idempotent):
 
 ```bash
-bash scripts/install.sh --style-guide="$HOME/Sites/myorg/docs/style-guide.md"   # flag form
+bash scripts/install.sh --org-repo="$HOME/Sites/myorg"                          # org repo; also links its docs/style-guide.md if present
+bash scripts/install.sh --style-guide="$HOME/Sites/myorg/docs/style-guide.md"   # explicit flag form
 STYLE_GUIDE="$HOME/Sites/myorg/docs/style-guide.md" bash scripts/install.sh     # env form
 ```
 
-Pass nothing and nothing is linked — the installer prints a one-line note until you do, and never creates or seeds a guide for you (presence is the opt-in). Fully manual (what the flag automates):
+The conventional home is `<org>/docs/style-guide.md`: with `--org-repo` given and no explicit `--style-guide`, a guide found there is linked automatically (the org repo's content at a conventional path is the opt-in, same as the rules overlay); an explicit `--style-guide` always overrides. Nothing is ever created or seeded for you — absence is a valid state, and the installer says so on every run. Fully manual (what the flag automates):
 
 ```bash
 ln -sfh "$HOME/Sites/myorg/docs/style-guide.md" "$HOME/.agents/style-guide.md"
 ```
 
-**The skill-side convention.** A skill that authors publishable or sendable prose carries a line like: *“If a custom style guide is linked at `~/.agents/style-guide.md`, follow it for this output; if absent, proceed without one.”* Uninstalling? Pass the same `--style-guide` flag so `--uninstall` recognizes and removes the link.
+**The skill-side convention.** A skill that authors publishable or sendable prose carries a line like: *“If a custom style guide is linked at `~/.agents/style-guide.md`, follow it for this output; if absent, proceed without one.”* Uninstalling? Pass the same `--style-guide` flag (or `--org-repo`, which finds the conventional path) so `--uninstall` recognizes and removes the link.
+
+**If the pointer goes away.** A deleted or never-set link degrades silently — skills just proceed without a house style; nothing errors. Every installer run is the health check: the pointer is reported as `ok` (already correct), `present` (exists, not configured this run), `broken` (dangling target, printed with the repair command), or `none` (how to opt in), and anything the installer can prove it owns is repaired in place. Re-running your original install command is always the repair — which is why the org-repo conventional path matters: `--org-repo` alone fully rewires a new machine.
 
 ---
 
@@ -144,7 +147,7 @@ ln -sfh "$HOME/Sites/myorg/docs/style-guide.md" "$HOME/.agents/style-guide.md"
 | `.agents/rules/global.md` | Cross-cutting hard rules (git safety, stable IDs, minimalism, reconciliation gates). |
 | `.agents/hooks/` | Canonical Python hooks enforcing those rules. See [`hooks/README.md`](.agents/hooks/README.md). |
 | `docs/spec/` | Dogfooded specs + conformance matrices. Every workflow/skill/hook should have one (see [`docs/spec/README.md`](docs/spec/README.md) for current coverage). |
-| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/rules, registers Claude Code hooks, links an org repo's private rules overlay via `--org-repo`, and an optional custom style guide via `--style-guide` (`--dry-run`, `--uninstall`). |
+| `scripts/install.sh` | Idempotent installer — symlinks workflows/skills/commands/rules, registers Claude Code hooks, links an org repo's private rules overlay via `--org-repo`, and an optional custom style guide via `--style-guide` (auto-linked from `<org>/docs/style-guide.md` when `--org-repo` is given) (`--dry-run`, `--uninstall`). |
 | `scripts/sync-maintainability-review.mjs` | Re-syncs the vendored `maintainability-review` lens from upstream. |
 | `AGENTS.md` | Agent guide for working in this repo (`CLAUDE.md` is a symlink to it). |
 

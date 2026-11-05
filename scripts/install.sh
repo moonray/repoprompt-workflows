@@ -440,8 +440,18 @@ else
 fi
 
 echo "• custom style guide → ~/.agents/style-guide.md  (generic pointer; skills follow it for outbound/published prose when present)"
+# Org-repo conventional path: with --org-repo given and no explicit --style-guide, a guide at
+# <org>/docs/style-guide.md is the opt-in (same philosophy as the rules overlay — the org repo's
+# content at conventional paths IS the configuration). An explicit --style-guide always overrides;
+# nothing is ever created, only linked.
+if [ -z "$STYLE_GUIDE" ] && [ -n "$ORG_REPO" ] && [ -f "$ORG_REPO/docs/style-guide.md" ]; then
+  STYLE_GUIDE="$ORG_REPO/docs/style-guide.md"
+  echo "  auto     using org style guide at the conventional path docs/style-guide.md (pass --style-guide=<path> to use a different one)"
+fi
 if [ -n "$STYLE_GUIDE" ]; then
   manage "$STYLE_GUIDE" "$AGENTS_STYLE"
+elif [ -L "$AGENTS_STYLE" ] && [ ! -e "$AGENTS_STYLE" ]; then
+  echo "  broken   $AGENTS_STYLE -> $(readlink "$AGENTS_STYLE") (dangling target) — re-run with --style-guide=<path> to repair"
 elif [ -e "$AGENTS_STYLE" ]; then
   echo "  present  $AGENTS_STYLE (left as-is this run — pass --style-guide=<path> to manage it)"
 else

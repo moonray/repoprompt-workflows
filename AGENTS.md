@@ -14,7 +14,7 @@ This repo ships an agent workflow system for RepoPrompt CE: five **workflows**, 
 - `.agents/rules/global.md` — cross-cutting hard rules (canonical).
 - `.agents/hooks/` — Python hook scripts enforcing those rules.
 - `docs/spec/` — dogfooded specs + conformance matrices for each workflow/skill.
-- `scripts/install.sh` — idempotent, scan-driven installer (symlinks workflows/skills/commands/rules + registers hook settings; `--org-repo=<path>` also links an organization repo's private rules overlay, `--style-guide=<path>` links a custom style guide to the generic `~/.agents/style-guide.md` pointer, `--dry-run`, `--uninstall`).
+- `scripts/install.sh` — idempotent, scan-driven installer (symlinks workflows/skills/commands/rules + registers hook settings; `--org-repo=<path>` also links an organization repo's private rules overlay and auto-links its `docs/style-guide.md` as the custom style guide, `--style-guide=<path>` links one explicitly, `--dry-run`, `--uninstall`).
 - `scripts/sync-maintainability-review.mjs` — re-syncs the vendored `maintainability-review` lens.
 
 ## Editing rules (what an agent must preserve)
