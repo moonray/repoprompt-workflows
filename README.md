@@ -42,7 +42,7 @@ Paste into Claude Code (or any agent with shell access):
 Install the repoprompt-workflows repo into my environment. If ~/Sites/repoprompt-workflows doesn't already exist, clone https://github.com/moonray/repoprompt-workflows there. Then run `bash scripts/install.sh`, paste me its full output, and tell me to restart RepoPrompt CE.
 ```
 
-> Have an [organization repo](#your-organization-repo-optional)? Append to the prompt: *“Run the installer with `--org-repo=$HOME/Sites/<myorg>`.”* A style guide at `<myorg>/docs/style-guide.md` is linked automatically by that same flag; anyone else can add `--style-guide=<path>` (see [Custom style guide](#custom-style-guide-optional)).
+> Have an [organization repo](#your-organization-repo-optional)? Append to the prompt: *“Run the installer with `--org-repo=$HOME/Sites/<myorg>`.”* A style guide at `<myorg>/docs/style-guide.md` is linked automatically by that same flag; anyone else can add `--style-guide=<path>` (see [Custom style guide](#custom-style-guide-optional)). **No org repo yet?** Have the agent create one first, then install: *“Create `$HOME/Sites/<myorg>` as an org repo (git init; an empty private rules overlay at `.agents/rules/<myorg>-private.md`; a starter style guide at `docs/style-guide.md`, asking me a few style questions first), then run the installer with `--org-repo=$HOME/Sites/<myorg>`.”*
 
 #### Option B — run the installer yourself
 
@@ -90,6 +90,15 @@ The core loop is **Spec → (Deep Plan) → Test → Loop**.
 
 **Do you need one?** Only if you have non-public content you want available across your repos. A plain install with no org repo is fully functional — every workflow, skill, command, hook, and the generic rules work as-is. Expect to add one when your first org-specific rule or skill shows up; wiring it later is a single re-run of the installer, so deciding later costs nothing.
 
+**Create one from scratch** (once; by hand, or by the agent prompt above):
+
+```bash
+mkdir -p "$HOME/Sites/myorg/.agents/rules" "$HOME/Sites/myorg/docs"
+cd "$HOME/Sites/myorg" && git init
+$EDITOR .agents/rules/myorg-private.md   # your private exceptions to global.md; a heading + one rule is a fine start
+$EDITOR docs/style-guide.md              # your house style — starter template in Custom style guide below
+```
+
 **What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`, and — if `<org>/docs/style-guide.md` exists — links it as your [custom style guide](#custom-style-guide-optional) too. Nothing else in the org repo is touched; org-private skills and commands follow your org repo's own install docs.
 
 **Configure it** (flag and env forms; both idempotent):
@@ -127,6 +136,20 @@ The conventional home is `<org>/docs/style-guide.md`: with `--org-repo` given an
 
 ```bash
 ln -sfh "$HOME/Sites/myorg/docs/style-guide.md" "$HOME/.agents/style-guide.md"
+```
+
+**Starting one from scratch.** The file is created when you instantiate your org repo ([Create one from scratch](#your-organization-repo-optional) above) — by hand, or by letting the agent that sets up your org repo ask you a few style questions first. The installer links it but never writes it. Minimal generic starter, edit freely:
+
+```markdown
+# <My Org> Style Guide
+
+House rules for prose an agent drafts that a person will publish or send.
+Delete what you don't care about; presence at the conventional path is what activates the pointer.
+
+1. **Voice:** "I" for work the writer personally did; name the specific system touched, not "our side".
+2. **Punctuation:** e.g. no em-dashes: use a colon or commas instead.
+3. **Greetings/endings per medium:** e.g. email opens `Hi Name,` and ends after the last content line; chat opens with an @-mention.
+4. **One message, one topic;** end with the reader's next step, not with the sender's availability.
 ```
 
 **The skill-side convention.** A skill that authors publishable or sendable prose carries a line like: *“If a custom style guide is linked at `~/.agents/style-guide.md`, follow it for this output; if absent, proceed without one.”* Uninstalling? Pass the same `--style-guide` flag (or `--org-repo`, which finds the conventional path) so `--uninstall` recognizes and removes the link.

@@ -455,7 +455,11 @@ elif [ -L "$AGENTS_STYLE" ] && [ ! -e "$AGENTS_STYLE" ]; then
 elif [ -e "$AGENTS_STYLE" ]; then
   echo "  present  $AGENTS_STYLE (left as-is this run — pass --style-guide=<path> to manage it)"
 else
-  echo "  none     — to opt in, re-run with --style-guide=<path> (or STYLE_GUIDE env); no guide is ever created for you, and consumers without one simply skip the house-style step"
+  if [ -n "$ORG_REPO" ]; then
+    echo "  none     — create $ORG_REPO/docs/style-guide.md (starter template in the README's Custom style guide section) or pass --style-guide=<path>; the installer never creates it for you"
+  else
+    echo "  none     — to opt in, re-run with --style-guide=<path> (or STYLE_GUIDE env); no guide is ever created for you, and consumers without one simply skip the house-style step"
+  fi
 fi
 
 echo "• hooks → ~/.claude/hooks  (scanning .agents/hooks/*.py; Claude Code)"
