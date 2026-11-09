@@ -9,7 +9,7 @@
 
 | Item | Status | Evidence |
 |---|---|---|
-| G1 detect a delegation tool return (Task/TaskOutput/agent_run) | Conformed | `_DELEGATION_TOOLS` set + `tool_name` check in `main()` |
+| G1 detect a delegation tool return (Task/TaskOutput/agent_run/session_admin/become_overseer) | Conformed | `_DELEGATION_TOOLS` set + `tool_name` check in `main()` |
 | G2 remind the delegating agent to verify before accepting | Conformed | `REMINDER` emitted via `hookSpecificOutput.additionalContext` |
 | G3 avoid false emits on similarly named non-delegation tools | Conformed | precise `_DELEGATION_TOOLS` set (excludes TaskCreate/TaskUpdate/…) |
 | Delegation tool return triggers the reminder | Conformed | `tool_name in _DELEGATION_TOOLS` → print reminder |

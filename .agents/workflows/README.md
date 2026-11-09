@@ -11,6 +11,7 @@ Canonical [RepoPrompt CE](https://repoprompt.com) workflows live here. These are
 | `Loop` | [`Loop.md`](Loop.md) | Initialize durable progress, consume an immutable Spec/Deep Plan tuple, gate readiness/delegation, and coordinate red/green/review/refactor. Standalone missing-contract work hands off externally; orchestrated work stops at `merge_ready`. |
 | `Deep Review` | [`Deep-Review.md`](Deep-Review.md) | Map a change set, run parallel context-grounded review shots across lenses (correctness, thermo-nuclear maintainability, security, tests, docs), aggregate and govern findings (stable signatures, dedup, revalidation), and reconcile with the author. Named Deep Review to avoid collision with RPCE's built-in Review. |
 | `Backlog` | [`Backlog.md`](Backlog.md) | Discover/triage via `track-work`, own external contract preparation and deterministic re-gating, dispatch isolated Loop epochs, independently verify `merge_ready`, then own publication, landing, status/close, replacement, and cleanup. |
+| `Backlog-Overseer` | [`Backlog-Overseer.md`](Backlog-Overseer.md) | v2 of Backlog on the RPCE overseer substrate: committed DEFAULTS auto-apply at launch (git-visible settings must be named in `$ARGUMENTS` — that naming is the Git Safety ask), issues dispatch to worktree-isolated Loop lanes, wake + idle-wake backstop replace same-turn polling (full v1 fallback when unverified), per-issue capacity release replaces R11 deferral, teardown via lane retirement then scope release. |
 
 `Spec` → `Test` form a pair: spec the work first, then generate tests against that spec. `Loop` initializes its durable epoch before readiness, applies `spec-plan-readiness` to an immutable Spec + Deep Plan tuple, preserves inline fallback checks, and orchestrates implementation loops without assuming landing responsibility. `Deep Review` consumes a change set and produces governed, revalidatable findings; it pairs with `Loop`, where accepted findings become follow-up tasks. `Backlog` sits above `Loop`: it owns external `Spec`/RPCE core `Deep Plan` preparation, immutable contract identity, deterministic readiness, dispatch/replacement, independent closeout verification, publication/landing, issue status/close, and cleanup — max 3 concurrent, one unique worktree+branch per issue. Reusable discipline a workflow needs lives in a [skill](../skills/README.md) (see "Extracting reusable parts from workflows into skills"); each workflow inlines a copy and names the skill canonical. Keep them in sync: change an inlined discipline in a workflow and you must update its source skill; change a skill’s discipline and you must update every workflow that inlines it.
 
@@ -25,7 +26,7 @@ Manual fallback (run from the repo root):
 ```bash
 WF="$HOME/Library/Application Support/RepoPrompt CE/Workflows"
 mkdir -p "$WF"
-for w in Spec Test Loop Deep-Review Backlog; do
+for w in Spec Test Loop Deep-Review Backlog Backlog-Overseer; do
   ln -sfh "$(pwd)/.agents/workflows/$w.md" "$WF/$w.md"
 done
 ```

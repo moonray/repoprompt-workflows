@@ -12,7 +12,7 @@ When a delegated agent (subagent, oracle, peer agent) returns a report, its summ
 
 ## Goals
 
-1. Detect when a delegation tool returns (`Task`, `TaskOutput`, `mcp__RepoPromptCE__agent_run`).
+1. Detect when a delegation tool returns (`Task`, `TaskOutput`, `mcp__RepoPromptCE__agent_run`, `mcp__RepoPromptCE__session_admin`, `mcp__RepoPromptCE__become_overseer`).
 2. Remind the delegating agent to verify the report against ground truth (read the diff/files, run tests, exercise behavior, spot-check a load-bearing claim) before accepting.
 3. Avoid false emits on similarly named non-delegation tools (e.g. `TaskCreate`/`TaskUpdate`).
 
@@ -30,7 +30,7 @@ When a delegated agent (subagent, oracle, peer agent) returns a report, its summ
 ## Scenarios
 
 ### Scenario: Delegation tool return triggers the reminder
-- **Given** a `PostToolUse` event with `tool_name` in {`Task`, `TaskOutput`, `mcp__RepoPromptCE__agent_run`}
+- **Given** a `PostToolUse` event with `tool_name` in {`Task`, `TaskOutput`, `mcp__RepoPromptCE__agent_run`, `mcp__RepoPromptCE__session_admin`, `mcp__RepoPromptCE__become_overseer`}
 - **When** the hook runs
 - **Then** it emits the delegation-verification reminder
 
