@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Claude Code hook: nudge independent verification when a delegated agent reports.
 
-Wired to PostToolUse (Task / TaskOutput / mcp__RepoPromptCE__agent_run) in ~/.claude/settings.json.
+Wired to PostToolUse (Task / TaskOutput / mcp__RepoPromptCE__agent_run / mcp__RepoPromptCE__session_admin /
+mcp__RepoPromptCE__become_overseer) in ~/.claude/settings.json.
 When a delegation tool returns, emit a reminder that the subagent's report is a claim, not
 evidence — the delegating agent must read the committed diff/files, run the affected tests, or
 exercise the rendered behavior, and spot-check at least one load-bearing claim before accepting
@@ -16,7 +17,7 @@ alone; this hook adds the first checkpoint at the hand-off.
 This is the inbound companion to global.md's closeout gates; see "Verifying Delegated Work
 (acceptance gate)" in rules/global.md.
 
-The matcher in settings.json (^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run) is the first
+The matcher in settings.json (^Task$|^TaskOutput$|mcp__RepoPromptCE__(?:agent_run|session_admin|become_overseer)) is the first
 filter; the set below is the precise gate (so a too-broad matcher can never cause a false emit,
 e.g. on the unrelated TaskCreate/TaskUpdate/... todo tools that merely contain "Task").
 
@@ -39,7 +40,17 @@ REMINDER = (
 #   Task                          — Claude Code built-in subagent dispatch (vanilla CC)
 #   TaskOutput                    — retrieval of a background agent's output
 #   mcp__RepoPromptCE__agent_run  — RepoPrompt CE delegation (start/poll/wait/steer)
-_DELEGATION_TOOLS = {"Task", "TaskOutput", "mcp__RepoPromptCE__agent_run"}
+#   mcp__RepoPromptCE__session_admin — RepoPrompt CE oversight scope ops (inventory/get/retire
+#                                    return delegated-session state; over-firing is benign, missing a
+#                                    hand-back is not)
+#   mcp__RepoPromptCE__become_overseer — RepoPrompt CE oversight activation + message dispatch to a target
+_DELEGATION_TOOLS = {
+    "Task",
+    "TaskOutput",
+    "mcp__RepoPromptCE__agent_run",
+    "mcp__RepoPromptCE__session_admin",
+    "mcp__RepoPromptCE__become_overseer",
+}
 
 
 def main():

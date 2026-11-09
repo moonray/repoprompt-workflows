@@ -69,7 +69,7 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/spec-conformance-gate.py\"" }] },
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/doc-freshness-reminder.py\"" }] },
       { "matcher": "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/oracle-review-reminder.py\"" }] },
-      { "matcher": "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/delegation-reminder.py\"" }] },
+      { "matcher": "^Task$|^TaskOutput$|mcp__RepoPromptCE__(?:agent_run|session_admin|become_overseer)", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/delegation-reminder.py\"" }] },
       { "matcher": "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/model-roster-reminder.py\"" }] },
       { "matcher": "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$", "hooks": [{ "type": "command", "command": "python3 \"$HOME/.claude/hooks/oracle-review-reminder.py\"" }] }
     ],
