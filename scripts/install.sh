@@ -150,7 +150,7 @@ register_claude_settings() {
   DRY="$DRY" UNINSTALL="$UNINSTALL" SETTINGS="$settings" python3 - <<'PY' || { echo "  skip     $settings (registration failed); register hooks manually — see .agents/hooks/README.md" >&2; SKIPPED=$((SKIPPED+1)); }
 import json, os, shutil, sys, tempfile
 _ANCHORED_EDIT = "^(?:Edit|Write|MultiEdit|apply_edits|file_actions|mcp__RepoPromptCE__(?:apply_edits|file_actions))$"
-_TASKS = "^Task$|^TaskOutput$|mcp__RepoPromptCE__agent_run"
+_TASKS = "^Task$|^TaskOutput$|mcp__RepoPromptCE__(?:agent_run|session_admin|become_overseer)"
 _ROSTER = "^mcp__RepoPromptCE__(?:app_settings|agent_manage|ask_oracle)$"
 regs = [
     {"event": "PostToolUse", "matcher": "Bash|Skill", "command": 'python3 "$HOME/.claude/hooks/test-quality-reminder.py"'},
