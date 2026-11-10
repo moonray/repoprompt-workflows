@@ -40,6 +40,7 @@ The workflow needs a precise contract for the launch-time settings model, substr
 - Scope guardrails cap the substrate: max depth 2 (lanes delegate roles), live sessions sized from the pre-flight delegation-topology call-test, live worktrees 3; the platform lane ceiling is 12 per overseer.
 - Pace never exceeds 3 concurrent issues; the default is 1 (concurrent orchestration assumed unknown).
 - `agent_run` worktree binding resolves from the primary root only (platform limit).
+- Contract authorship is separated from implementation: the implementation lane never authors its own contract inputs (three-way separation — contract author, implementer, verifier).
 - This spec inherits every scenario of `docs/spec/backlog.md` except where explicitly superseded below; inherited scenarios carry over unchanged. Superseded: S-003 (exempt batch) and S-004 (wizard ask) by the launch contract (S-101–S-104, S-115); S-014 (flight ceiling) by pace plus guardrails (S-105, S-112); the deferred-cleanup limb of S-055 by S-112 (its resume/replacement limbs are inherited and extended by S-117).
 - Scenario IDs occupy the S-101…S-1NN block, distinct from Backlog's S-001…S-059, so cross-spec citations stay unambiguous.
 
@@ -130,6 +131,11 @@ The workflow needs a precise contract for the launch-time settings model, substr
 - **When** flight state is reconstructed
 - **Then** settings come from the run doc without re-asking; a missing scope is re-granted with the same guardrails and the probe re-runs as a new scope lineage; restart-required rows rejoin only after the provisioning-wedge signature is confirmed absent with attempt counts preserved; the default branch is synced before any retroactive verification
 
+### Scenario S-118: Contract generation is dispatch-sized
+- **Given** the clarity gates pass and a spec or plan artifact must be generated
+- **When** the artifact is authored
+- **Then** a medium-or-large-effort issue's contract is authored by a dispatched contract lane (Spec or Deep Plan workflow) bound to the issue worktree, while a small-effort issue's may be authored by the orchestrator; in both cases the implementation lane never authors its own contract inputs, the artifact commits to the issue branch, and the orchestrator records the blob tuple and runs the readiness gate unchanged
+
 ## Proposed Surface
 
 ### Launch Contract
@@ -146,6 +152,9 @@ Requested capabilities (observe, organize, control, restructure, spawn, worktree
 
 ### Lane Brief
 Fields per dispatch: progress path, lineage and epoch, contract tuple identity, base SHAs, authorization revision, responsibility map, toolchain, oracle status, user-testing target, amendments, siblings, repo constraints verbatim, and the notification policy (notify on result, failure, or decision; quiet otherwise) (S-110).
+
+### Contract Lane
+Dispatch type for artifact generation (Spec workflow for specs, Deep Plan for plans) bound to the issue worktree; effort-sized — mandatory for medium/large issues, optional inline for small (S-118).
 
 ### Event Handler Table
 Result, decision or approval, failure, backstop, quiet check-in (S-110).

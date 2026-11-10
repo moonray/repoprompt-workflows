@@ -26,6 +26,7 @@
 | S-115 Triage excludes blocked, invalid, and decision items | Conformed | `:82` (Phase 1 exclusions). Behavior: keryx#6 excluded (blocked); #73/#1 routed as decisions; in-progress/review items of other actors excluded |
 | S-116 Conservative escalation blocks oracle-decidable ambiguity | Conformed | `:152` (ladder rung 2). Default-autonomous branch exercised 2026-11-09 (route decision, amendment ratifications); conservative branch text-conformed only |
 | S-117 Resume re-probes a re-granted scope and re-checks the wedge | Conformed | `:156-158` (resume: re-grant → re-probe, wedge-absence check, attempt counts, ff-sync). Behavior: fallback-path resume elements exercised in prior v1 runs (inherited); re-probe limb pending a wake-mode resume |
+| S-118 Contract generation is dispatch-sized | Conformed | §3a amendment (2026-11-10): effort-sized contract-lane dispatch (Spec/Deep Plan via `workflow_name`) for medium/large, inline allowed for small; three-way separation; readiness tuple unchanged. Anti-pattern row guards the inline path. *Behavioral evidence pending the first medium/large generation after this amendment — the 2026-11-09/10 runs authored inline under the pre-amendment text* |
 
 ### Proposed Surface coverage
 
@@ -36,6 +37,7 @@
 | Oversight Grant (capabilities, guardrails, verbatim record) | Conformed | `:68`; S-105/S-108 rows |
 | Probe Record fields | Conformed | `:72-77`; artifact exists at `docs/progress/backlog-overseer-probe.md` (keryxsolutions) with all fields |
 | Lane Brief fields | Conformed | `:104-118` (dispatch JSON); exercised on every 2026-11-09 dispatch |
+| Contract Lane (dispatch type, effort sizing) | Conformed | §3a amendment text + S-118 row |
 | Event Handler Table | Conformed | `:121-131`; S-110 row |
 | Capacity Release order | Conformed | `:133`; S-112 row |
 | Teardown Order | Conformed | `:166`; S-112/S-113 rows |
@@ -54,5 +56,5 @@
 
 ## Coverage proof
 
-- **audited:** S-101, S-102, S-103, S-104, S-105, S-106, S-107, S-108, S-109, S-110, S-111, S-112, S-113, S-114, S-115, S-116, S-117; every Proposed Surface element (10); v1 supersession set (4) and inherited remainder (by reference to `docs/spec/backlog.conformance.md`)
+- **audited:** S-101, S-102, S-103, S-104, S-105, S-106, S-107, S-108, S-109, S-110, S-111, S-112, S-113, S-114, S-115, S-116, S-117, S-118; every Proposed Surface element (11); v1 supersession set (4) and inherited remainder (by reference to `docs/spec/backlog.conformance.md`)
 - **unreconciled:** [] — with disclosed annotations: wake-mode behavioral evidence (S-105 wake branch, S-106 wake test, S-109, S-110 wake routing, S-111, S-117 re-probe limb) is pending the first successful re-probe; the workflow text fully implements each and the fallback paths carried the 2026-11-09 run end-to-end.
