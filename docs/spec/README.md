@@ -10,6 +10,7 @@ Canonical behavioral contracts. Each spec describes *what* and *why*; plans (der
 | [Test Generation Workflow](test.md) | none | implemented |
 | [Loop Workflow](loop.md) | none | implemented |
 | [Backlog Workflow](backlog.md) | none | implemented |
+| [Backlog-Overseer Workflow](backlog-overseer.md) | none | implemented |
 | [Deep Review Workflow](deep-review.md) | none | implemented |
 | [Document Skill](document.md) | 3 | draft |
 | [Spec Quality Skill](spec-quality.md) | none | implemented |
