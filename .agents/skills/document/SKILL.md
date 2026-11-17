@@ -144,6 +144,7 @@ Applies whenever anchor text is written or reviewed — drafting a new anchor, d
 - **Findings.** A ratified anchor that enumerates instances of a class or cites internal IDs is an altitude defect: report under anchor freshness with a generalizing draft amendment — never landed under any grant.
 - **Provenance lives outside the range.** Derivation and amendment history (what changed, when, ratified by whom) sit outside the anchor range — a file-header note or amendment log — so recording an amendment never re-gates the mission text.
 - **Any tier.** The discipline applies to whichever tier the anchor occupies — `docs/intent.md`, a PRD Vision/Overview (or Goals/Non-goals) section, or a CLAUDE.md/AGENTS.md purpose statement; a PRD's functional requirements below the vision range are not anchor text.
+- **The required pair.** A tier-1 (`docs/intent.md`) anchor carries at least a Mission and a Non-goals section — non-goals are not optional: they carry the non-goal erosion checks, triage verdicts, and the aggressive exclusions an implementor might otherwise assume are in scope. Extra sections are classified by content: mission or non-goals content in any section joins the anchor range (ratification-gated); provenance, maintenance, and other governance notes stay outside it.
 
 #### Anchor identity, classification, and fingerprint
 
