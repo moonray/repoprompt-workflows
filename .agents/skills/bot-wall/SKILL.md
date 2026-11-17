@@ -25,7 +25,7 @@ Any of these, on a site that clearly serves real browsers:
    ```bash
    python3 -c "from curl_cffi import requests; r=requests.get('https://<walled-url>', timeout=15, impersonate='chrome'); print(r.status_code); print(r.text[:300])"
    ```
-2. **Verify real content, not just status 200** — challenge pages can also return 200. Check the body for the challenge markers above and for the content you expected before calling the wall cleared.
+2. **Verify real content, not just status 200** — challenge pages can also return 200. Check the body for the challenge markers above and for the content you expected before calling the wall cleared. A fetch tool that returns **empty output with exit 0** is the same failure class (observed: `agent-browser read` against a Cloudflare wall, 2026-11-16) — empty is not success.
 
 For scripts that may run where curl_cffi is absent, degrade gracefully (try/except `ImportError` with a plain-fetcher fallback) and self-report which fetcher served each request — a silent fallback hides the wall.
 

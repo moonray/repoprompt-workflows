@@ -7,7 +7,7 @@ Distilled from the owner's Crunchyroll ingest lanes (the `warmVisit` routine plu
 2. Only then navigate to the deep target (e.g. `/history`). Settle **~4s** again before reading anything.
 
 ## Clearance model
-- Rolling `__cf_bm`: **~30-minute lifetime, no durable `cf_clearance`**. Expect a fresh challenge per session and periodically within one — recurring challenge is routine operation, not a failure. Re-warm and continue; don't re-diagnose.
+- Rolling `__cf_bm`: **~30-minute lifetime**. Historically no durable `cf_clearance`; 2026-11-16 automated sessions (MCP, and agent-browser with headed+UA+patch) each received one — possible, but never rely on it. Expect a fresh challenge per session and periodically within one — recurring challenge is routine operation, not a failure. Re-warm and continue; don't re-diagnose.
 
 ## Challenge detection — explicit signals only
 - Title contains `just a moment`; body contains `verify you are human`, `cf-chl`, or `cf-turnstile`.

@@ -15,7 +15,7 @@ One `## <domain>` section per site. Record **only deltas** from the default prot
 
 ## crunchyroll.com
 
-- **Rolling clearance, always.** Crunchyroll runs the `__cf_bm` rolling-cookie model (**~30-minute cookie, no durable `cf_clearance`**): there is **no durable clearance**. Challenges recur by design for every session and periodically within one — a recurring challenge is routine operation, not a reset, a failure, or a signal that the warm-up was wrong. Re-warm and continue.
+- **Rolling clearance, always.** Crunchyroll runs the `__cf_bm` rolling-cookie model (**~30-minute cookie**). A durable `cf_clearance` was long absent here, but 2026-11-16 automated sessions (MCP and agent-browser with the recipe) each received one — treat it as possible but never relied upon. Challenges still recur by design for every session and periodically within one — a recurring challenge is routine operation, not a reset, a failure, or a signal that the warm-up was wrong. Re-warm and continue.
 - **Root-settle is mandatory, not advisory.** On this site a cold deep link is *the* challenge trigger: land on the root and let it fully settle before any interior navigation, every session, even when the last session ended clean.
 - **Wait out managed challenges; never click the checkbox.** When a Turnstile/managed challenge appears, wait for it to auto-clear before any click. Clicking the checkbox reflexively is the known way to make it worse here.
 

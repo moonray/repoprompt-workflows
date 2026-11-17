@@ -7,7 +7,7 @@ status: implemented
 # Chrome Skill
 
 ## Problem
-Browser automation (chrome-devtools MCP / dev chrometools, Playwright, headed browsers under agent control) trips bot defenses in predictable ways — cold deep links, automation tells, inconsistent fingerprints, repeated probing — so sessions get challenged or banned by sites they were entitled to read. The response was previously either ad hoc rediscovery or a global always-loaded rule paid on every request. Agents need one known, field-verified protocol, invoked exactly when browser automation is actually in use. Two gaps remain on top of that protocol: some sites have an extensively field-tested method that protocol deltas cannot carry, and skill invocation is probabilistic — nothing today protects the session's first navigation, which is exactly the move warm-up governs.
+Browser automation (chrome-devtools MCP / dev chrometools, Playwright, agent-browser, headed browsers under agent control) trips bot defenses in predictable ways — cold deep links, automation tells, inconsistent fingerprints, repeated probing — so sessions get challenged or banned by sites they were entitled to read. The response was previously either ad hoc rediscovery or a global always-loaded rule paid on every request. Agents need one known, field-verified protocol, invoked exactly when browser automation is actually in use. Two gaps remain on top of that protocol: some sites have an extensively field-tested method that protocol deltas cannot carry, and skill invocation is probabilistic — nothing today protects the session's first navigation, which is exactly the move warm-up governs.
 
 ## Goals
 1. Warm up by default: root landing and settle before any deep link, once per host per session, before any challenge appears.

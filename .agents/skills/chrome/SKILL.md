@@ -1,6 +1,6 @@
 ---
 name: chrome
-description: Use whenever driving or visiting a website with browser automation — the chrome-devtools MCP (dev chrometools: navigate_page, take_snapshot, evaluate_script), Playwright, or any headed browser under agent control — especially external, unfamiliar, or bot-defended sites. Carries the warm-up protocol (land on the site root and let it settle before any deep link; wait out managed challenges instead of clicking them), the navigator.webdriver automation-tell patch, rate-ban and fingerprint-consistency discipline, and the escalation ladder ending in human-in-the-loop, plus per-site override profiles. Trigger even when nobody says "warm-up" — any browser-automation session against a site you don't control is this skill. Not for plain HTTP fetches blocked by a bot wall (that is bot-wall), Cloudflare Radar analytics (cloudflare-radar), or verifying your own app's UI (user-testing).
+description: Use whenever driving or visiting a website with browser automation — the chrome-devtools MCP (dev chrometools: navigate_page, take_snapshot, evaluate_script), Playwright, agent-browser, or any headed browser under agent control — especially external, unfamiliar, or bot-defended sites. Carries the warm-up protocol (land on the site root and let it settle before any deep link; wait out managed challenges instead of clicking them), the navigator.webdriver automation-tell patch, rate-ban and fingerprint-consistency discipline, and the escalation ladder ending in human-in-the-loop, plus per-site override profiles. Trigger even when nobody says "warm-up" — any browser-automation session against a site you don't control is this skill. Not for plain HTTP fetches blocked by a bot wall (that is bot-wall), Cloudflare Radar analytics (cloudflare-radar), or verifying your own app's UI (user-testing).
 ---
 
 # Driving websites with browser automation
@@ -22,6 +22,14 @@ In a DevTools-attached headed Chrome, exactly one loud automation signal was obs
 
 - Patch it with the navigation tool's **init script** (e.g. `navigate_page`'s `initScript`), which runs on each new document *before* the page's own scripts: `Object.defineProperty(navigator, 'webdriver', {get: () => undefined})` — then verify on the live page that it reads `undefined`/`false` before trusting the rung.
 - **Do not go further down the stealth path.** Some defenses detect the CDP instrumentation itself; patching around that is an arms race (puppeteer-stealth-class) that routinely loses. The next rung is a human, not more patches.
+
+## agent-browser (targeted tool)
+The default remains chrome-devtools MCP. Reach for `agent-browser` (Vercel's Rust CLI over CDP) on **multi-step and harvest workflows**: it packs N commands into one shell invocation (`&&` chains or `batch`), keeping artifacts on disk and out of context — measured ~10x wall-clock and 3–8x context savings over per-call MCP at 11 steps.
+
+- **Bot-defended sites need the full session recipe, every session:** `--headed --user-agent '<current real-Chrome UA>' --init-script <webdriver-undef file>`. Vanilla headless Chrome-for-Testing carries **two** tells (`navigator.webdriver: true` *and* a `HeadlessChrome/…` UA token) and was challenged where the warmed MCP Chrome passed clean; with the recipe it cleared identically. The warm-up protocol above applies unchanged.
+- Hygiene: `network requests --clear` per navigation (the request log is cumulative across navigations); `batch` continues on error by default and its arg mode strips double quotes from selectors (`a[href="#x"]` arrives as `a[href=#x]` and fails) — pass `--bail` and prefer refs or JSON-stdin; `close` the session when done.
+- No Lighthouse, CPU/network throttling, or heap snapshots — keep MCP for those. Its `read` command is not a fetch rung: on a wall it returns **empty output with exit 0** (see bot-wall).
+- Bash `agent-browser` calls are invisible to the chrome-gate hook (it matches `mcp__chrome-devtools__*`) — this skill's protocol applies by discipline here, not by gate.
 
 ## Cheap moves before heavy ones
 - **Try the other host variant.** An apex that 403s often serves via `www` (and vice versa) — proven with a real Chrome session where apex was walled and `www` loaded clean.
@@ -53,3 +61,4 @@ Defaults above are the general protocol; some sites warrant per-site tweaks (str
 ## Provenance
 - 2026-10-08, dealer-site scan pilot (212 domains): the ladder, the lone `navigator.webdriver` tell, the www-variant fix, the robots-fingerprint self-ban, impersonation rotation, rate bans, human-in-the-loop finish — all demonstrated live.
 - 2026-10-10, Crunchyroll: root-settle warm-up, rolling `__cf_bm` model, challenge auto-clear discipline — owner lesson, encoded as the first site override.
+- 2026-11-16, agent-browser A/B (keryxsolutions): the two-tell headless fingerprint, the headed+UA+patch recipe matching the incumbent byte-for-byte, batch quote-stripping, cumulative request log, and `read`'s silent-empty wall failure — all demonstrated live.
