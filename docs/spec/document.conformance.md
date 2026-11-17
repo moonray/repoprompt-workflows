@@ -157,7 +157,7 @@
 
 ## Addendum — 2026-11-17 (#20: anchor-altitude discipline)
 
-Delta audit for [#20](https://github.com/moonray/repoprompt-workflows/issues/20) (intent-anchor altitude, learned from the animedb anchor-drift incident: a mission-unchanged anchor that named provider instances and a spec-internal ID forced re-ratification on routine lane additions). Everything outside this delta is unchanged from the Loop #3 audit above; its cited SKILL.md line numbers shifted only where the insertions above them moved text (remediation anchor row now :192; apply-rules anchor clause now :229; anchor freshness now :178; intent-lag output row now :208).
+Delta audit for [#20](https://github.com/moonray/repoprompt-workflows/issues/20) (intent-anchor altitude, learned from the animedb anchor-drift incident: a mission-unchanged anchor that named provider instances and a spec-internal ID forced re-ratification on routine lane additions). Everything outside this delta is unchanged from the Loop #3 audit above; its cited SKILL.md line numbers shifted only where the insertions above them moved text (remediation anchor row now :192; apply-rules anchor clause now :233; anchor freshness now :178; intent-lag output row now :211).
 
 | Item | Status | Evidence | Note |
 |---|---|---|---|
