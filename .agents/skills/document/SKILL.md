@@ -117,7 +117,7 @@ Guidance, not findings: prefer explaining why over stacking MUSTs; keep progress
 
 ### 6. Mission-echo and intent-lag
 
-Anchor discovery is one shared operation used by both modes — first found wins: `docs/intent.md` → the PRD's Vision/Overview section → the CLAUDE.md/AGENTS.md purpose statement. `code` mode resolves it lazily, only when mission-echo or a capability-boundary candidate needs it.
+Anchor discovery is one shared operation used by both modes — first found wins: `docs/intent.md` → the PRD's Vision/Overview (or Goals/Non-goals) section → the CLAUDE.md/AGENTS.md purpose statement. `code` mode resolves it lazily, only when mission-echo or a capability-boundary candidate needs it.
 
 **Mission-echo.** Intent prose (mission or non-goals) duplicated outside the anchor range — encountered by either code-mode entry point or by the intent coherence check — is reported as mission-echo drift `{doc, location, duplicated_claim, pointer_edit, basis}`. The proposed replacement points to the anchor by path, carries no duplicated prose, and cites the anchor range and the duplicate location as its basis.
 
@@ -142,6 +142,8 @@ Applies whenever anchor text is written or reviewed — drafting a new anchor, d
 - **Name vs class.** Name an entity only when replacing it is itself a mission change (the durable system of record, the single user-facing surface). Interchangeable instances of a capability class are named as the class — "local ingest lanes read the owner's streaming watch-history", never "Prime Video and Crunchyroll today". When it is unclear whether a name is load-bearing, keep it and raise the question in the draft's rationale rather than generalizing it away.
 - **Internals stay out.** Spec/tracker-internal IDs (S-NNN, issue numbers), code paths, interchangeable-instance counts (how many instances of a class exist — cardinality that is itself the mission, like "single owner", is a commitment and stays), and "today"-style snapshots never appear in the anchor. Specifics live in current-state docs (spec lists, runbooks) that update without ratification; the anchor points at most to a doc by path, never to a numbered section — section numbers shift.
 - **Findings.** A ratified anchor that enumerates instances of a class or cites internal IDs is an altitude defect: report under anchor freshness with a generalizing draft amendment — never landed under any grant.
+- **Provenance lives outside the range.** Derivation and amendment history (what changed, when, ratified by whom) sit outside the anchor range — a file-header note or amendment log — so recording an amendment never re-gates the mission text.
+- **Any tier.** The discipline applies to whichever tier the anchor occupies — `docs/intent.md`, a PRD Vision/Overview (or Goals/Non-goals) section, or a CLAUDE.md/AGENTS.md purpose statement; a PRD's functional requirements below the vision range are not anchor text.
 
 #### Anchor identity, classification, and fingerprint
 
