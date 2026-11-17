@@ -35,7 +35,7 @@ Research and scanning fetches of publicly served sites get blocked by bot walls 
 ### S-002: Verify by content
 - **Given** an impersonated fetch returns HTTP 200
 - **When** the body is checked
-- **Then** success is declared only if challenge markers are absent and expected content is present; a 200 challenge page is treated as still-walled
+- **Then** success is declared only if challenge markers are absent and expected content is present; a 200 challenge page is treated as still-walled, and so is an empty body returned with a success exit code (observed: `agent-browser read` against a Cloudflare wall, 2026-11-16) — empty is not success
 
 ### S-003: Library missing, ad-hoc fetch
 - **Given** curl_cffi is not importable in the interpreter that will perform an ad-hoc fetch
