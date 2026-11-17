@@ -1,5 +1,5 @@
 ---
-description: Run the document skill in code mode (reconcile docs to code changes or scan for drift) or intent mode (review work against the repo's intent anchor)
+description: Run the document skill in code mode (reconcile docs to code changes or scan for drift) or intent mode (review work against the repo's intent anchor); intent-anchor drafting/amendment requests route here too — the skill's altitude discipline governs the draft
 ---
 
 Use the `document` skill for this request. Treat this slash command as a manual shortcut only — it routes, the skill defines behavior.

@@ -1,6 +1,6 @@
 ---
 name: document
-description: Use when reconciling documentation to code changes or auditing documentation drift in a repo. Applies whenever the user asks to update docs after code changes, check whether docs match code, run a documentation audit, or produce doc drift reports, or when a tracked work item is closing after code/doc changes (run the change-driven drift audit before the close lands); also reviews accumulated work against the repo's mission/intent anchor for alignment; defaults to dry-run proposals and requires explicit apply before writing.
+description: Use when reconciling documentation to code changes or auditing documentation drift in a repo. Applies whenever the user asks to update docs after code changes, check whether docs match code, run a documentation audit, or produce doc drift reports, or when a tracked work item is closing after code/doc changes (run the change-driven drift audit before the close lands); also reviews accumulated work against the repo's mission/intent anchor for alignment, and when drafting or amending an intent anchor's mission/non-goals text; defaults to dry-run proposals and requires explicit apply before writing.
 ---
 
 # Document
@@ -123,17 +123,25 @@ Anchor discovery is one shared operation used by both modes — first found wins
 
 **Intent-lag** fires only on capability-boundary changes:
 
-- **New provider**: a newly registered adapter/provider following an existing registry or configuration pattern.
+- **New provider**: a newly registered adapter/provider establishing a capability class the anchor does not cover. Adding an instance behind an anchor-covered class (a provider-agnostic ingest clause, an interchangeable-providers statement) is routine in-class evolution, not a capability boundary — no intent-lag item.
 - **New surface**: a newly externally invocable command, route, tool, or public schema.
 - **New top-level module**: a new first-level product source package — docs, tests, fixtures, generated files, and configuration are excluded.
 
-When the anchor exists and does not mention the capability, emit `{anchor, new_capability, recommendation}` recommending that an anchor update be ratified. If a capability candidate cannot be established from changed paths/symbols, report no basis (an Unsupported item) rather than an intent-lag item. With no anchor: mission-echo has no candidates and reports no findings; a capability-boundary candidate produces an Unsupported item (basis absent) — never a fabricated intent-lag verdict.
+When the anchor exists and does not mention the capability, emit `{anchor, new_capability, recommendation}` recommending that an anchor update be ratified. When in-class evolution instead reveals the anchor enumerating instances of the class, that is an altitude defect — report it under anchor freshness with a generalizing draft amendment (step 7), not as intent-lag. If a capability candidate cannot be established from changed paths/symbols, report no basis (an Unsupported item) rather than an intent-lag item. With no anchor: mission-echo has no candidates and reports no findings; a capability-boundary candidate produces an Unsupported item (basis absent) — never a fabricated intent-lag verdict.
 
 ### 7. Intent mode
 
 #### Discover the anchor; stop when absent
 
 Run the shared discovery order (step 6). The first hit is the anchor; the other intent-shaped docs (PRD vision, CLAUDE.md/AGENTS.md purpose) are intent-adjacent — subjects of the coherence check, never co-equal anchors. The anchor is the identified mission/non-goals **range** `{doc, range}`, not necessarily a whole file. Its content altitude is mission plus non-goals — no schedules, roadmaps, or feature commitments; `deferred?` verdicts exist only for promises the anchor actually makes. If no anchor is found, report "no intent anchor found; drift risk unbounded" and stop without verdicts.
+
+#### Anchor altitude (drafting quality)
+
+Applies whenever anchor text is written or reviewed — drafting a new anchor, drafting an amendment, or auditing a ratified one. The **stability test**: an anchor is at the right altitude when routine in-class evolution — a new provider behind an established capability class, a renumbered spec scenario, a closed tracker issue, a renamed internal path — never requires an amendment. If adding the fourth provider behind an existing clause forces re-ratification, the anchor names instances where it should name the class.
+
+- **Name vs class.** Name an entity only when replacing it is itself a mission change (the durable system of record, the single user-facing surface). Interchangeable instances of a capability class are named as the class — "local ingest lanes read the owner's streaming watch-history", never "Prime Video and Crunchyroll today".
+- **Internals stay out.** Spec/tracker-internal IDs (S-NNN, issue numbers), code paths, instance counts, and "today"-style snapshots never appear in the anchor. Specifics live in current-state docs (spec lists, runbooks) that update without ratification; the anchor points at most to a doc by path, never to a numbered section — section numbers shift.
+- **Findings.** A ratified anchor that enumerates instances of a class or cites internal IDs is an altitude defect: report under anchor freshness with a generalizing draft amendment — never landed under any grant.
 
 #### Anchor identity, classification, and fingerprint
 
@@ -197,7 +205,7 @@ Always report: **Mode** (`code` or `intent`); effective **scope** (code) or **wi
 - **Contract conflicts**: `doc`, `location`, `doc_side`, `code_side` — no edit until a human direction is supplied.
 - **Steering-discipline findings** (failed checks only): `{doc, location, finding, requirement}` on agent-steering edit proposals.
 - **Mission-echo items**: `{doc, location, duplicated_claim, pointer_edit, basis}` — the proposed replacement points to the anchor by path.
-- **Intent-lag items**: `{anchor, new_capability, recommendation}` when a change crosses a capability boundary.
+- **Intent-lag items**: `{anchor, new_capability, recommendation}` when a change crosses a capability boundary — the capability class is uncovered by the anchor; in-class additions behind a covered class produce none.
 - **Index updates** (change-driven runs): `{index_doc, action, entry, summary, link, basis}` when a doc is added, renamed, or removed.
 - **Unsupported**: `{doc, location, claim, what_basis_was_sought}` — no edit produced.
 

@@ -154,3 +154,22 @@
 - Window-resolution fallback branch (range-overlap miss → containing-file fallback with disclosure) is specified (SKILL.md:150) and its `fallback_used` disclosure field is exercised green (B10.2, reported not-used), but no fixture forces the fallback path itself — flagged as a test-coverage gap, not a conformance gap (carried from the battery's authored assumption 4).
 - Filing-contract promotion wording: the spec enumerates "(a GitHub native sub-issue, or a reciprocally linked item in the file-backed ledger)"; SKILL.md:186 says "normal ledger tooling (reciprocally linked)". Semantics identical (optional downstream promotion preserving the finding signature); wording altitude differs only.
 - Battery execution disclosures (harness, not skill): checklist-authored sequencing notes, the executor-side fixture bookkeeping commits, the staged F6 sub-case in B13, and the S-029 decision-record nuance are recorded in `/tmp/document-skill-battery/RESULTS.md` (Blockers/assumptions 2–8).
+
+## Addendum — 2026-11-17 (#20: anchor-altitude discipline)
+
+Delta audit for [#20](https://github.com/moonray/repoprompt-workflows/issues/20) (intent-anchor altitude, learned from the animedb anchor-drift incident: a mission-unchanged anchor that named provider instances and a spec-internal ID forced re-ratification on routine lane additions). Everything outside this delta is unchanged from the Loop #3 audit above; its cited SKILL.md line numbers shifted only where the insertions above them moved text (remediation anchor row now :192; apply-rules anchor clause now :229; anchor freshness now :178; intent-lag output row now :208).
+
+| Item | Status | Evidence | Note |
+|---|---|---|---|
+| G7 amended: draft anchor edits at anchor altitude, never land | Conformed | SKILL.md:138–144 (altitude block), 192, 229; description trigger :3; slash router frontmatter | drafting trigger added to skill description and `.agents/slash/document.md` |
+| Constraint: Anchor content altitude + altitude discipline (stability test; name-vs-class; internals out; altitude defect) | Conformed | SKILL.md:138–144 | prompt-only artifact — implementation is the prose itself; no battery item (see Remarks) |
+| Constraint: Capability-boundary decision rules (provider = class-establishing; in-class instance addition is not a boundary) | Conformed | SKILL.md:126, 130 | supersedes the Loop #3 "following an existing registry pattern" wording; in-class evolution exposing instance enumeration routes to anchor freshness, not intent-lag |
+| S-037 in-class provider addition → no intent-lag item | Conformed | SKILL.md:126 | no battery item (see Remarks) |
+| S-038 altitude defect → generalizing draft, never an edit | Conformed | SKILL.md:130, 144, 192, 229; global.md:30 | global.md anchor bullet gained the mission-altitude corollary in the same change |
+| S-039 drafted anchor text meets the altitude bar | Conformed | SKILL.md:3, 138–144 | — |
+| Outputs — code mode: intent-lag row gains the class-uncovered qualifier | Conformed | SKILL.md:126, 208 | output shape unchanged |
+
+Coverage proof (delta): **audited** — G7; Anchor-content-altitude constraint; Capability-boundary constraint; S-037, S-038, S-039; intent-lag output row (code mode). **unreconciled:** []. spec-quality verdict on the delta: ready (2026-11-17 — declarative/observable/independent/identifiable scenarios; no redundancy, ambiguity, or open-question findings).
+
+Remarks:
+- No battery run accompanies this delta: the change is prompt-only (skill prose, spec, rule corollary, slash frontmatter); evidence is the implementation text itself, cited by line. The Loop #3 battery's B14 fixtures remain valid for the class-establishing case (a first provider of an uncovered class still fires intent-lag); the in-class no-fire branch (S-037) is exercised by no fixture — flagged as a test-coverage gap, not a conformance gap.
