@@ -1,12 +1,18 @@
 ---
 name: chrome
-description: Use whenever driving or visiting a website with browser automation — the chrome-devtools MCP (dev chrometools: navigate_page, take_snapshot, evaluate_script), Playwright, agent-browser, or any headed browser under agent control — especially external, unfamiliar, or bot-defended sites. Carries the warm-up protocol (land on the site root and let it settle before any deep link; wait out managed challenges instead of clicking them), the navigator.webdriver automation-tell patch, rate-ban and fingerprint-consistency discipline, and the escalation ladder ending in human-in-the-loop, plus per-site override profiles. Trigger even when nobody says "warm-up" — any browser-automation session against a site you don't control is this skill. Not for plain HTTP fetches blocked by a bot wall (that is bot-wall), Cloudflare Radar analytics (cloudflare-radar), or verifying your own app's UI (user-testing).
+description: Use whenever driving or visiting a website with browser automation — the chrome-devtools MCP (dev chrometools: navigate_page, take_snapshot, evaluate_script), Playwright, agent-browser, or any headed browser under agent control — especially external, unfamiliar, or bot-defended sites. Carries the warm-up protocol (land on the site root and let it settle before any deep link; wait out managed challenges instead of clicking them), the navigator.webdriver automation-tell patch, rate-ban and fingerprint-consistency discipline, and the escalation ladder ending in human-in-the-loop, plus per-site override profiles and tool-choice guidance (when agent-browser beats per-call MCP). Trigger even when nobody says "warm-up" — any browser-automation session against a site you don't control is this skill. Not for plain HTTP fetches blocked by a bot wall (that is bot-wall), Cloudflare Radar analytics (cloudflare-radar), or verifying your own app's UI (user-testing).
 ---
 
 # Driving websites with browser automation
 
 ## Why
 A browser under agent control trips bot defenses in predictable ways: it arrives **cold** (no cookies, no history) and lands on deep links, it carries automation tells, and it probes repeatedly. Sites answer with challenges and 403s that a warmer, calmer session never sees. The fixes are cheap and ordered — but only if you diagnose first, because an apparent "wall" is often your own fingerprint mismatch or the site's own breakage, not a defense aimed at you.
+
+## Which tool (choose before driving)
+- **chrome-devtools MCP** — default for one-off looks, single-page checks, UI closeout/user-testing, and anything needing Lighthouse, throttling, or heap snapshots.
+- **agent-browser** — prefer it for **multi-step sequences and harvests** (N commands per shell invocation: measured ~10x wall-clock, 3–8x context vs per-call MCP at 11 steps), **ad-hoc inspection of a logged-in service** (persistent `--profile` + one-time headed human login — probe a site read-only before committing to a dedicated lane or script; don't build a lane just to answer a question), network forensics (HAR, interception), and token-heavy batch runs. Bot-defended sites need the recipe below.
+- **A dedicated lane/script** — when the task becomes recurring or scheduled: the browser session is the probe; the lane is the product.
+- **curl / curl_cffi** — raw HTTP only; never `agent-browser read` on a walled URL (silent empty, exit 0).
 
 ## The default warm-up protocol
 Apply to every browser-automation session against a site you don't control — before any challenge appears, not after:
@@ -24,7 +30,7 @@ In a DevTools-attached headed Chrome, exactly one loud automation signal was obs
 - **Do not go further down the stealth path.** Some defenses detect the CDP instrumentation itself; patching around that is an arms race (puppeteer-stealth-class) that routinely loses. The next rung is a human, not more patches.
 
 ## agent-browser (targeted tool)
-The default remains chrome-devtools MCP. Reach for `agent-browser` (Vercel's Rust CLI over CDP) on **multi-step and harvest workflows**: it packs N commands into one shell invocation (`&&` chains or `batch`), keeping artifacts on disk and out of context — measured ~10x wall-clock and 3–8x context savings over per-call MCP at 11 steps.
+Routing is above; this section carries the operating details. `agent-browser` (Vercel's Rust CLI over CDP) packs N commands into one shell invocation (`&&` chains or `batch`), keeping artifacts on disk and out of context.
 
 - **Bot-defended sites need the full session recipe, every session:** `--headed --user-agent '<current real-Chrome UA>' --init-script <webdriver-undef file>`. Vanilla headless Chrome-for-Testing carries **two** tells (`navigator.webdriver: true` *and* a `HeadlessChrome/…` UA token) and was challenged where the warmed MCP Chrome passed clean; with the recipe it cleared identically. The warm-up protocol above applies unchanged.
 - Hygiene: `network requests --clear` per navigation (the request log is cumulative across navigations); `batch` continues on error by default and its arg mode strips double quotes from selectors (`a[href="#x"]` arrives as `a[href=#x]` and fails) — pass `--bail` and prefer refs or JSON-stdin; `close` the session when done.
