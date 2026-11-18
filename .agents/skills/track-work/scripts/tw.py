@@ -266,14 +266,16 @@ def _resolve_identity(ctx):
     origin_kind, origin_val = None, None
     if urls:
         origin_kind, origin_val = _parse_origin(urls)
-        if origin_kind == "rejected":
-            raise TwError("origin-rejected", origin_val)
 
     backend = selected_by = repo = None
     if env_backend in ("github", "file"):
         backend, selected_by = env_backend, "env-override"
     elif cfg_backend in ("github", "file"):
         backend, selected_by = cfg_backend, "config-override"
+    elif origin_kind == "rejected":
+        # Rejected is neither absent nor confirmed non-GitHub — only fatal when the
+        # origin is actually the selector (S-001/S-034: env > config > origin > file).
+        raise TwError("origin-rejected", origin_val)
     elif origin_kind == "github":
         backend, selected_by, repo = "github", "origin", origin_val
     else:

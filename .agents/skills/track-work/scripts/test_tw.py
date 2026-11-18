@@ -246,6 +246,18 @@ class TestResolve(unittest.TestCase):
         self.assertEqual(env["error"]["code"], "origin-rejected")
         self.assertIn("github.repo", env["error"]["message"])  # remediation is named
 
+    def test_userinfo_origin_with_config_pin_resolves_github(self):
+        # Defect this guards: origin-rejected raised before the override ladder ran,
+        # so the config pin named as the remediation could never actually work.
+        root = self.make_repo(origin="https://user@github.com/acme/widgets",
+                              config_yaml="backend: github\ngithub:\n  repo: acme/widgets\n")
+        code, env, _, _ = self.resolve(root)
+        self.assertEqual(code, 0)
+        self.assertTrue(env["ok"])
+        self.assertEqual(env["backend"], "github")
+        self.assertEqual(env["selected_by"], "config-override")
+        self.assertEqual(env["repo"], "acme/widgets")
+
     def test_lookalike_host_rejected_not_file(self):
         # Defect this guards: github.com.evil.com being classified "non-GitHub" -> file ledger.
         root = self.make_repo(origin="https://github.com.evil.com/acme/widgets")
