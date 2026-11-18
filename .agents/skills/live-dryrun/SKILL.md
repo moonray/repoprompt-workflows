@@ -1,6 +1,6 @@
 ---
 name: live-dryrun
-description: Use when the user asks for "automated user testing", a "dry run", or "live verification" of a backend/API/provider client (a new HTTP integration, REST wrapper, or API-client class), or before declaring such a feature done. Exercises the real client against the live service READ-ONLY to catch response-shape defects that mocked tests cannot (mocks assert the ASSUMED shape, so they pass while the client is broken against the real API). Distinct from the user-testing skill (which drives a rendered UI). Loads creds from the repo .env by ABSOLUTE path, prints real response shapes, diffs against assumptions, fixes the client + updates mocked tests to the REAL shapes, re-verifies. Never skip just because mocked tests pass.
+description: Use when the user asks for "automated user testing", a "dry run", or "live verification" of a backend/API/provider client (a new HTTP integration, REST wrapper, or API-client class), or before declaring such a feature done, or when a dependency major-bump lands on code whose tests or guards were written against that dependency's prior version. Exercises the real client against the live service READ-ONLY to catch response-shape defects that mocked tests cannot (mocks assert the ASSUMED shape, so they pass while the client is broken against the real API). Distinct from the user-testing skill (which drives a rendered UI). Loads creds from the repo .env by ABSOLUTE path, prints real response shapes, diffs against assumptions, fixes the client + updates mocked tests to the REAL shapes, re-verifies. Never skip just because mocked tests pass.
 ---
 
 # Live dry-run — backend / API client verification
@@ -11,6 +11,7 @@ Mocked tests assert the shape you *assumed* the API returns. They pass while the
 ## When to run
 - The user says "automated user testing" / "dry run" / "live verification" / "does it actually work?" about a backend/API/provider client.
 - Before closing a feature that wraps an external HTTP/API service (new client, provider, integration).
+- After a dependency **major-bump** lands on code whose tests or guards were written against the dependency's prior version — mocks and stubs assert the pre-bump contract and stay green while the integration is broken against the new reality; re-verify live before closing the update.
 - **Not** for: pure-logic/stdlib code (unit tests suffice) or rendered UI (use the `user-testing` skill).
 
 ## Preconditions
