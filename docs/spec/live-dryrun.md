@@ -12,7 +12,7 @@ Mocked tests assert the response shape a client *assumed* the API returns — so
 
 ## Goals
 
-1. Fire on the right triggers — a dry-run/live-verification request about an API client, the close of a feature wrapping an external HTTP service, or a dependency major-bump landing on code whose tests or guards were written against the dependency's prior version — and never accept "mocked tests pass" as verification. (S-001, S-002)
+1. Fire on the right triggers — a dry-run/live-verification request about an API client, the close of a feature wrapping an external HTTP service, or a breaking version bump (major or 0.x minor) landing on a dependency through which code reaches an external service (its tests or guards assuming the prior contract) — and never accept "mocked tests pass" as verification. (S-001, S-002)
 2. Exercise every live assumption the change introduces — response shape, auth, pagination, error paths — read-only by default. (S-005, S-006, S-008)
 3. Diff real responses against the client's assumptions on **values, not just shape**, without normalizing both sides to make the check pass. (S-007, S-009)
 4. Size transport timeouts from measured live latency, not defaults. (S-010)
@@ -39,7 +39,7 @@ Mocked tests assert the response shape a client *assumed* the API returns — so
 ## Scenarios
 
 ### Scenario S-001: The skill fires on dry-run triggers
-- **Given** the user asks for "automated user testing", a "dry run", "live verification", or "does it actually work?" about a backend/API/provider client, such a feature is about to be declared done, or a dependency major-bump has landed on code whose tests or guards were written against the dependency's prior version
+- **Given** the user asks for "automated user testing", a "dry run", "live verification", or "does it actually work?" about a backend/API/provider client, such a feature is about to be declared done, or a breaking version bump (major or 0.x minor) has landed on a dependency through which code reaches an external service, with tests or guards assuming its prior contract
 - **When** skills are considered
 - **Then** this skill runs — and does not run for rendered-UI work (`user-testing`) or pure-logic code (unit tests)
 
