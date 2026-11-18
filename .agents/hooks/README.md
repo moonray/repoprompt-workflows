@@ -82,7 +82,9 @@ Then ensure `~/.claude/settings.json` contains these registrations (merge into a
 
 To remove: delete those nine symlinks and strip the matching entries from `settings.json`, or run `bash scripts/install.sh --uninstall` (does both, and leaves any entries you added yourself untouched).
 
-Hooks are a guardrail, not an absolute enforcement boundary — a model can occasionally route around them. Treat them as strong default enforcement.
+## Known limits
+
+Hooks are a guardrail, not an absolute enforcement boundary — a model can occasionally route around them, several hooks fail open by design, and per-runtime gaps exist (e.g. opencode's Stop equivalent cannot block — see the runtime notes above). Treat them as strong default enforcement; the downstream closeout gates in [`../rules/global.md`](../rules/global.md) remain the backstop.
 
 ## Adding a hook
 

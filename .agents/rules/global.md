@@ -82,7 +82,7 @@ This is the inbound form of the same principle behind Review Quality (no finding
 
 Corollary — handoff and fork prompts carry their verification contract: when delegating work that resumes or forks from live state (a paused epoch, a recovered session, a re-dispatch), the handoff prompt must pin what the receiver must re-verify, not just what remains to do: the ground-truth re-verification contract (which files/SHAs/tests to check against reality before building), the expected states (worktree HEAD, tree cleanliness, ledger fields), and the prechecks that gate starting (binding liveness, base SHA, attempt counters). A handoff that only narrates progress transfers the narrator's assumptions; one that pins the re-verify contract transfers evidence. (Pattern proven twice — a t18 recovery handoff and a Backlog fork epoch — before being encoded here 2026-11-05.)
 
-Enforcement: inlined into workflows; outside a workflow, a `PostToolUse` reminder (`delegation-reminder`) fires when a delegation tool returns, directing the delegating agent to verify before accepting. Hooks are a guardrail, not an absolute boundary (see `.agents/README.md` "Known limits"); the downstream closeout gates remain the backstop.
+Enforcement: inlined into workflows; outside a workflow, a `PostToolUse` reminder (`delegation-reminder`) fires when a delegation tool returns, directing the delegating agent to verify before accepting. Hooks are a guardrail, not an absolute boundary (see `.agents/hooks/README.md` "Known limits"); the downstream closeout gates remain the backstop.
 
 ## Accuracy and Anti-Fabrication (hard rule)
 
@@ -97,7 +97,7 @@ Corollary — evidence provenance: bytes in an output file are not evidence unti
 Corollary — mutation-path verification: a no-op result (`created: 0, skipped: N`) proves at most that the inspected state is currently converged; it does not prove the selected mutation branch can change anything. Claiming a mutation path verified requires a known legitimate pending delta, a drift probe that is bounded, authorized, and restored exactly, or a fixture/staging target exercising the same dispatch path. Where multiple modes can emit the same success-shaped summary, verification must establish the intended branch actually dispatched. If no safe reversible delta exists, report the mutation path as pending rather than weakening the claim.
 Corollary — inferred identifiers: an identifier scraped from unstructured or multi-record output is not authoritative by itself. Before an irreversible or externally visible action — merge, close, reopen, label, comment — resolve the intended target in the authoritative system and verify its identity.
 
-Enforcement: inlined into workflows; code guards at evidence-bearing writes reject references that do not resolve to a fetched artifact and reject caller-supplied verification flags; terminal actions require action authority bound to the target and its expected revision. Hooks are a guardrail, not an absolute boundary (see `.agents/README.md` "Known limits"); the downstream closeout gates remain the backstop.
+Enforcement: inlined into workflows; code guards at evidence-bearing writes reject references that do not resolve to a fetched artifact and reject caller-supplied verification flags; terminal actions require action authority bound to the target and its expected revision. Hooks are a guardrail, not an absolute boundary (see `.agents/hooks/README.md` "Known limits"); the downstream closeout gates remain the backstop.
 
 ## Retry Discipline (hard rule)
 
