@@ -11,13 +11,13 @@ const SKILL_MD = `# Model Routing
 
 ## Recommended RepoPrompt Architecture
 
-Canonical as of 2026-10-10.
+Canonical as of 2026-11-18.
 
 | Role | Consultations | Model | Effort | Why |
 |---|---|---|---|---|
-| Context & Discovery | drafting | GPT-6.1 Sol | high | cache economics |
+| Context & Discovery | drafting | GPT-6.2 Sol | high | cache economics |
 | Review & Refine | verdicts | Claude Opus 5.5 | medium | cross-family |
-| Escalation | stuck | GPT-6 Astra, or Claude Fable 5.1 | low–medium, or high | capability |
+| Escalation | stuck | GPT-6.2 Astra, or Claude Fable 5.2 | low–medium, or high | capability |
 
 ## Applying the routing
 
@@ -53,24 +53,24 @@ const PAYLOAD = (tool_name = "mcp__RepoPromptCE__app_settings") => ({
 
 test("non-matching tool is silent", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   assert.equal(runHook(PAYLOAD("mcp__RepoPromptCE__file_actions"), env(f)), null);
 });
 
 test("current picks are silent (the zero-token common case)", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra", "gpt-5.6-terra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1", "claude-code"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra", "gpt-5.6-terra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2", "claude-code"],
   });
   assert.equal(runHook(PAYLOAD(), env(f)), null);
 });
 
 test("newer generation flags with a suggestion", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra", "gpt-6.6-sol"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra", "gpt-6.6-sol"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   const r = runHook(PAYLOAD(), env(f));
   const ctx = r?.hookSpecificOutput?.additionalContext ?? "";
@@ -81,8 +81,8 @@ test("newer generation flags with a suggestion", () => {
 
 test("missing pick flags roster drift", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-fable-5-1"], // claude-opus-5-5 gone
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-fable-5-2"], // claude-opus-5-5 gone
   });
   const r = runHook(PAYLOAD("mcp__RepoPromptCE__ask_oracle"), env(f));
   const ctx = r?.hookSpecificOutput?.additionalContext ?? "";
@@ -91,7 +91,7 @@ test("missing pick flags roster drift", () => {
 
 test("fails open when the skill is absent", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol"],
+    codexSlugs: ["gpt-6.2-sol"],
     ccIds: ["claude-opus-5-5"],
   });
   assert.equal(runHook(PAYLOAD(), { ...env(f), MODEL_ROUTING_SKILL: "/nonexistent/SKILL.md" }), null);
@@ -106,13 +106,13 @@ function env(f) {
 }
 
 test("directory-resolved cc cache: newest -cc.json is authoritative (current picks → silent)", () => {
-  const f = fixtures({ codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"], ccIds: [] });
+  const f = fixtures({ codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"], ccIds: [] });
   const dir = mkdtempSync(path.join(tmpdir(), "roster-dir-"));
   const older = path.join(dir, "aaa-catalog-cc.json");
   const newer = path.join(dir, "zzz-catalog-cc.json");
   // Older holds only opus — if the hook read the OLDEST, fable would flag.
   writeFileSync(older, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }] } } }));
-  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-1" }] } } }));
+  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-2" }] } } }));
   const t = new Date();
   utimesSync(older, new Date(t.getTime() - 60000), new Date(t.getTime() - 60000));
   utimesSync(newer, t, t);
@@ -121,8 +121,8 @@ test("directory-resolved cc cache: newest -cc.json is authoritative (current pic
 
 test("failed lane in an ask_oracle response nudges LANE DOWN with the model", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   const r = runHook({
     ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
@@ -133,7 +133,7 @@ test("failed lane in an ask_oracle response nudges LANE DOWN with the model", ()
           "### Oracle",
           "- Status: Completed",
           "- Provider: codex",
-          "- Model: gpt-6.1-sol-high",
+          "- Model: gpt-6.2-sol-high",
           "",
           "### Oracle 2",
           "- Status: Failed",
@@ -153,8 +153,8 @@ test("failed lane in an ask_oracle response nudges LANE DOWN with the model", ()
 
 test("all-completed ask_oracle response stays silent (no lane nudge)", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   const r = runHook({
     ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
@@ -165,7 +165,7 @@ test("all-completed ask_oracle response stays silent (no lane nudge)", () => {
           "### Oracle",
           "- Status: Completed",
           "- Provider: codex",
-          "- Model: gpt-6.1-sol-high",
+          "- Model: gpt-6.2-sol-high",
           "",
           "Oracle group status: completed",
         ].join("\n"),
@@ -177,8 +177,8 @@ test("all-completed ask_oracle response stays silent (no lane nudge)", () => {
 
 test("lane-failure text on a non-oracle tool stays silent", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   const r = runHook({
     ...PAYLOAD("mcp__RepoPromptCE__app_settings"),
@@ -194,8 +194,8 @@ test("lane-failure text on a non-oracle tool stays silent", () => {
 
 test("partial group with no named failed lane defers to the response", () => {
   const f = fixtures({
-    codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"],
-    ccIds: ["claude-opus-5-5", "claude-fable-5-1"],
+    codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"],
+    ccIds: ["claude-opus-5-5", "claude-fable-5-2"],
   });
   const r = runHook({
     ...PAYLOAD("mcp__RepoPromptCE__ask_oracle"),
@@ -206,7 +206,7 @@ test("partial group with no named failed lane defers to the response", () => {
           "### Oracle",
           "- Status: Completed",
           "- Provider: codex",
-          "- Model: gpt-6.1-sol-high",
+          "- Model: gpt-6.2-sol-high",
           "",
           "Oracle group status: partial",
         ].join("\n"),
@@ -219,13 +219,13 @@ test("partial group with no named failed lane defers to the response", () => {
 });
 
 test("directory-resolved cc cache: newest file's missing pick flags (proves newest-wins)", () => {
-  const f = fixtures({ codexSlugs: ["gpt-6.1-sol", "gpt-6-astra"], ccIds: [] });
+  const f = fixtures({ codexSlugs: ["gpt-6.2-sol", "gpt-6.2-astra"], ccIds: [] });
   const dir = mkdtempSync(path.join(tmpdir(), "roster-dir-"));
   const older = path.join(dir, "aaa-catalog-cc.json");
   const newer = path.join(dir, "zzz-catalog-cc.json");
   // Older holds both picks — only reading the NEWEST (fable-only) can flag opus.
-  writeFileSync(older, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-1" }] } } }));
-  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-fable-5-1" }] } } }));
+  writeFileSync(older, JSON.stringify({ catalog: { config: { models: [{ id: "claude-opus-5-5" }, { id: "claude-fable-5-2" }] } } }));
+  writeFileSync(newer, JSON.stringify({ catalog: { config: { models: [{ id: "claude-fable-5-2" }] } } }));
   const t = new Date();
   utimesSync(older, new Date(t.getTime() - 60000), new Date(t.getTime() - 60000));
   utimesSync(newer, t, t);

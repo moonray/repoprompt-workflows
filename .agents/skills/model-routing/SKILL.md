@@ -7,13 +7,13 @@ description: Use when choosing an oracle model or effort level for spec, plan, o
 
 ## Recommended RepoPrompt Architecture
 
-Canonical as of 2026-10-10 (user-ratified; last re-evaluated 2026-10-10). Roles are the stable interface; models are data that re-evaluation replaces.
+Canonical as of 2026-11-18 (user-ratified; last re-evaluated 2026-11-18). Roles are the stable interface; models are data that re-evaluation replaces.
 
 | Role | Consultations | Model | Effort | Why |
 |---|---|---|---|---|
-| Context & Discovery | repo analysis, spec/plan generation, context-heavy discovery and drafting | GPT-6.1 Sol | high | Cheapest deep cache reads (~$0.10/M cached input). RPCE planning re-reads large context prefixes, so cached-input price dominates run cost. |
+| Context & Discovery | repo analysis, spec/plan generation, context-heavy discovery and drafting | GPT-6.2 Sol | high | Cheapest deep cache reads ($0.10/M cached input, priced identically to its 6.1 predecessor) plus stronger agentic/automation benchmarks. RPCE planning re-reads large context prefixes, so cached-input price dominates run cost. |
 | Review & Refine | cross-checking specs/plans, readiness and clarity verdicts, finding tie-breaks | Claude Opus 5.5 | medium | Communicates clearly and reliably catches logical gaps in long documents. Different model family than the drafter, so blind spots don't compound. |
-| Escalation | one stuck sub-task after repeated failed attempts (fix loop, unmet complex constraint) | GPT-6 Astra, or Claude Fable 5.1 | low–medium, or high | Strongest raw problem-solving, spent only on the stuck piece. |
+| Escalation | one stuck sub-task after repeated failed attempts (fix loop, unmet complex constraint) | GPT-6.2 Astra, or Claude Fable 5.2 | low–medium, or high | Strongest raw problem-solving, spent only on the stuck piece; both successors also cost less than their predecessors ($8/$40 vs $10/$50 per MTok). |
 
 Invariants:
 
