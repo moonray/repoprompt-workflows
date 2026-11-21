@@ -209,7 +209,7 @@ node scripts/sync-maintainability-review.mjs --update   # re-sync skill + Deep R
 | Workflows | — | — | — | — | — | loads from app-support dir |
 | Skills | `.claude/skills` + `~/.claude/skills` | `.agents/skills` + `~/.agents/skills` | `.agents/skills` | `.agents/skills` | `.agents/skills` + `~/.agents/skills` | scans all skill sources per backend |
 | Commands | `~/.claude/commands` | `~/.codex/prompts` (deprecated → skills) | `.opencode/commands/` (not wired by the installer) | — | — (skills become slash commands in its TUI) | `~/.agents/slash` + workspace `.agents/slash` |
-| Rules | portable | portable | portable | portable | — | — |
+| Rules | portable | portable (installer generates `~/.codex/AGENTS.md`) | portable | portable | — | — |
 | Hooks | `~/.claude/settings.json` | `.codex/hooks.json` | `.opencode/plugins/*.mjs` | not yet supported | — | — |
 
 **Standards** — skills follow the [Agent Skills](https://agentskills.io) open standard (`<skill>/SKILL.md` with `name`/`description` frontmatter), which Claude Code, Codex, opencode, pi, and Antigravity all read. The newer `.agents` directory-protocol draft ([dotagentsprotocol.com](https://dotagentsprotocol.com)) specifies a different skill format (lowercase `skill.md`, `id`/`enabled` frontmatter) and defines no `rules/`, `slash/`, `hooks/`, or `workflows/` — deliberately not adopted here; those directories are community extensions consumed by this repo's installer and RepoPrompt CE.
