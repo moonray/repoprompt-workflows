@@ -62,6 +62,7 @@ What it links (it scans these dirs — drop in a new file/dir and the next run l
 - every `*.md` in `.agents/slash/` (excl. README) → `~/.claude/commands/` **and** `~/.agents/slash/` (RepoPrompt CE's cross-backend command source)
 - every `.py` in `.agents/hooks/` → `~/.claude/hooks/`, registered in `~/.claude/settings.json` (Claude Code)
 - every `*.md` in `.agents/rules/` (excl. README) → `~/.claude/rules/` and `~/.agents/rules/` (the generic rule core)
+- the same rules (public core + org overlay) **generated** into `~/.codex/AGENTS.md` — Codex has no rules directory (its `~/.codex/rules/` is a Starlark permission DSL, not markdown), so its single global instruction file is generated with a `repoprompt_managed` marker: idempotent on re-run, never clobbers foreign content, removed by `--uninstall` only when the marker is present
 - optionally, your **custom style guide** (`--style-guide=<path>`) → `~/.agents/style-guide.md` — a single generic pointer; skills that draft prose you will publish or send follow it when it is present ([details](#custom-style-guide-optional))
 
 **Your organization repo (optional):** if you keep org-specific (non-public) content in an org repo, pass it at install time — definition, when you need one, and every way to configure it in [**Your organization repo**](#your-organization-repo-optional), after the worked example below.
@@ -99,7 +100,7 @@ $EDITOR .agents/rules/myorg-private.md   # your private exceptions to global.md;
 $EDITOR docs/style-guide.md              # your house style — starter template in Custom style guide below
 ```
 
-**What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`, and — if `<org>/docs/style-guide.md` exists — links it as your [custom style guide](#custom-style-guide-optional) too. Nothing else in the org repo is touched; org-private skills and commands follow your org repo's own install docs.
+**What the installer does with it.** `--org-repo` links `<org>/.agents/rules/*.md` (except `README.md` and `global.md` — that name stays the public core) into `~/.claude/rules/` and `~/.agents/rules/`, alongside this repo's `global.md`, and generates the same rules into `~/.codex/AGENTS.md` for Codex (see the [install list](#option-b--run-the-installer-yourself)); if `<org>/docs/style-guide.md` exists — links it as your [custom style guide](#custom-style-guide-optional) too. Nothing else in the org repo is touched; org-private skills and commands follow your org repo's own install docs.
 
 **Configure it** (flag and env forms; both idempotent):
 
