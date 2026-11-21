@@ -49,3 +49,15 @@ Tested method: [`sites/crunchyroll.md`](sites/crunchyroll.md) — the field-test
 - **No challenge ladder observed.** One-time headed human login into a persistent profile.
 
 *Source: owner's Hulu sensor lane (`hulu-history.mjs`, probe preserved), field-tested 2026-11-16.*
+
+## familysearch.org
+
+No bot defense observed (logged-in consumer session); the deltas are URL-shape and auth, not challenges:
+
+- Person pages are **bare** `/tree/person/<ID>` — suffixed shapes (`/about`, `/details`) render a soft "Page Not Found" (they redirect to the localized `/en/tree/person/<id>/details` first). A 404 usually means a stale URL shape or an auth gap, not a missing person.
+- Logged-out deep links to tree pages do **not** redirect to sign-in — they render not-found. Log in first (human types credentials; agent never touches them).
+- Living-person pages are private to the contributor's account — expect nothing without that session.
+- The FamilySearch developer API is not available to individual accounts (owner tried); an authenticated browser session is the working access method.
+- One person page per ID carries full relationships (spouses/parents/children with their IDs) in DOM text — extract via `innerText` of the details page; no crawl needed.
+
+Source: 2026-11-20, logged-in family-tree enrichment session (personal workspace).
